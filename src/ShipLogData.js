@@ -1,21 +1,20 @@
-// Initial JSON graph (from our previous example)
 const initialGraph = {
   nodes: [
-    { id: "timber_hearth", title: "Timber Hearth", state: "complete" },
-    { id: "observatory", title: "Observatory", state: "complete" },
-    { id: "quantum_moon", title: "Quantum Moon", state: "rumor" },
-    { id: "tower_of_quantum_trials", title: "Tower of Quantum Trials", state: "undiscovered" },
-    { id: "white_hole_station", title: "White Hole Station", state: "rumor" },
-    { id: "high_energy_lab", title: "High Energy Lab", state: "undiscovered" },
-    { id: "sun_station", title: "Sun Station", state: "rumor" },
-    { id: "ash_twin_project", title: "Ash Twin Project", state: "undiscovered" },
-    { id: "nomai_writing_1", title: "Nomai Writing: Quantum Objects", state: "complete" },
-    { id: "nomai_writing_2", title: "Nomai Writing: Warp Experiments", state: "rumor" },
-    { id: "giants_deep", title: "Giant's Deep", state: "rumor" },
-    { id: "orbital_probe_cannon", title: "Orbital Probe Cannon", state: "undiscovered" },
-    { id: "dark_bramble", title: "Dark Bramble", state: "rumor" },
-    { id: "nomai_escape_pod", title: "Nomai Escape Pod", state: "undiscovered" },
-    { id: "vessel", title: "The Vessel", state: "undiscovered" }
+    { id: "timber_hearth", title: "Timber Hearth", state: "complete", x: 100, y: 300 },
+    { id: "observatory", title: "Observatory", state: "complete", x: 300, y: 300 },
+    { id: "quantum_moon", title: "Quantum Moon", state: "rumor", x: 500, y: 200 },
+    { id: "tower_of_quantum_trials", title: "Tower of Quantum Trials", state: "undiscovered", x: 700, y: 200 },
+    { id: "white_hole_station", title: "White Hole Station", state: "rumor", x: 500, y: 400 },
+    { id: "high_energy_lab", title: "High Energy Lab", state: "undiscovered", x: 700, y: 400 },
+    { id: "sun_station", title: "Sun Station", state: "rumor", x: 300, y: 500 },
+    { id: "ash_twin_project", title: "Ash Twin Project", state: "undiscovered", x: 500, y: 500 },
+    { id: "nomai_writing_1", title: "Nomai Writing: Quantum Objects", state: "complete", x: 900, y: 200 },
+    { id: "nomai_writing_2", title: "Nomai Writing: Warp Experiments", state: "rumor", x: 900, y: 400 },
+    { id: "giants_deep", title: "Giant's Deep", state: "rumor", x: 300, y: 700 },
+    { id: "orbital_probe_cannon", title: "Orbital Probe Cannon", state: "undiscovered", x: 500, y: 700 },
+    { id: "dark_bramble", title: "Dark Bramble", state: "rumor", x: 700, y: 700 },
+    { id: "nomai_escape_pod", title: "Nomai Escape Pod", state: "undiscovered", x: 900, y: 700 },
+    { id: "vessel", title: "The Vessel", state: "undiscovered", x: 1100, y: 700 }
   ],
   edges: [
     { source: "observatory", target: "quantum_moon", type: "rumor" },
