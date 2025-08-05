@@ -13,6 +13,20 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Prevent overflow and ensure full viewport usage */
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+#root {
+  width: 100%;
+  height: 100%;
+}
+
 a {
   font-weight: 500;
   color: #646cff;
