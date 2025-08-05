@@ -1,0 +1,11 @@
+{
+  "globals": {
+    "__DEV__": true
+  },
+  "testEnvironment": "node",
+  "transform": {},
+  "testMatch": [
+    "**/__tests__/**/*.js",
+    "**/?(*.)+(spec|test).js"
+  ]
+}
