@@ -2,7 +2,16 @@ import React, { useEffect, useRef } from "react";
 import cytoscape from "cytoscape";
 import cytoscapeStyles from "./cytoscapeStyles";
 
-const CytoscapeGraph = ({ graphData, onNodeMove, onZoomChange, onCameraMove, initialZoom, initialCameraPosition }) => {
+const CytoscapeGraph = ({ 
+  graphData, 
+  onNodeMove, 
+  onZoomChange, 
+  onCameraMove, 
+  initialZoom, 
+  initialCameraPosition, 
+  shouldFitOnNextRender, 
+  onFitCompleted 
+}) => {
   const cyRef = useRef(null);
   const instanceRef = useRef(null); // To prevent multiple Cytoscape initializations
   const currentCameraRef = useRef({ 
@@ -149,6 +158,23 @@ const CytoscapeGraph = ({ graphData, onNodeMove, onZoomChange, onCameraMove, ini
       }
     };
   }, [graphData, onNodeMove]);
+
+  // Handle fit operation when requested
+  useEffect(() => {
+    if (shouldFitOnNextRender && instanceRef.current) {
+      // Use a small delay to ensure the graph has been fully rendered
+      const timeoutId = setTimeout(() => {
+        if (instanceRef.current) {
+          instanceRef.current.fit(instanceRef.current.nodes(), 50);
+          if (onFitCompleted) {
+            onFitCompleted();
+          }
+        }
+      }, 50);
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [shouldFitOnNextRender, onFitCompleted]);
 
   return <div id="cy" ref={cyRef} style={{ 
     position: "absolute",

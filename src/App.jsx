@@ -1,10 +1,14 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import CytoscapeGraph from "./CytoscapeGraph";
-import initialGraph from "./ShipLogData";
+import defaultShipLogData from "./default_ship_log.json";
+import { loadAndValidateRumorMapFromFile } from "./rumorMapValidation";
 
 function App() {
   // Clear localStorage to get fresh data with coordinates (remove after first load)
   // localStorage.removeItem("shipLog");
+  
+  const fileInputRef = useRef(null);
+  const [loadError, setLoadError] = useState(null);
   
   const [graphData, setGraphData] = useState(() => {
     const saved = localStorage.getItem("shipLog");
@@ -20,7 +24,7 @@ function App() {
       } else {
         // Merge saved data with initial graph to get coordinates
         const mergedNodes = parsedData.nodes.map(savedNode => {
-          const initialNode = initialGraph.nodes.find(n => n.id === savedNode.id);
+          const initialNode = defaultShipLogData.nodes.find(n => n.id === savedNode.id);
           return {
             ...savedNode,
             x: initialNode?.x || 0,
@@ -30,7 +34,7 @@ function App() {
         return { ...parsedData, nodes: mergedNodes };
       }
     }
-    return initialGraph;
+    return defaultShipLogData;
   });
 
   const [zoomLevel, setZoomLevel] = useState(() => {
@@ -42,6 +46,8 @@ function App() {
     const saved = localStorage.getItem("shipLogCamera");
     return saved ? JSON.parse(saved).position || { x: 0, y: 0 } : { x: 0, y: 0 };
   });
+
+  const [shouldFitOnNextRender, setShouldFitOnNextRender] = useState(false);
 
   useEffect(() => {
     localStorage.setItem("shipLog", JSON.stringify(graphData));
@@ -73,9 +79,66 @@ function App() {
     }
   }, []);
 
+  const handleFitCompleted = useCallback(() => {
+    setShouldFitOnNextRender(false);
+  }, []);
+
+  const handleLoadMap = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
+  const handleFileSelect = useCallback(async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    setLoadError(null);
+    
+    try {
+      const result = await loadAndValidateRumorMapFromFile(file);
+      
+      if (result.isValid) {
+        // Load the new map data
+        setGraphData(result.data);
+        
+        // Reset camera to initial state
+        setZoomLevel(1);
+        setCameraPosition({ x: 0, y: 0 });
+        
+        // Trigger fit on next render
+        setShouldFitOnNextRender(true);
+      } else {
+        setLoadError(`Invalid map file: ${result.errors.join('; ')}`);
+      }
+    } catch (error) {
+      setLoadError(`Failed to load file: ${error.message}`);
+    }
+    
+    // Clear the input so the same file can be selected again
+    event.target.value = '';
+  }, []);
+
+  const handleResetToInitial = useCallback(() => {
+    // Reset graph data to initial state
+    setGraphData(defaultShipLogData);
+    
+    // Reset camera to initial state (zoom 100%, center position)
+    setZoomLevel(1);
+    setCameraPosition({ x: 0, y: 0 });
+    
+    // Trigger fit on next render
+    setShouldFitOnNextRender(true);
+    
+    // Clear any load errors
+    setLoadError(null);
+  }, []);
+
+  const clearError = useCallback(() => {
+    setLoadError(null);
+  }, []);
+
   const exportMap = () => {
     // Grab updated positions from Cytoscape instance (via DOM event)
-    const cy = document.querySelector("#cy")._cy; // We'll set an id on the container later
+    const cy = document.querySelector("#cy")._cy;
     const updatedNodes = cy.nodes().map(n => ({
       ...graphData.nodes.find(node => node.id === n.id()),
       x: n.position("x"),
@@ -92,6 +155,7 @@ function App() {
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -112,6 +176,14 @@ function App() {
         flexDirection: "column",
         gap: "10px"
       }}>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".json"
+          onChange={handleFileSelect}
+          style={{ display: "none" }}
+        />
+        
         <button
           style={{
             padding: "8px 12px",
@@ -128,6 +200,19 @@ function App() {
         <button
           style={{
             padding: "8px 12px",
+            background: "#1976d2",
+            color: "#fff",
+            border: "1px solid #0d47a1",
+            cursor: "pointer"
+          }}
+          onClick={handleLoadMap}
+        >
+          Load Map JSON
+        </button>
+        
+        <button
+          style={{
+            padding: "8px 12px",
             background: "#222",
             color: "#fff",
             border: "1px solid #444",
@@ -136,6 +221,19 @@ function App() {
           onClick={handleFitToView}
         >
           Fit
+        </button>
+        
+        <button
+          style={{
+            padding: "8px 12px",
+            background: "#d32f2f",
+            color: "#fff",
+            border: "1px solid #b71c1c",
+            cursor: "pointer"
+          }}
+          onClick={handleResetToInitial}
+        >
+          Reset
         </button>
       </div>
 
@@ -155,6 +253,44 @@ function App() {
         <div>Camera: ({Math.round(cameraPosition.x)}, {Math.round(cameraPosition.y)})</div>
       </div>
 
+      {loadError && (
+        <div style={{
+          position: "absolute",
+          bottom: "10px",
+          left: "10px",
+          right: "10px",
+          zIndex: 1000,
+          background: "rgba(211, 47, 47, 0.9)",
+          color: "#fff",
+          padding: "10px",
+          borderRadius: "5px",
+          fontFamily: "sans-serif",
+          fontSize: "14px",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+          gap: "10px"
+        }}>
+          <div style={{ flex: 1 }}>
+            <strong>Load Error:</strong> {loadError}
+          </div>
+          <button
+            onClick={clearError}
+            style={{
+              background: "transparent",
+              border: "1px solid #fff",
+              color: "#fff",
+              padding: "2px 8px",
+              cursor: "pointer",
+              borderRadius: "3px",
+              fontSize: "12px"
+            }}
+          >
+            ×
+          </button>
+        </div>
+      )}
+
       <CytoscapeGraph 
         graphData={graphData} 
         onNodeMove={handleNodeMove}
@@ -162,6 +298,8 @@ function App() {
         onCameraMove={setCameraPosition}
         initialZoom={zoomLevel}
         initialCameraPosition={cameraPosition}
+        shouldFitOnNextRender={shouldFitOnNextRender}
+        onFitCompleted={handleFitCompleted}
       />
     </div>
   );
