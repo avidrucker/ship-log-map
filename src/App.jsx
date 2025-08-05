@@ -3,6 +3,12 @@ import CytoscapeGraph from "./CytoscapeGraph";
 import defaultShipLogData from "./default_ship_log.json";
 import { loadAndValidateRumorMapFromFile } from "./rumorMapValidation";
 
+// Debug flag - set to false to disable all debug logging
+const DEBUG = false;
+const printDebug = (...args) => {
+  if (DEBUG) console.log(...args);
+};
+
 function App() {
   // Clear localStorage to get fresh data with coordinates (remove after first load)
   // localStorage.removeItem("shipLog");
@@ -49,6 +55,19 @@ function App() {
 
   const [shouldFitOnNextRender, setShouldFitOnNextRender] = useState(false);
 
+  // Add debugging for state changes
+  useEffect(() => {
+    printDebug('🏠 App: zoomLevel changed to:', zoomLevel);
+  }, [zoomLevel]);
+
+  useEffect(() => {
+    printDebug('🏠 App: cameraPosition changed to:', cameraPosition);
+  }, [cameraPosition]);
+
+  useEffect(() => {
+    printDebug('🏠 App: shouldFitOnNextRender changed to:', shouldFitOnNextRender);
+  }, [shouldFitOnNextRender]);
+
   useEffect(() => {
     localStorage.setItem("shipLog", JSON.stringify(graphData));
   }, [graphData]);
@@ -62,14 +81,18 @@ function App() {
   }, [zoomLevel, cameraPosition]);
 
   const handleNodeMove = useCallback((nodeId, newX, newY) => {
-    setGraphData(prevData => ({
-      ...prevData,
-      nodes: prevData.nodes.map(node => 
-        node.id === nodeId 
-          ? { ...node, x: newX, y: newY }
-          : node
-      )
-    }));
+    printDebug('🏠 App: handleNodeMove called for node:', nodeId, 'new position:', newX, newY);
+    setGraphData(prevData => {
+      printDebug('🏠 App: Updating graphData state');
+      return {
+        ...prevData,
+        nodes: prevData.nodes.map(node => 
+          node.id === nodeId 
+            ? { ...node, x: newX, y: newY }
+            : node
+        )
+      };
+    });
   }, []);
 
   const handleFitToView = useCallback(() => {
@@ -80,6 +103,7 @@ function App() {
   }, []);
 
   const handleFitCompleted = useCallback(() => {
+    printDebug('🏠 App: handleFitCompleted called, setting shouldFitOnNextRender to false');
     setShouldFitOnNextRender(false);
   }, []);
 
