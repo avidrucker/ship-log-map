@@ -1,40 +1,91 @@
 const cytoscapeStyles = [
+  // Base node style
   {
     selector: "node",
     style: {
-      "background-color": "#888",
+      "background-color": "#CD5C5C", // Dark burnt orange
       "label": "data(label)",
-      "color": "#fff",
-      "text-valign": "center",
-      "text-outline-width": 2,
-      "text-outline-color": "#222",
-      "width": 90,
-      "height": 120,
-      "font-size": 14,
+      "color": "#fff", // White text
+      "text-valign": "top",
+      "text-halign": "center",
+      "text-margin-y": 8, // Position text near top
+      "width": 120, // Regular size
+      "height": 160,
+      "font-size": 20,
+      "font-weight": "bold",
       "text-wrap": "wrap",
-      "text-max-width": 90,
-      "shape": "rectangle"
+      "text-max-width": 110,
+      "shape": "rectangle",
+      "border-width": 2,
+      "border-color": "#8B0000", // Darker border
+      "background-image": "data(icon)",
+      "background-fit": "contain",
+      "background-position-x": "50%",
+      "background-position-y": "80%", // Position icon near bottom
+      "background-width": "60%",
+      "background-height": "40%"
+    }
+  },
+  // Double size nodes
+  {
+    selector: 'node[size="double"]',
+    style: {
+      "width": 240,
+      "height": 320,
+      "font-size": 30,
+      "text-max-width": 220,
+      "text-valign": "top",
+      "text-margin-y": 75
+    }
+  },
+  // Half size nodes
+  {
+    selector: 'node[size="half"]',
+    style: {
+      "width": 80,
+      "height": 100,
+      "font-size": 16,
+      "text-max-width": 70,
+      "text-margin-y": 6,
+      "background-width": "50%",
+      "background-height": "35%"
+    }
+  },
+  // Edge styles with arrows
+  {
+    selector: 'edge[direction="forward"]',
+    style: {
+      "line-style": "solid",
+      "width": 3,
+      "line-color": "#fff",
+      "target-arrow-shape": "triangle",
+      "target-arrow-color": "#fff",
+      "curve-style": "bezier"
     }
   },
   {
-    selector: 'node[state="rumor"]',
-    style: { "background-color": "gold" }
+    selector: 'edge[direction="backward"]',
+    style: {
+      "line-style": "solid",
+      "width": 3,
+      "line-color": "#fff",
+      "source-arrow-shape": "triangle",
+      "source-arrow-color": "#fff",
+      "curve-style": "bezier"
+    }
   },
   {
-    selector: 'node[state="complete"]',
-    style: { "background-color": "blue" }
-  },
-  {
-    selector: 'node[state="undiscovered"]',
-    style: { "background-color": "gray" }
-  },
-  {
-    selector: 'edge[type="rumor"]',
-    style: { "line-style": "dotted", "width": 2, "line-color": "#ccc" }
-  },
-  {
-    selector: 'edge[type="direct"]',
-    style: { "line-style": "solid", "width": 3, "line-color": "#fff" }
+    selector: 'edge[direction="bidirectional"]',
+    style: {
+      "line-style": "solid",
+      "width": 3,
+      "line-color": "#fff",
+      "target-arrow-shape": "triangle",
+      "target-arrow-color": "#fff",
+      "source-arrow-shape": "triangle",
+      "source-arrow-color": "#fff",
+      "curve-style": "bezier"
+    }
   }
 ];
 

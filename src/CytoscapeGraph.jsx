@@ -8,6 +8,18 @@ const printDebug = (...args) => {
   if (DEBUG) console.log(...args);
 };
 
+// React SVG icon as data URL for demo purposes
+const REACT_ICON_SVG = `data:image/svg+xml;base64,${btoa(`
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-11.5 -10.23174 23 20.46348">
+  <circle cx="0" cy="0" r="2.05" fill="#61dafb"/>
+  <g stroke="#61dafb" stroke-width="1" fill="none">
+    <ellipse rx="11" ry="4.2"/>
+    <ellipse rx="11" ry="4.2" transform="rotate(60)"/>
+    <ellipse rx="11" ry="4.2" transform="rotate(120)"/>
+  </g>
+</svg>
+`)}`;
+
 const CytoscapeGraph = ({ 
   graphData, 
   onNodeMove, 
@@ -80,14 +92,19 @@ const CytoscapeGraph = ({
           data: { 
             id: n.id, 
             label: `${n.title}\n(${n.x}, ${n.y})`, 
-            state: n.state, 
+            size: n.size || "regular",
             x: n.x, 
-            y: n.y 
+            y: n.y,
+            icon: REACT_ICON_SVG
           },
           position: { x: n.x, y: n.y }
         })),
         ...graphData.edges.map(e => ({
-          data: { source: e.source, target: e.target, type: e.type }
+          data: { 
+            source: e.source, 
+            target: e.target, 
+            direction: e.direction || "forward"
+          }
         }))
       ];
 
@@ -230,8 +247,9 @@ const CytoscapeGraph = ({
           // Update data and label (but don't trigger position updates)
           cyNode.data('x', nodeData.x);
           cyNode.data('y', nodeData.y);
-          cyNode.data('label', `${nodeData.title}\n(${nodeData.x}, ${nodeData.y})`);
-          cyNode.data('state', nodeData.state);
+          cyNode.data('label', `${nodeData.title}`); // \n(${nodeData.x}, ${nodeData.y})
+          cyNode.data('size', nodeData.size || "regular");
+          cyNode.data('icon', REACT_ICON_SVG);
         }
       });
     }
