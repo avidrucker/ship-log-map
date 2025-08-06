@@ -1,181 +1,145 @@
 {
   "nodes": [
     {
-      "id": "timber_hearth",
-      "title": "Timber Hearth",
-      "state": "complete",
-      "x": 100,
-      "y": 300
-    },
-    {
-      "id": "observatory",
-      "title": "Observatory",
-      "state": "complete",
-      "x": 300,
-      "y": 300
-    },
-    {
-      "id": "quantum_moon",
-      "title": "Quantum Moon",
-      "state": "rumor",
-      "x": 500,
-      "y": 200
-    },
-    {
-      "id": "tower_of_quantum_trials",
-      "title": "Tower of Quantum Trials",
-      "state": "undiscovered",
-      "x": 700,
-      "y": 200
-    },
-    {
-      "id": "white_hole_station",
-      "title": "White Hole Station",
-      "state": "rumor",
-      "x": 500,
-      "y": 400
-    },
-    {
-      "id": "high_energy_lab",
-      "title": "High Energy Lab",
-      "state": "undiscovered",
-      "x": 700,
-      "y": 400
+      "id": "ash_twin_project",
+      "title": "Ash Twin Project",
+      "size": "double",
+      "x": 729,
+      "y": 470
     },
     {
       "id": "sun_station",
       "title": "Sun Station",
-      "state": "rumor",
-      "x": 300,
-      "y": 500
+      "size": "regular",
+      "x": 102,
+      "y": 490
     },
     {
-      "id": "ash_twin_project",
-      "title": "Ash Twin Project",
-      "state": "undiscovered",
-      "x": 500,
-      "y": 500
+      "id": "white_hole_station",
+      "title": "White Hole Station",
+      "size": "regular",
+      "x": 227,
+      "y": 234
     },
     {
-      "id": "nomai_writing_1",
-      "title": "Nomai Writing: Quantum Objects",
-      "state": "complete",
-      "x": 900,
-      "y": 200
+      "id": "ash_twin_towers",
+      "title": "Ash Twin Towers",
+      "size": "regular",
+      "x": 330,
+      "y": 482
     },
     {
-      "id": "nomai_writing_2",
-      "title": "Nomai Writing: Warp Experiments",
-      "state": "rumor",
-      "x": 900,
-      "y": 400
+      "id": "black_hole_forge",
+      "title": "Black Hole Forge",
+      "size": "regular",
+      "x": 396,
+      "y": 713
     },
     {
-      "id": "giants_deep",
-      "title": "Giant's Deep",
-      "state": "rumor",
-      "x": 300,
-      "y": 700
+      "id": "high_energy_lab",
+      "title": "High Energy Lab",
+      "size": "regular",
+      "x": 480,
+      "y": 188
     },
     {
-      "id": "orbital_probe_cannon",
-      "title": "Orbital Probe Cannon",
-      "state": "undiscovered",
-      "x": 500,
-      "y": 700
+      "id": "nomai_mines",
+      "title": "Nomai Mines",
+      "size": "regular",
+      "x": 991,
+      "y": 720
     },
     {
-      "id": "dark_bramble",
-      "title": "Dark Bramble",
-      "state": "rumor",
-      "x": 700,
-      "y": 700
+      "id": "statue_island",
+      "title": "Statue Island",
+      "size": "regular",
+      "x": 1033,
+      "y": 218
     },
     {
-      "id": "nomai_escape_pod",
-      "title": "Nomai Escape Pod",
-      "state": "undiscovered",
-      "x": 900,
-      "y": 700
+      "id": "volcanic_testing_site",
+      "title": "Volcanic Testing Site",
+      "size": "regular",
+      "x": 1188,
+      "y": 723
     },
     {
-      "id": "vessel",
-      "title": "The Vessel",
-      "state": "undiscovered",
-      "x": 1100,
-      "y": 700
+      "id": "ash_twin_tower_designs",
+      "title": "Ash Twin Tower Designs",
+      "size": "half",
+      "x": 413,
+      "y": 278
+    },
+    {
+      "id": "alignment_angle_diagram",
+      "title": "Alignment Angle Diagram",
+      "size": "half",
+      "x": 483,
+      "y": 786
+    },
+    {
+      "id": "statue_workshop",
+      "title": "Statue Workshop",
+      "size": "half",
+      "x": 967,
+      "y": 301
     }
   ],
   "edges": [
     {
-      "source": "observatory",
-      "target": "quantum_moon",
-      "type": "rumor"
-    },
-    {
-      "source": "quantum_moon",
-      "target": "tower_of_quantum_trials",
-      "type": "rumor"
-    },
-    {
-      "source": "observatory",
-      "target": "white_hole_station",
-      "type": "rumor"
+      "source": "sun_station",
+      "target": "ash_twin_project",
+      "direction": "forward"
     },
     {
       "source": "white_hole_station",
-      "target": "high_energy_lab",
-      "type": "rumor"
+      "target": "ash_twin_project",
+      "direction": "forward"
+    },
+    {
+      "source": "ash_twin_towers",
+      "target": "ash_twin_project",
+      "direction": "bidirectional"
+    },
+    {
+      "source": "black_hole_forge",
+      "target": "ash_twin_project",
+      "direction": "forward"
     },
     {
       "source": "high_energy_lab",
       "target": "ash_twin_project",
-      "type": "rumor"
+      "direction": "forward"
     },
     {
-      "source": "observatory",
-      "target": "sun_station",
-      "type": "rumor"
+      "source": "ash_twin_project",
+      "target": "nomai_mines",
+      "direction": "forward"
     },
     {
-      "source": "sun_station",
-      "target": "ash_twin_project",
-      "type": "rumor"
+      "source": "ash_twin_project",
+      "target": "statue_island",
+      "direction": "forward"
     },
     {
-      "source": "observatory",
-      "target": "giants_deep",
-      "type": "rumor"
+      "source": "ash_twin_project",
+      "target": "volcanic_testing_site",
+      "direction": "forward"
     },
     {
-      "source": "giants_deep",
-      "target": "orbital_probe_cannon",
-      "type": "rumor"
+      "source": "high_energy_lab",
+      "target": "ash_twin_tower_designs",
+      "direction": "forward"
     },
     {
-      "source": "observatory",
-      "target": "dark_bramble",
-      "type": "rumor"
+      "source": "black_hole_forge",
+      "target": "alignment_angle_diagram",
+      "direction": "forward"
     },
     {
-      "source": "dark_bramble",
-      "target": "vessel",
-      "type": "rumor"
-    },
-    {
-      "source": "nomai_escape_pod",
-      "target": "vessel",
-      "type": "direct"
-    },
-    {
-      "source": "nomai_writing_1",
-      "target": "tower_of_quantum_trials",
-      "type": "direct"
-    },
-    {
-      "source": "nomai_writing_2",
-      "target": "high_energy_lab",
-      "type": "direct"
+      "source": "statue_island",
+      "target": "statue_workshop",
+      "direction": "forward"
     }
   ]
 }
