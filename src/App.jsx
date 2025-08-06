@@ -55,6 +55,8 @@ function App() {
 
   const [shouldFitOnNextRender, setShouldFitOnNextRender] = useState(false);
   const [selectedEdgeIds, setSelectedEdgeIds] = useState([]);
+  const [selectedNodeIds, setSelectedNodeIds] = useState([]);
+  const [nodeSelectionOrder, setNodeSelectionOrder] = useState([]);
 
   // Add debugging for state changes
   useEffect(() => {
@@ -131,6 +133,15 @@ function App() {
         
         // Trigger fit on next render
         setShouldFitOnNextRender(true);
+        
+        // Clear selections - both React state and Cytoscape selection
+        const cy = document.querySelector("#cy")?._cy;
+        if (cy) {
+          cy.elements().unselect();
+        }
+        setSelectedEdgeIds([]);
+        setSelectedNodeIds([]);
+        setNodeSelectionOrder([]);
       } else {
         setLoadError(`Invalid map file: ${result.errors.join('; ')}`);
       }
@@ -153,8 +164,15 @@ function App() {
     // Trigger fit on next render
     setShouldFitOnNextRender(true);
     
-    // Clear any load errors
+    // Clear any load errors and selections - both React state and Cytoscape selection
     setLoadError(null);
+    const cy = document.querySelector("#cy")?._cy;
+    if (cy) {
+      cy.elements().unselect();
+    }
+    setSelectedEdgeIds([]);
+    setSelectedNodeIds([]);
+    setNodeSelectionOrder([]);
   }, []);
 
   const clearError = useCallback(() => {
@@ -181,8 +199,80 @@ function App() {
       };
     });
     
-    // Clear selection after deletion
+    // Clear selection after deletion - both React state and Cytoscape selection
+    const cy = document.querySelector("#cy")?._cy;
+    if (cy) {
+      cy.edges().unselect();
+    }
     setSelectedEdgeIds([]);
+  }, []);
+
+  const handleNodeSelectionChange = useCallback((nodeIds, selectionOrder) => {
+    printDebug('🏠 App: Node selection changed to:', nodeIds, 'Order:', selectionOrder);
+    setSelectedNodeIds(nodeIds);
+    setNodeSelectionOrder(selectionOrder);
+  }, []);
+
+  const handleConnectSelectedNodes = useCallback(() => {
+    if (selectedNodeIds.length === 2 && nodeSelectionOrder.length === 2) {
+      // Use selection order: first selected -> second selected
+      const [sourceId, targetId] = nodeSelectionOrder;
+      printDebug('🏠 App: Connecting nodes in selection order:', sourceId, '->', targetId);
+      
+      setGraphData(prevData => {
+        // Check if edge already exists
+        const edgeExists = prevData.edges.some(edge => 
+          edge.source === sourceId && edge.target === targetId
+        );
+        
+        if (!edgeExists) {
+          const newEdge = {
+            source: sourceId,
+            target: targetId,
+            direction: "forward"
+          };
+          
+          return {
+            ...prevData,
+            edges: [...prevData.edges, newEdge]
+          };
+        }
+        
+        return prevData; // No change if edge already exists
+      });
+      
+      // Clear node selection after connecting - both React state and Cytoscape selection
+      const cy = document.querySelector("#cy")?._cy;
+      if (cy) {
+        cy.nodes().unselect();
+      }
+      setSelectedNodeIds([]);
+      setNodeSelectionOrder([]);
+    }
+  }, [selectedNodeIds, nodeSelectionOrder]);
+
+  const handleEdgeDirectionChange = useCallback((edgeId, newDirection) => {
+    printDebug('🏠 App: Changing edge direction:', edgeId, 'to:', newDirection);
+    
+    setGraphData(prevData => {
+      // Find the edge index from the edge ID
+      const edgeIndex = parseInt(edgeId.replace('edge-', ''));
+      
+      if (edgeIndex >= 0 && edgeIndex < prevData.edges.length) {
+        const updatedEdges = [...prevData.edges];
+        updatedEdges[edgeIndex] = {
+          ...updatedEdges[edgeIndex],
+          direction: newDirection
+        };
+        
+        return {
+          ...prevData,
+          edges: updatedEdges
+        };
+      }
+      
+      return prevData; // No change if edge not found
+    });
   }, []);
 
   const exportMap = () => {
@@ -300,6 +390,22 @@ function App() {
             Delete {selectedEdgeIds.length} Edge{selectedEdgeIds.length > 1 ? 's' : ''}
           </button>
         )}
+        
+        {selectedNodeIds.length === 2 && nodeSelectionOrder.length === 2 && (
+          <button
+            style={{
+              padding: "8px 12px",
+              background: "#4caf50",
+              color: "#fff",
+              border: "1px solid #388e3c",
+              cursor: "pointer",
+              fontWeight: "bold"
+            }}
+            onClick={handleConnectSelectedNodes}
+          >
+            Connect: {nodeSelectionOrder[0]} → {nodeSelectionOrder[1]}
+          </button>
+        )}
       </div>
 
       <div style={{
@@ -316,6 +422,16 @@ function App() {
       }}>
         <div>Zoom: {(zoomLevel * 100).toFixed(0)}%</div>
         <div>Camera: ({Math.round(cameraPosition.x)}, {Math.round(cameraPosition.y)})</div>
+        {selectedNodeIds.length > 0 && (
+          <div style={{ color: "#4fc3f7" }}>
+            Nodes: {selectedNodeIds.length} selected
+          </div>
+        )}
+        {selectedEdgeIds.length > 0 && (
+          <div style={{ color: "#ff6b6b" }}>
+            Edges: {selectedEdgeIds.length} selected
+          </div>
+        )}
       </div>
 
       {loadError && (
@@ -367,6 +483,8 @@ function App() {
         onFitCompleted={handleFitCompleted}
         onEdgeSelectionChange={handleEdgeSelectionChange}
         onDeleteSelectedEdges={handleDeleteSelectedEdges}
+        onNodeSelectionChange={handleNodeSelectionChange}
+        onEdgeDirectionChange={handleEdgeDirectionChange}
       />
     </div>
   );
