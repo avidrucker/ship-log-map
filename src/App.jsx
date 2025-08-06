@@ -275,6 +275,59 @@ function App() {
     });
   }, []);
 
+  const handleCreateNode = useCallback(() => {
+    printDebug('🏠 App: Creating new node');
+    
+    // Find a unique ID and title
+    let counter = 1;
+    let uniqueId;
+    let uniqueTitle;
+    
+    do {
+      uniqueId = `untitled${counter}`;
+      uniqueTitle = `untitled${counter}`;
+      counter++;
+    } while (graphData.nodes.some(node => node.id === uniqueId || node.title === uniqueTitle));
+    
+    printDebug('🏠 App: Found unique ID/title:', uniqueId);
+    
+    // Get the current camera center from Cytoscape instance
+    const cy = document.querySelector("#cy")?._cy;
+    let centerX = 0;
+    let centerY = 0;
+    
+    if (cy) {
+      // Get the current viewport center in world coordinates
+      const extent = cy.extent();
+      centerX = (extent.x1 + extent.x2) / 2;
+      centerY = (extent.y1 + extent.y2) / 2;
+      printDebug('🏠 App: Calculated viewport center from Cytoscape:', centerX, centerY);
+    } else {
+      // Fallback to stored camera position if Cytoscape instance not available
+      centerX = cameraPosition.x;
+      centerY = cameraPosition.y;
+      printDebug('🏠 App: Using fallback camera position:', centerX, centerY);
+    }
+    
+    printDebug('🏠 App: Creating node at center position:', centerX, centerY);
+    
+    // Create new node
+    const newNode = {
+      id: uniqueId,
+      title: uniqueTitle,
+      size: "regular",
+      x: Math.round(centerX),
+      y: Math.round(centerY)
+    };
+    
+    setGraphData(prevData => ({
+      ...prevData,
+      nodes: [...prevData.nodes, newNode]
+    }));
+    
+    printDebug('🏠 App: Node created successfully:', newNode);
+  }, [graphData, cameraPosition]);
+
   const exportMap = () => {
     // Grab updated positions from Cytoscape instance (via DOM event)
     const cy = document.querySelector("#cy")._cy;
@@ -373,6 +426,19 @@ function App() {
           onClick={handleResetToInitial}
         >
           Reset
+        </button>
+        
+        <button
+          style={{
+            padding: "8px 12px",
+            background: "#4caf50",
+            color: "#fff",
+            border: "1px solid #388e3c",
+            cursor: "pointer"
+          }}
+          onClick={handleCreateNode}
+        >
+          Create Node
         </button>
         
         {selectedEdgeIds.length > 0 && (
