@@ -11,10 +11,12 @@ const cytoscapeStyles = [
       "text-margin-y": -50, // Position text near top
       "width": 120, // Regular size
       "height": 160,
-      "font-size": 18,
+      "font-size": 15,
+      "line-height": 1.15,
       "font-weight": "bold",
+      "font-family": "monospace",
       "text-wrap": "wrap",
-      "text-max-width": 110,
+      "text-max-width": 115,
       "shape": "rectangle",
       "border-width": 2,
       "border-color": "white", // Darker border
@@ -32,7 +34,8 @@ const cytoscapeStyles = [
       "width": 240,
       "height": 300,
       "font-size": 30,
-      "text-max-width": 220,
+      "line-height": 1.25,
+      "text-max-width": 230,
       "text-margin-y": -104,
       "background-width": "220px", // Proportionally larger square
       "background-height": "220px",
@@ -46,7 +49,8 @@ const cytoscapeStyles = [
       "width": 80,
       "height": 120,
       "font-size": 12,
-      "text-max-width": 70,
+      "line-height": 1.05,
+      "text-max-width": 78,
       "text-margin-y": -36,
       "background-width": "75px", // Proportionally smaller square
       "background-height": "75px",
