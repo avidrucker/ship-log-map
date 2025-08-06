@@ -8,17 +8,24 @@ const printDebug = (...args) => {
   if (DEBUG) console.log(...args);
 };
 
+// Simple test SVG to debug rendering issues
+const TEST_ICON_SVG = 'data:image/svg+xml;utf8,' + encodeURIComponent(`<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100" preserveAspectRatio="xMidYMid meet">
+  <rect x="5" y="5" width="90" height="90" fill="red" stroke="blue" stroke-width="2"/>
+  <circle cx="50" cy="50" r="20" fill="yellow"/>
+  <text x="50" y="55" text-anchor="middle" font-size="14" fill="black" font-family="Arial">TEST</text>
+</svg>`);
+
 // React SVG icon as data URL for demo purposes
-const REACT_ICON_SVG = `data:image/svg+xml;base64,${btoa(`
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="-11.5 -10.23174 23 20.46348">
+const REACT_ICON_SVG = 'data:image/svg+xml;utf8,' + encodeURIComponent(`<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-13 -13 26 26" width="100" height="100" preserveAspectRatio="xMidYMid meet">
   <circle cx="0" cy="0" r="2.05" fill="#61dafb"/>
   <g stroke="#61dafb" stroke-width="1" fill="none">
     <ellipse rx="11" ry="4.2"/>
     <ellipse rx="11" ry="4.2" transform="rotate(60)"/>
     <ellipse rx="11" ry="4.2" transform="rotate(120)"/>
   </g>
-</svg>
-`)}`;
+</svg>`);
 
 const CytoscapeGraph = ({ 
   graphData, 
@@ -30,7 +37,9 @@ const CytoscapeGraph = ({
   shouldFitOnNextRender, 
   onFitCompleted,
   onEdgeSelectionChange,
-  onDeleteSelectedEdges
+  onDeleteSelectedEdges,
+  onNodeSelectionChange,
+  onEdgeDirectionChange
 }) => {
   const cyRef = useRef(null);
   const instanceRef = useRef(null); // To prevent multiple Cytoscape initializations
@@ -38,6 +47,7 @@ const CytoscapeGraph = ({
     zoom: initialZoom || 1, 
     pan: { x: -(initialCameraPosition?.x || 0), y: -(initialCameraPosition?.y || 0) } 
   }); // Store current camera state
+  const selectionOrderRef = useRef([]); // Track the order of node selection
   
   // Use refs for callbacks to avoid dependency issues
   const onZoomChangeRef = useRef(onZoomChange);
@@ -45,6 +55,8 @@ const CytoscapeGraph = ({
   const onNodeMoveRef = useRef(onNodeMove);
   const onEdgeSelectionChangeRef = useRef(onEdgeSelectionChange);
   const onDeleteSelectedEdgesRef = useRef(onDeleteSelectedEdges);
+  const onNodeSelectionChangeRef = useRef(onNodeSelectionChange);
+  const onEdgeDirectionChangeRef = useRef(onEdgeDirectionChange);
   
   // Update refs when callbacks change
   onZoomChangeRef.current = onZoomChange;
@@ -52,6 +64,8 @@ const CytoscapeGraph = ({
   onNodeMoveRef.current = onNodeMove;
   onEdgeSelectionChangeRef.current = onEdgeSelectionChange;
   onDeleteSelectedEdgesRef.current = onDeleteSelectedEdges;
+  onNodeSelectionChangeRef.current = onNodeSelectionChange;
+  onEdgeDirectionChangeRef.current = onEdgeDirectionChange;
 
   // Initialize Cytoscape instance only once or when structure changes
   useEffect(() => {
@@ -101,7 +115,7 @@ const CytoscapeGraph = ({
             size: n.size || "regular",
             x: n.x, 
             y: n.y,
-            icon: REACT_ICON_SVG
+            icon: TEST_ICON_SVG // REACT_ICON_SVG
           },
           position: { x: n.x, y: n.y }
         })),
@@ -247,6 +261,80 @@ const CytoscapeGraph = ({
       instanceRef.current.on('select', 'edge', handleSelectionChange);
       instanceRef.current.on('unselect', 'edge', handleSelectionChange);
       
+      // Node selection handling
+      const handleNodeSelectionChange = () => {
+        const selectedNodes = instanceRef.current.$(':selected').nodes();
+        const selectedNodeIds = selectedNodes.map(node => node.id());
+        printDebug('🎯 Node selection changed:', selectedNodeIds);
+        
+        if (onNodeSelectionChangeRef.current) {
+          // Pass both the current selection and the selection order
+          onNodeSelectionChangeRef.current(selectedNodeIds, [...selectionOrderRef.current]);
+        }
+      };
+
+      // Track individual node selections to maintain order
+      instanceRef.current.on('select', 'node', (event) => {
+        const nodeId = event.target.id();
+        // Add to selection order if not already present
+        if (!selectionOrderRef.current.includes(nodeId)) {
+          selectionOrderRef.current.push(nodeId);
+          printDebug('🎯 Node selected (added to order):', nodeId, 'Order:', selectionOrderRef.current);
+        }
+        handleNodeSelectionChange();
+      });
+
+      instanceRef.current.on('unselect', 'node', (event) => {
+        const nodeId = event.target.id();
+        // Remove from selection order
+        selectionOrderRef.current = selectionOrderRef.current.filter(id => id !== nodeId);
+        printDebug('🎯 Node unselected (removed from order):', nodeId, 'Order:', selectionOrderRef.current);
+        handleNodeSelectionChange();
+      });
+
+      // Clear selection order when all nodes are unselected
+      instanceRef.current.on('unselect', () => {
+        const selectedNodes = instanceRef.current.$(':selected').nodes();
+        if (selectedNodes.length === 0) {
+          selectionOrderRef.current = [];
+          printDebug('🎯 All nodes unselected, cleared selection order');
+        }
+      });
+      
+      // Edge double-click handling for direction cycling
+      instanceRef.current.on('dblclick', 'edge', (event) => {
+        const edgeId = event.target.id();
+        const edgeData = event.target.data();
+        const currentDirection = edgeData.direction || "forward";
+        
+        // Cycle through directions: forward -> backward -> bidirectional -> forward
+        let newDirection;
+        switch (currentDirection) {
+          case "forward":
+            newDirection = "backward";
+            break;
+          case "backward":
+            newDirection = "bidirectional";
+            break;
+          case "bidirectional":
+            newDirection = "forward";
+            break;
+          default:
+            newDirection = "forward";
+        }
+        
+        printDebug('🔄 Edge direction change:', edgeId, currentDirection, '->', newDirection);
+        
+        // Update the edge data directly in Cytoscape for immediate visual update
+        event.target.data('direction', newDirection);
+        
+        if (onEdgeDirectionChangeRef.current) {
+          onEdgeDirectionChangeRef.current(edgeId, newDirection);
+        }
+        
+        event.stopPropagation();
+      });
+      
       // Keyboard event handling for delete
       const handleKeyDown = (event) => {
         if (event.key === 'Delete' || event.key === 'Backspace') {
@@ -292,7 +380,22 @@ const CytoscapeGraph = ({
           cyNode.data('y', nodeData.y);
           cyNode.data('label', `${nodeData.title}`); // \n(${nodeData.x}, ${nodeData.y})
           cyNode.data('size', nodeData.size || "regular");
-          cyNode.data('icon', REACT_ICON_SVG);
+          cyNode.data('icon', TEST_ICON_SVG); // REACT_ICON_SVG
+        }
+      });
+      
+      // Update existing edges direction if they changed
+      graphData.edges.forEach((edgeData, index) => {
+        const edgeId = `edge-${index}`;
+        const cyEdge = instanceRef.current.$(`#${edgeId}`);
+        if (cyEdge.length > 0) {
+          const currentDirection = cyEdge.data('direction');
+          const newDirection = edgeData.direction || "forward";
+          
+          if (currentDirection !== newDirection) {
+            printDebug(`🔧 Updating edge direction for ${edgeId} from ${currentDirection} to ${newDirection}`);
+            cyEdge.data('direction', newDirection);
+          }
         }
       });
     }
