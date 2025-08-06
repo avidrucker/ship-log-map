@@ -39,7 +39,8 @@ const CytoscapeGraph = ({
   onEdgeSelectionChange,
   onDeleteSelectedEdges,
   onNodeSelectionChange,
-  onEdgeDirectionChange
+  onEdgeDirectionChange,
+  onDeleteSelectedNodes
 }) => {
   const cyRef = useRef(null);
   const instanceRef = useRef(null); // To prevent multiple Cytoscape initializations
@@ -57,6 +58,7 @@ const CytoscapeGraph = ({
   const onDeleteSelectedEdgesRef = useRef(onDeleteSelectedEdges);
   const onNodeSelectionChangeRef = useRef(onNodeSelectionChange);
   const onEdgeDirectionChangeRef = useRef(onEdgeDirectionChange);
+  const onDeleteSelectedNodesRef = useRef(onDeleteSelectedNodes);
   
   // Update refs when callbacks change
   onZoomChangeRef.current = onZoomChange;
@@ -66,6 +68,7 @@ const CytoscapeGraph = ({
   onDeleteSelectedEdgesRef.current = onDeleteSelectedEdges;
   onNodeSelectionChangeRef.current = onNodeSelectionChange;
   onEdgeDirectionChangeRef.current = onEdgeDirectionChange;
+  onDeleteSelectedNodesRef.current = onDeleteSelectedNodes;
 
   // Initialize Cytoscape instance only once or when structure changes
   useEffect(() => {
@@ -253,6 +256,11 @@ const CytoscapeGraph = ({
         const selectedEdgeIds = selectedEdges.map(edge => edge.id());
         printDebug('🎯 Edge selection changed:', selectedEdgeIds);
         
+        // Ensure container has focus when an edge is selected
+        if (selectedEdgeIds.length > 0 && cyRef.current) {
+          cyRef.current.focus();
+        }
+        
         if (onEdgeSelectionChangeRef.current) {
           onEdgeSelectionChangeRef.current(selectedEdgeIds);
         }
@@ -281,6 +289,12 @@ const CytoscapeGraph = ({
           selectionOrderRef.current.push(nodeId);
           printDebug('🎯 Node selected (added to order):', nodeId, 'Order:', selectionOrderRef.current);
         }
+        
+        // Ensure container has focus when a node is selected
+        if (cyRef.current) {
+          cyRef.current.focus();
+        }
+        
         handleNodeSelectionChange();
       });
 
@@ -335,11 +349,42 @@ const CytoscapeGraph = ({
         event.stopPropagation();
       });
       
-      // Keyboard event handling for delete
+      // Keyboard event handling for delete - simplified approach
       const handleKeyDown = (event) => {
+        printDebug('🎹 Key pressed:', event.key);
+        
         if (event.key === 'Delete' || event.key === 'Backspace') {
+          // Don't process if we're in an input field
+          if (['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName)) {
+            printDebug('🎹 Ignoring delete key - active element is input field');
+            return;
+          }
+          
+          if (!instanceRef.current) {
+            printDebug('🎹 ERROR: No Cytoscape instance available');
+            return;
+          }
+          
           const selectedEdges = instanceRef.current.$(':selected').edges();
-          if (selectedEdges.length > 0) {
+          const selectedNodes = instanceRef.current.$(':selected').nodes();
+          
+          printDebug('🎹 Selected elements:', {
+            nodes: selectedNodes.length,
+            edges: selectedEdges.length
+          });
+          
+          if (selectedNodes.length > 0) {
+            // Prioritize node deletion if nodes are selected
+            const selectedNodeIds = selectedNodes.map(node => node.id());
+            printDebug('🗑️ Deleting selected nodes via keyboard:', selectedNodeIds);
+            
+            if (onDeleteSelectedNodesRef.current) {
+              onDeleteSelectedNodesRef.current(selectedNodeIds);
+            }
+            event.preventDefault();
+            event.stopPropagation();
+          } else if (selectedEdges.length > 0) {
+            // Delete edges if no nodes are selected
             const selectedEdgeIds = selectedEdges.map(edge => edge.id());
             printDebug('🗑️ Deleting selected edges via keyboard:', selectedEdgeIds);
             
@@ -347,14 +392,25 @@ const CytoscapeGraph = ({
               onDeleteSelectedEdgesRef.current(selectedEdgeIds);
             }
             event.preventDefault();
+            event.stopPropagation();
           }
         }
       };
 
-      // Add keyboard event listener to the container
+      // Add click handler to ensure focus
+      const handleContainerClick = () => {
+        if (cyRef.current) {
+          cyRef.current.focus();
+        }
+      };
+      
+      // Set up container for keyboard events
       if (cyRef.current) {
         cyRef.current.addEventListener('keydown', handleKeyDown);
+        cyRef.current.addEventListener('click', handleContainerClick);
         cyRef.current.tabIndex = 0; // Make it focusable
+        cyRef.current.focus(); // Initially focus the container
+        printDebug('� Set up keyboard handling and focused container');
       }
       
       // Don't call updateCameraInfo initially to avoid infinite loop
@@ -418,6 +474,17 @@ const CytoscapeGraph = ({
       }
     };
   }, [graphData]); // onNodeMove is handled via ref to avoid unnecessary re-runs
+
+  // Cleanup on unmount only
+  useEffect(() => {
+    return () => {
+      printDebug('🧹 Component unmounting - cleaning up Cytoscape instance');
+      if (instanceRef.current) {
+        instanceRef.current.destroy();
+        instanceRef.current = null;
+      }
+    };
+  }, []); // Empty dependency array = only run on mount/unmount
 
   // Handle fit operation when requested
   useEffect(() => {

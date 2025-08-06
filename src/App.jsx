@@ -207,6 +207,36 @@ function App() {
     setSelectedEdgeIds([]);
   }, []);
 
+  const handleDeleteSelectedNodes = useCallback((nodeIds) => {
+    printDebug('🏠 App: Deleting nodes:', nodeIds);
+    
+    setGraphData(prevData => {
+      // Remove the selected nodes
+      const updatedNodes = prevData.nodes.filter(node => !nodeIds.includes(node.id));
+      
+      // Remove all edges that connect to the deleted nodes
+      const updatedEdges = prevData.edges.filter(edge => 
+        !nodeIds.includes(edge.source) && !nodeIds.includes(edge.target)
+      );
+      
+      printDebug('🏠 App: Removed', prevData.nodes.length - updatedNodes.length, 'nodes and', prevData.edges.length - updatedEdges.length, 'edges');
+      
+      return {
+        ...prevData,
+        nodes: updatedNodes,
+        edges: updatedEdges
+      };
+    });
+    
+    // Clear selection after deletion - both React state and Cytoscape selection
+    const cy = document.querySelector("#cy")?._cy;
+    if (cy) {
+      cy.nodes().unselect();
+    }
+    setSelectedNodeIds([]);
+    setNodeSelectionOrder([]);
+  }, []);
+
   const handleNodeSelectionChange = useCallback((nodeIds, selectionOrder) => {
     printDebug('🏠 App: Node selection changed to:', nodeIds, 'Order:', selectionOrder);
     setSelectedNodeIds(nodeIds);
@@ -457,6 +487,22 @@ function App() {
           </button>
         )}
         
+        {selectedNodeIds.length > 0 && (
+          <button
+            style={{
+              padding: "8px 12px",
+              background: "#e91e63",
+              color: "#fff",
+              border: "1px solid #ad1457",
+              cursor: "pointer",
+              fontWeight: "bold"
+            }}
+            onClick={() => handleDeleteSelectedNodes(selectedNodeIds)}
+          >
+            Delete {selectedNodeIds.length} Node{selectedNodeIds.length > 1 ? 's' : ''}
+          </button>
+        )}
+        
         {selectedNodeIds.length === 2 && nodeSelectionOrder.length === 2 && (
           <button
             style={{
@@ -551,6 +597,7 @@ function App() {
         onDeleteSelectedEdges={handleDeleteSelectedEdges}
         onNodeSelectionChange={handleNodeSelectionChange}
         onEdgeDirectionChange={handleEdgeDirectionChange}
+        onDeleteSelectedNodes={handleDeleteSelectedNodes}
       />
     </div>
   );
