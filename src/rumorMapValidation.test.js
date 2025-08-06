@@ -15,7 +15,7 @@ describe('validateNode', () => {
     const validNode = {
       id: "test_node",
       title: "Test Node",
-      state: "complete",
+      size: "regular",
       x: 100,
       y: 200
     };
@@ -29,7 +29,7 @@ describe('validateNode', () => {
     const invalidNode = {
       id: "",
       title: "Test Node",
-      state: "complete",
+      size: "regular",
       x: 100,
       y: 200
     };
@@ -39,25 +39,25 @@ describe('validateNode', () => {
     expect(result.errors).toContain('Node must have a non-empty string id');
   });
 
-  test('should reject node with invalid state', () => {
+  test('should reject node with invalid size', () => {
     const invalidNode = {
       id: "test_node",
       title: "Test Node",
-      state: "invalid_state",
+      size: "invalid_size",
       x: 100,
       y: 200
     };
     
     const result = validateNode(invalidNode);
     expect(result.isValid).toBe(false);
-    expect(result.errors).toContain('Node state must be one of: complete, rumor, undiscovered');
+    expect(result.errors).toContain('Node size must be one of: half, regular, double');
   });
 
   test('should reject node with non-numeric coordinates', () => {
     const invalidNode = {
       id: "test_node",
       title: "Test Node",
-      state: "complete",
+      size: "regular",
       x: "not_a_number",
       y: 200
     };
@@ -79,7 +79,7 @@ describe('validateEdge', () => {
     const validEdge = {
       source: "node1",
       target: "node2",
-      type: "rumor"
+      direction: "forward"
     };
     
     const result = validateEdge(validEdge, ["node1", "node2"]);
@@ -91,7 +91,7 @@ describe('validateEdge', () => {
     const invalidEdge = {
       source: "node1",
       target: "node1",
-      type: "rumor"
+      direction: "forward"
     };
     
     const result = validateEdge(invalidEdge, ["node1"]);
@@ -103,7 +103,7 @@ describe('validateEdge', () => {
     const invalidEdge = {
       source: "nonexistent_node",
       target: "node2",
-      type: "rumor"
+      direction: "forward"
     };
     
     const result = validateEdge(invalidEdge, ["node1", "node2"]);
@@ -111,16 +111,16 @@ describe('validateEdge', () => {
     expect(result.errors).toContain('Edge source "nonexistent_node" does not reference a valid node');
   });
 
-  test('should reject edge with invalid type', () => {
+  test('should reject edge with invalid direction', () => {
     const invalidEdge = {
       source: "node1",
       target: "node2",
-      type: "invalid_type"
+      direction: "invalid_direction"
     };
     
     const result = validateEdge(invalidEdge, ["node1", "node2"]);
     expect(result.isValid).toBe(false);
-    expect(result.errors).toContain('Edge type must be one of: rumor, direct');
+    expect(result.errors).toContain('Edge direction must be one of: forward, backward, bidirectional');
   });
 });
 
@@ -128,11 +128,11 @@ describe('validateRumorMap', () => {
   test('should validate a correct map', () => {
     const validMap = {
       nodes: [
-        { id: "node1", title: "Node 1", state: "complete", x: 0, y: 0 },
-        { id: "node2", title: "Node 2", state: "rumor", x: 100, y: 0 }
+        { id: "node1", title: "Node 1", size: "regular", x: 0, y: 0 },
+        { id: "node2", title: "Node 2", size: "double", x: 100, y: 0 }
       ],
       edges: [
-        { source: "node1", target: "node2", type: "rumor" }
+        { source: "node1", target: "node2", direction: "forward" }
       ]
     };
     
@@ -144,8 +144,8 @@ describe('validateRumorMap', () => {
   test('should reject map with duplicate node IDs', () => {
     const invalidMap = {
       nodes: [
-        { id: "node1", title: "Node 1", state: "complete", x: 0, y: 0 },
-        { id: "node1", title: "Node 1 Duplicate", state: "rumor", x: 100, y: 0 }
+        { id: "node1", title: "Node 1", size: "regular", x: 0, y: 0 },
+        { id: "node1", title: "Node 1 Duplicate", size: "double", x: 100, y: 0 }
       ],
       edges: []
     };
@@ -179,12 +179,12 @@ describe('validateRumorMap', () => {
   test('should reject map with duplicate edges', () => {
     const invalidMap = {
       nodes: [
-        { id: "node1", title: "Node 1", state: "complete", x: 0, y: 0 },
-        { id: "node2", title: "Node 2", state: "rumor", x: 100, y: 0 }
+        { id: "node1", title: "Node 1", size: "regular", x: 0, y: 0 },
+        { id: "node2", title: "Node 2", size: "double", x: 100, y: 0 }
       ],
       edges: [
-        { source: "node1", target: "node2", type: "rumor" },
-        { source: "node1", target: "node2", type: "direct" }
+        { source: "node1", target: "node2", direction: "forward" },
+        { source: "node1", target: "node2", direction: "backward" }
       ]
     };
     
@@ -198,7 +198,7 @@ describe('parseAndValidateRumorMap', () => {
   test('should parse and validate correct JSON', () => {
     const validMap = {
       nodes: [
-        { id: "node1", title: "Node 1", state: "complete", x: 0, y: 0 }
+        { id: "node1", title: "Node 1", size: "regular", x: 0, y: 0 }
       ],
       edges: []
     };
