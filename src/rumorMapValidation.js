@@ -24,12 +24,11 @@ export function validateNode(node) {
     errors.push('Node must have a non-empty string title');
   }
   
-  if (!node.state || typeof node.state !== 'string') {
-    errors.push('Node must have a string state');
-  } else {
-    const validStates = ['complete', 'rumor', 'undiscovered'];
-    if (!validStates.includes(node.state)) {
-      errors.push(`Node state must be one of: ${validStates.join(', ')}`);
+  // Size is optional, but if provided must be valid
+  if (node.size && typeof node.size === 'string') {
+    const validSizes = ['half', 'regular', 'double'];
+    if (!validSizes.includes(node.size)) {
+      errors.push(`Node size must be one of: ${validSizes.join(', ')}`);
     }
   }
   
@@ -70,12 +69,11 @@ export function validateEdge(edge, nodeIds = []) {
     errors.push(`Edge target "${edge.target}" does not reference a valid node`);
   }
   
-  if (!edge.type || typeof edge.type !== 'string') {
-    errors.push('Edge must have a string type');
-  } else {
-    const validTypes = ['rumor', 'direct'];
-    if (!validTypes.includes(edge.type)) {
-      errors.push(`Edge type must be one of: ${validTypes.join(', ')}`);
+  // Direction is optional, but if provided must be valid
+  if (edge.direction && typeof edge.direction === 'string') {
+    const validDirections = ['forward', 'backward', 'bidirectional'];
+    if (!validDirections.includes(edge.direction)) {
+      errors.push(`Edge direction must be one of: ${validDirections.join(', ')}`);
     }
   }
   
