@@ -1,3 +1,14 @@
+const GRAY_GREEN = "#376933"; // Gray green
+const GREEN = "#4CAF50"; // Green
+const BURNT_ORANGE = "#7d3d15"; // Dark burnt orange
+const ORANGE = "#FF5722"; // Orange
+const PURPLE = "#6a0dad"; // Purple
+const BRIGHT_PURPLE = "#9c27b0"; // Bright purple
+const DARK_RED = "#CD5C5C"; // Dark red
+const RED = "#FF5722"; // Red
+const DARK_BLUE = "#1a237e"; // Dark blue
+const BLUE = "#2196F3"; // Blue
+
 const cytoscapeStyles = [
   // Base node style
   {
