@@ -28,7 +28,9 @@ const CytoscapeGraph = ({
   initialZoom, 
   initialCameraPosition, 
   shouldFitOnNextRender, 
-  onFitCompleted 
+  onFitCompleted,
+  onEdgeSelectionChange,
+  onDeleteSelectedEdges
 }) => {
   const cyRef = useRef(null);
   const instanceRef = useRef(null); // To prevent multiple Cytoscape initializations
@@ -41,11 +43,15 @@ const CytoscapeGraph = ({
   const onZoomChangeRef = useRef(onZoomChange);
   const onCameraMoveRef = useRef(onCameraMove);
   const onNodeMoveRef = useRef(onNodeMove);
+  const onEdgeSelectionChangeRef = useRef(onEdgeSelectionChange);
+  const onDeleteSelectedEdgesRef = useRef(onDeleteSelectedEdges);
   
   // Update refs when callbacks change
   onZoomChangeRef.current = onZoomChange;
   onCameraMoveRef.current = onCameraMove;
   onNodeMoveRef.current = onNodeMove;
+  onEdgeSelectionChangeRef.current = onEdgeSelectionChange;
+  onDeleteSelectedEdgesRef.current = onDeleteSelectedEdges;
 
   // Initialize Cytoscape instance only once or when structure changes
   useEffect(() => {
@@ -91,7 +97,7 @@ const CytoscapeGraph = ({
         ...graphData.nodes.map(n => ({
           data: { 
             id: n.id, 
-            label: `${n.title}\n(${n.x}, ${n.y})`, 
+            label: `${n.title}`, // \n(${n.x}, ${n.y})
             size: n.size || "regular",
             x: n.x, 
             y: n.y,
@@ -99,8 +105,9 @@ const CytoscapeGraph = ({
           },
           position: { x: n.x, y: n.y }
         })),
-        ...graphData.edges.map(e => ({
+        ...graphData.edges.map((e, index) => ({
           data: { 
+            id: `edge-${index}`, // Explicit ID for easier tracking
             source: e.source, 
             target: e.target, 
             direction: e.direction || "forward"
@@ -117,11 +124,11 @@ const CytoscapeGraph = ({
           fit: false,  // Never auto-fit during recreation
           padding: 50
         },
-        // Enable node dragging
+        // Enable node dragging and edge selection
         userZoomingEnabled: true,
         userPanningEnabled: true,
-        boxSelectionEnabled: false,
-        selectionType: 'single',
+        boxSelectionEnabled: true,
+        selectionType: 'multiple',
         autoungrabify: false
       });
 
@@ -194,7 +201,7 @@ const CytoscapeGraph = ({
         
         // Update the label with new coordinates
         const originalTitle = graphData.nodes.find(n => n.id === nodeId)?.title || node.data('label').split('\n')[0];
-        node.data('label', `${originalTitle}\n(${snappedX}, ${snappedY})`);
+        node.data('label', `${originalTitle}`); // \n(${snappedX}, ${snappedY})
         
         // Notify parent component if callback is provided
         if (onNodeMoveRef.current) {
@@ -225,6 +232,42 @@ const CytoscapeGraph = ({
 
       instanceRef.current.on('zoom', updateCameraInfo);
       instanceRef.current.on('pan', updateCameraInfo);
+      
+      // Edge selection handling
+      const handleSelectionChange = () => {
+        const selectedEdges = instanceRef.current.$(':selected').edges();
+        const selectedEdgeIds = selectedEdges.map(edge => edge.id());
+        printDebug('🎯 Edge selection changed:', selectedEdgeIds);
+        
+        if (onEdgeSelectionChangeRef.current) {
+          onEdgeSelectionChangeRef.current(selectedEdgeIds);
+        }
+      };
+
+      instanceRef.current.on('select', 'edge', handleSelectionChange);
+      instanceRef.current.on('unselect', 'edge', handleSelectionChange);
+      
+      // Keyboard event handling for delete
+      const handleKeyDown = (event) => {
+        if (event.key === 'Delete' || event.key === 'Backspace') {
+          const selectedEdges = instanceRef.current.$(':selected').edges();
+          if (selectedEdges.length > 0) {
+            const selectedEdgeIds = selectedEdges.map(edge => edge.id());
+            printDebug('🗑️ Deleting selected edges via keyboard:', selectedEdgeIds);
+            
+            if (onDeleteSelectedEdgesRef.current) {
+              onDeleteSelectedEdgesRef.current(selectedEdgeIds);
+            }
+            event.preventDefault();
+          }
+        }
+      };
+
+      // Add keyboard event listener to the container
+      if (cyRef.current) {
+        cyRef.current.addEventListener('keydown', handleKeyDown);
+        cyRef.current.tabIndex = 0; // Make it focusable
+      }
       
       // Don't call updateCameraInfo initially to avoid infinite loop
       // The parent component already has the correct initial values

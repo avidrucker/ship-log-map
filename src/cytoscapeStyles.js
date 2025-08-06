@@ -86,6 +86,27 @@ const cytoscapeStyles = [
       "source-arrow-color": "#fff",
       "curve-style": "bezier"
     }
+  },
+  // Selected edge styles
+  {
+    selector: 'edge:selected',
+    style: {
+      "line-color": "#ff6b6b",
+      "target-arrow-color": "#ff6b6b",
+      "source-arrow-color": "#ff6b6b",
+      "width": 5,
+      "opacity": 1
+    }
+  },
+  // Hover effect for edges
+  {
+    selector: 'edge:active',
+    style: {
+      "line-color": "#ffdd59",
+      "target-arrow-color": "#ffdd59",
+      "source-arrow-color": "#ffdd59",
+      "width": 4
+    }
   }
 ];
 

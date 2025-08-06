@@ -54,6 +54,7 @@ function App() {
   });
 
   const [shouldFitOnNextRender, setShouldFitOnNextRender] = useState(false);
+  const [selectedEdgeIds, setSelectedEdgeIds] = useState([]);
 
   // Add debugging for state changes
   useEffect(() => {
@@ -160,6 +161,30 @@ function App() {
     setLoadError(null);
   }, []);
 
+  const handleEdgeSelectionChange = useCallback((edgeIds) => {
+    printDebug('🏠 App: Edge selection changed to:', edgeIds);
+    setSelectedEdgeIds(edgeIds);
+  }, []);
+
+  const handleDeleteSelectedEdges = useCallback((edgeIds) => {
+    printDebug('🏠 App: Deleting edges:', edgeIds);
+    
+    setGraphData(prevData => {
+      const updatedEdges = prevData.edges.filter((edge, index) => {
+        const edgeId = `edge-${index}`;
+        return !edgeIds.includes(edgeId);
+      });
+      
+      return {
+        ...prevData,
+        edges: updatedEdges
+      };
+    });
+    
+    // Clear selection after deletion
+    setSelectedEdgeIds([]);
+  }, []);
+
   const exportMap = () => {
     // Grab updated positions from Cytoscape instance (via DOM event)
     const cy = document.querySelector("#cy")._cy;
@@ -259,6 +284,22 @@ function App() {
         >
           Reset
         </button>
+        
+        {selectedEdgeIds.length > 0 && (
+          <button
+            style={{
+              padding: "8px 12px",
+              background: "#ff5722",
+              color: "#fff",
+              border: "1px solid #d84315",
+              cursor: "pointer",
+              fontWeight: "bold"
+            }}
+            onClick={() => handleDeleteSelectedEdges(selectedEdgeIds)}
+          >
+            Delete {selectedEdgeIds.length} Edge{selectedEdgeIds.length > 1 ? 's' : ''}
+          </button>
+        )}
       </div>
 
       <div style={{
@@ -324,6 +365,8 @@ function App() {
         initialCameraPosition={cameraPosition}
         shouldFitOnNextRender={shouldFitOnNextRender}
         onFitCompleted={handleFitCompleted}
+        onEdgeSelectionChange={handleEdgeSelectionChange}
+        onDeleteSelectedEdges={handleDeleteSelectedEdges}
       />
     </div>
   );
