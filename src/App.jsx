@@ -57,6 +57,8 @@ function App() {
   const [selectedEdgeIds, setSelectedEdgeIds] = useState([]);
   const [selectedNodeIds, setSelectedNodeIds] = useState([]);
   const [nodeSelectionOrder, setNodeSelectionOrder] = useState([]);
+  const [renamingNodeId, setRenamingNodeId] = useState(null);
+  const [renameInputValue, setRenameInputValue] = useState("");
 
   // Add debugging for state changes
   useEffect(() => {
@@ -142,6 +144,8 @@ function App() {
         setSelectedEdgeIds([]);
         setSelectedNodeIds([]);
         setNodeSelectionOrder([]);
+        setRenamingNodeId(null);
+        setRenameInputValue("");
       } else {
         setLoadError(`Invalid map file: ${result.errors.join('; ')}`);
       }
@@ -173,6 +177,8 @@ function App() {
     setSelectedEdgeIds([]);
     setSelectedNodeIds([]);
     setNodeSelectionOrder([]);
+    setRenamingNodeId(null);
+    setRenameInputValue("");
   }, []);
 
   const clearError = useCallback(() => {
@@ -322,6 +328,92 @@ function App() {
     });
   }, []);
 
+  const handleStartRename = useCallback((nodeId) => {
+    printDebug('🏠 App: Starting rename for node:', nodeId);
+    const node = graphData.nodes.find(n => n.id === nodeId);
+    if (node) {
+      setRenamingNodeId(nodeId);
+      setRenameInputValue(node.title);
+    }
+  }, [graphData.nodes]);
+
+  const handleCancelRename = useCallback(() => {
+    printDebug('🏠 App: Cancelling rename');
+    setRenamingNodeId(null);
+    setRenameInputValue("");
+  }, []);
+
+  // Handle mouse-downs outside the rename modal to cancel renaming
+  const handleBackgroundMouseDown = useCallback((event) => {
+    // Only cancel if we're currently renaming and the mouse-down is outside the rename modal
+    if (renamingNodeId) {
+      // Check if the mouse-down target is the canvas or a parent element, not the rename modal
+      const renameModal = event.target.closest('[data-rename-modal]');
+      if (!renameModal) {
+        printDebug('🏠 App: Background mouse-down detected, cancelling rename');
+        handleCancelRename();
+      }
+    }
+  }, [renamingNodeId, handleCancelRename]);
+
+  const handleSubmitRename = useCallback(() => {
+    if (!renamingNodeId || !renameInputValue.trim()) {
+      handleCancelRename();
+      return;
+    }
+
+    const newTitle = renameInputValue.trim();
+    printDebug('🏠 App: Submitting rename for node:', renamingNodeId, 'new title:', newTitle);
+
+    // Find a unique ID based on the new title
+    let baseId = newTitle.replace(/[^a-zA-Z0-9]/g, ''); // Remove special characters
+    if (!baseId) baseId = 'node'; // Fallback if title has no valid characters
+    
+    let counter = 1;
+    let uniqueId = baseId;
+    
+    // Keep incrementing until we find a unique ID (excluding the current node being renamed)
+    while (graphData.nodes.some(node => node.id === uniqueId && node.id !== renamingNodeId)) {
+      uniqueId = `${baseId}${counter}`;
+      counter++;
+    }
+    
+    printDebug('🏠 App: Generated unique ID:', uniqueId);
+
+    setGraphData(prevData => {
+      const updatedNodes = prevData.nodes.map(node => 
+        node.id === renamingNodeId 
+          ? { ...node, id: uniqueId, title: newTitle }
+          : node
+      );
+      
+      // Also update any edges that reference the old node ID
+      const updatedEdges = prevData.edges.map(edge => ({
+        ...edge,
+        source: edge.source === renamingNodeId ? uniqueId : edge.source,
+        target: edge.target === renamingNodeId ? uniqueId : edge.target
+      }));
+      
+      return {
+        ...prevData,
+        nodes: updatedNodes,
+        edges: updatedEdges
+      };
+    });
+
+    // Clear selections since the node ID changed
+    const cy = document.querySelector("#cy")?._cy;
+    if (cy) {
+      cy.elements().unselect();
+    }
+    setSelectedNodeIds([]);
+    setNodeSelectionOrder([]);
+    
+    // Clear rename state
+    setRenamingNodeId(null);
+    setRenameInputValue("");
+  }, [renamingNodeId, renameInputValue, graphData.nodes, handleCancelRename]);
+
   const handleCreateNode = useCallback(() => {
     printDebug('🏠 App: Creating new node');
     
@@ -398,14 +490,17 @@ function App() {
   };
 
   return (
-    <div style={{ 
-      position: "fixed", 
-      top: 0, 
-      left: 0, 
-      width: "100%", 
-      height: "100%", 
-      overflow: "hidden" 
-    }}>
+    <div 
+      style={{ 
+        position: "fixed", 
+        top: 0, 
+        left: 0, 
+        width: "100%", 
+        height: "100%", 
+        overflow: "hidden" 
+      }}
+      onMouseDown={handleBackgroundMouseDown}
+    >
       <div style={{
         position: "absolute",
         top: "10px",
@@ -504,6 +599,22 @@ function App() {
           </button>
         )}
         
+        {selectedNodeIds.length === 1 && !renamingNodeId && (
+          <button
+            style={{
+              padding: "8px 12px",
+              background: "#9c27b0",
+              color: "#fff",
+              border: "1px solid #6a1b9a",
+              cursor: "pointer",
+              fontWeight: "bold"
+            }}
+            onClick={() => handleStartRename(selectedNodeIds[0])}
+          >
+            Rename Node
+          </button>
+        )}
+        
         {selectedNodeIds.length > 0 && (
           <button
             style={{
@@ -536,6 +647,91 @@ function App() {
           </button>
         )}
       </div>
+
+      {renamingNodeId && (
+        <div 
+          data-rename-modal="true"
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            position: "absolute",
+            top: "10px",
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: 1001,
+            background: "rgba(0, 0, 0, 0.9)",
+            color: "#fff",
+            padding: "15px",
+            borderRadius: "8px",
+            border: "2px solid #9c27b0",
+            display: "flex",
+            flexDirection: "column",
+            gap: "10px",
+            minWidth: "300px"
+          }}
+        >
+          <div style={{ fontWeight: "bold", textAlign: "center" }}>
+            Rename Node: {renamingNodeId}
+          </div>
+          
+          <input
+            type="text"
+            value={renameInputValue}
+            onChange={(e) => setRenameInputValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                handleSubmitRename();
+              } else if (e.key === 'Escape') {
+                handleCancelRename();
+              }
+            }}
+            style={{
+              padding: "8px",
+              fontSize: "14px",
+              border: "1px solid #ccc",
+              borderRadius: "4px",
+              outline: "none"
+            }}
+            placeholder="Enter new node name..."
+            autoFocus
+          />
+          
+          <div style={{
+            display: "flex",
+            gap: "10px",
+            justifyContent: "center"
+          }}>
+            <button
+              onClick={handleSubmitRename}
+              style={{
+                padding: "6px 12px",
+                background: "#4caf50",
+                color: "#fff",
+                border: "1px solid #388e3c",
+                borderRadius: "4px",
+                cursor: "pointer",
+                fontSize: "12px"
+              }}
+            >
+              Rename
+            </button>
+            
+            <button
+              onClick={handleCancelRename}
+              style={{
+                padding: "6px 12px",
+                background: "#f44336",
+                color: "#fff",
+                border: "1px solid #d32f2f",
+                borderRadius: "4px",
+                cursor: "pointer",
+                fontSize: "12px"
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       <div style={{
         position: "absolute",

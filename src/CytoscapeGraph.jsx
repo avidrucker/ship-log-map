@@ -78,15 +78,29 @@ const CytoscapeGraph = ({
     printDebug('🔄 Main useEffect triggered - graphData changed');
     if (!cyRef.current) return;  // Wait until div is mounted
     
-    // Only recreate if instance doesn't exist or if the number of nodes/edges changed
+    // Only recreate if instance doesn't exist or if the number of nodes/edges changed or node IDs changed
     const currentNodeCount = instanceRef.current ? instanceRef.current.nodes().length : 0;
     const currentEdgeCount = instanceRef.current ? instanceRef.current.edges().length : 0;
     const newNodeCount = graphData.nodes.length;
     const newEdgeCount = graphData.edges.length;
     
+    // Check if node IDs have changed (for rename operations)
+    let nodeIdsChanged = false;
+    if (instanceRef.current && currentNodeCount === newNodeCount) {
+      const currentNodeIds = instanceRef.current.nodes().map(n => n.id()).sort();
+      const newNodeIds = graphData.nodes.map(n => n.id).sort();
+      nodeIdsChanged = JSON.stringify(currentNodeIds) !== JSON.stringify(newNodeIds);
+      printDebug('🔍 Node IDs check:', {
+        currentNodeIds,
+        newNodeIds,
+        nodeIdsChanged
+      });
+    }
+    
     const needsRecreate = !instanceRef.current || 
       currentNodeCount !== newNodeCount ||
-      currentEdgeCount !== newEdgeCount;
+      currentEdgeCount !== newEdgeCount ||
+      nodeIdsChanged;
 
     printDebug('🔍 Recreation check:', {
       hasInstance: !!instanceRef.current,
@@ -94,6 +108,7 @@ const CytoscapeGraph = ({
       newNodeCount,
       currentEdgeCount,
       newEdgeCount,
+      nodeIdsChanged,
       needsRecreate
     });
 
