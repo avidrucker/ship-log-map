@@ -11,15 +11,15 @@
       "id": "sun_station",
       "title": "Sun Station",
       "size": "regular",
-      "x": 102,
-      "y": 490
+      "x": 113,
+      "y": 481
     },
     {
       "id": "white_hole_station",
       "title": "White Hole Station",
       "size": "regular",
-      "x": 227,
-      "y": 234
+      "x": 248,
+      "y": 162
     },
     {
       "id": "ash_twin_towers",
@@ -39,8 +39,8 @@
       "id": "high_energy_lab",
       "title": "High Energy Lab",
       "size": "regular",
-      "x": 480,
-      "y": 188
+      "x": 557,
+      "y": 163
     },
     {
       "id": "nomai_mines",
@@ -67,40 +67,25 @@
       "id": "ash_twin_tower_designs",
       "title": "Ash Twin Tower Designs",
       "size": "half",
-      "x": 413,
-      "y": 278
+      "x": 492,
+      "y": 267
     },
     {
       "id": "alignment_angle_diagram",
       "title": "Alignment Angle Diagram",
       "size": "half",
-      "x": 483,
-      "y": 786
+      "x": 453,
+      "y": 808
     },
     {
       "id": "statue_workshop",
       "title": "Statue Workshop",
       "size": "half",
-      "x": 967,
-      "y": 301
+      "x": 990,
+      "y": 302
     }
   ],
   "edges": [
-    {
-      "source": "sun_station",
-      "target": "ash_twin_project",
-      "direction": "forward"
-    },
-    {
-      "source": "white_hole_station",
-      "target": "ash_twin_project",
-      "direction": "forward"
-    },
-    {
-      "source": "ash_twin_towers",
-      "target": "ash_twin_project",
-      "direction": "bidirectional"
-    },
     {
       "source": "black_hole_forge",
       "target": "ash_twin_project",
@@ -109,36 +94,56 @@
     {
       "source": "high_energy_lab",
       "target": "ash_twin_project",
-      "direction": "forward"
-    },
-    {
-      "source": "ash_twin_project",
-      "target": "nomai_mines",
-      "direction": "forward"
-    },
-    {
-      "source": "ash_twin_project",
-      "target": "statue_island",
-      "direction": "forward"
-    },
-    {
-      "source": "ash_twin_project",
-      "target": "volcanic_testing_site",
-      "direction": "forward"
-    },
-    {
-      "source": "high_energy_lab",
-      "target": "ash_twin_tower_designs",
       "direction": "forward"
     },
     {
       "source": "black_hole_forge",
       "target": "alignment_angle_diagram",
-      "direction": "forward"
+      "direction": "backward"
     },
     {
       "source": "statue_island",
       "target": "statue_workshop",
+      "direction": "backward"
+    },
+    {
+      "source": "ash_twin_towers",
+      "target": "white_hole_station",
+      "direction": "forward"
+    },
+    {
+      "source": "ash_twin_towers",
+      "target": "sun_station",
+      "direction": "forward"
+    },
+    {
+      "source": "ash_twin_towers",
+      "target": "black_hole_forge",
+      "direction": "forward"
+    },
+    {
+      "source": "volcanic_testing_site",
+      "target": "nomai_mines",
+      "direction": "forward"
+    },
+    {
+      "source": "nomai_mines",
+      "target": "ash_twin_project",
+      "direction": "forward"
+    },
+    {
+      "source": "statue_island",
+      "target": "ash_twin_project",
+      "direction": "forward"
+    },
+    {
+      "source": "white_hole_station",
+      "target": "high_energy_lab",
+      "direction": "bidirectional"
+    },
+    {
+      "source": "black_hole_forge",
+      "target": "ash_twin_tower_designs",
       "direction": "forward"
     }
   ]
