@@ -6,24 +6,23 @@ const cytoscapeStyles = [
       "background-color": "#CD5C5C", // Dark burnt orange
       "label": "data(label)",
       "color": "#fff", // White text
-      "text-valign": "top",
+      "text-valign": "center",
       "text-halign": "center",
-      "text-margin-y": 8, // Position text near top
+      "text-margin-y": -50, // Position text near top
       "width": 120, // Regular size
       "height": 160,
-      "font-size": 20,
+      "font-size": 18,
       "font-weight": "bold",
       "text-wrap": "wrap",
       "text-max-width": 110,
       "shape": "rectangle",
       "border-width": 2,
-      "border-color": "#8B0000", // Darker border
+      "border-color": "white", // Darker border
       "background-image": "data(icon)",
-      "background-fit": "contain",
-      "background-position-x": "50%",
-      "background-position-y": "80%", // Position icon near bottom
-      "background-width": "60%",
-      "background-height": "40%"
+      "background-repeat": "no-repeat",
+      "background-position-y": "100%", // Center horizontally, position vertically
+      "background-width": "110", // Square size that should fit well
+      "background-height": "110px" // Square size that should fit well
     }
   },
   // Double size nodes
@@ -31,11 +30,13 @@ const cytoscapeStyles = [
     selector: 'node[size="double"]',
     style: {
       "width": 240,
-      "height": 320,
+      "height": 300,
       "font-size": 30,
       "text-max-width": 220,
-      "text-valign": "top",
-      "text-margin-y": 75
+      "text-margin-y": -104,
+      "background-width": "220px", // Proportionally larger square
+      "background-height": "220px",
+      "background-repeat": "no-repeat",
     }
   },
   // Half size nodes
@@ -43,12 +44,31 @@ const cytoscapeStyles = [
     selector: 'node[size="half"]',
     style: {
       "width": 80,
-      "height": 100,
-      "font-size": 16,
+      "height": 120,
+      "font-size": 12,
       "text-max-width": 70,
-      "text-margin-y": 6,
-      "background-width": "50%",
-      "background-height": "35%"
+      "text-margin-y": -36,
+      "background-width": "75px", // Proportionally smaller square
+      "background-height": "75px",
+      "background-repeat": "no-repeat",
+    }
+  },
+  // Selected node styles
+  {
+    selector: 'node:selected',
+    style: {
+      "border-width": 4,
+      "border-color": "#4fc3f7",
+      "background-color": "#E67E22", // Slightly different orange for selected
+      "opacity": 1
+    }
+  },
+  // Hover effect for nodes
+  {
+    selector: 'node:active',
+    style: {
+      "border-color": "#ffdd59",
+      "border-width": 3
     }
   },
   // Edge styles with arrows
