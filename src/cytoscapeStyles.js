@@ -8,9 +8,9 @@ const cytoscapeStyles = [
       "color": "#fff", // White text
       "text-valign": "center",
       "text-halign": "center",
-      "text-margin-y": -50, // Position text near top
+      "text-margin-y": -58, // Position text near top
       "width": 120, // Regular size
-      "height": 160,
+      "height": 168,
       "font-size": 15,
       "line-height": 1.15,
       "font-weight": "bold",
@@ -18,13 +18,13 @@ const cytoscapeStyles = [
       "text-wrap": "wrap",
       "text-max-width": 115,
       "shape": "rectangle",
-      "border-width": 2,
+      "border-width": 5,
       "border-color": "white", // Darker border
       "background-image": "data(icon)",
       "background-repeat": "no-repeat",
-      "background-position-y": "100%", // Center horizontally, position vertically
-      "background-width": "110", // Square size that should fit well
-      "background-height": "110px" // Square size that should fit well
+      "background-position-y": "45px", // Center horizontally, position vertically
+      "background-width": "120px", // Square size that should fit well
+      "background-height": "120px" // Square size that should fit well
     }
   },
   // Double size nodes
@@ -32,13 +32,14 @@ const cytoscapeStyles = [
     selector: 'node[size="double"]',
     style: {
       "width": 240,
-      "height": 300,
+      "height": 310,
       "font-size": 30,
       "line-height": 1.25,
       "text-max-width": 230,
-      "text-margin-y": -104,
-      "background-width": "220px", // Proportionally larger square
-      "background-height": "220px",
+      "text-margin-y": -110,
+      "background-width": "240px", // Proportionally larger square
+      "background-height": "240px",
+      "background-position-y": "80px",
       "background-repeat": "no-repeat",
     }
   },
@@ -61,7 +62,7 @@ const cytoscapeStyles = [
   {
     selector: 'node:selected',
     style: {
-      "border-width": 4,
+      "border-width": 7,
       "border-color": "#4fc3f7",
       "background-color": "#E67E22", // Slightly different orange for selected
       "opacity": 1
@@ -72,43 +73,40 @@ const cytoscapeStyles = [
     selector: 'node:active',
     style: {
       "border-color": "#ffdd59",
-      "border-width": 3
+      "border-width": 6
     }
   },
   // Edge styles with arrows
   {
-    selector: 'edge[direction="forward"]',
+    selector: 'edge',
     style: {
       "line-style": "solid",
-      "width": 3,
+      "width": 5,
       "line-color": "#fff",
+      "curve-style": "bezier"
+    }
+  },
+  {
+    selector: 'edge[direction="forward"]',
+    style: {
       "target-arrow-shape": "triangle",
       "target-arrow-color": "#fff",
-      "curve-style": "bezier"
     }
   },
   {
     selector: 'edge[direction="backward"]',
     style: {
-      "line-style": "solid",
-      "width": 3,
-      "line-color": "#fff",
       "source-arrow-shape": "triangle",
-      "source-arrow-color": "#fff",
-      "curve-style": "bezier"
+      "source-arrow-color": "#fff"
     }
   },
   {
     selector: 'edge[direction="bidirectional"]',
     style: {
-      "line-style": "solid",
-      "width": 3,
-      "line-color": "#fff",
       "target-arrow-shape": "triangle",
       "target-arrow-color": "#fff",
       "source-arrow-shape": "triangle",
       "source-arrow-color": "#fff",
-      "curve-style": "bezier"
     }
   },
   // Selected edge styles
@@ -118,7 +116,7 @@ const cytoscapeStyles = [
       "line-color": "#ff6b6b",
       "target-arrow-color": "#ff6b6b",
       "source-arrow-color": "#ff6b6b",
-      "width": 5,
+      "width": 7,
       "opacity": 1
     }
   },
@@ -129,7 +127,7 @@ const cytoscapeStyles = [
       "line-color": "#ffdd59",
       "target-arrow-color": "#ffdd59",
       "source-arrow-color": "#ffdd59",
-      "width": 4
+      "width": 7
     }
   }
 ];
