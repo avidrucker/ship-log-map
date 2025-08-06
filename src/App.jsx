@@ -305,6 +305,23 @@ function App() {
     });
   }, []);
 
+  const handleNodeSizeChange = useCallback((nodeId, newSize) => {
+    printDebug('🏠 App: Changing node size:', nodeId, 'to:', newSize);
+    
+    setGraphData(prevData => {
+      const updatedNodes = prevData.nodes.map(node => 
+        node.id === nodeId 
+          ? { ...node, size: newSize }
+          : node
+      );
+      
+      return {
+        ...prevData,
+        nodes: updatedNodes
+      };
+    });
+  }, []);
+
   const handleCreateNode = useCallback(() => {
     printDebug('🏠 App: Creating new node');
     
@@ -598,6 +615,7 @@ function App() {
         onNodeSelectionChange={handleNodeSelectionChange}
         onEdgeDirectionChange={handleEdgeDirectionChange}
         onDeleteSelectedNodes={handleDeleteSelectedNodes}
+        onNodeSizeChange={handleNodeSizeChange}
       />
     </div>
   );

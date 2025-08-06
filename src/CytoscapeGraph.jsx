@@ -40,7 +40,8 @@ const CytoscapeGraph = ({
   onDeleteSelectedEdges,
   onNodeSelectionChange,
   onEdgeDirectionChange,
-  onDeleteSelectedNodes
+  onDeleteSelectedNodes,
+  onNodeSizeChange
 }) => {
   const cyRef = useRef(null);
   const instanceRef = useRef(null); // To prevent multiple Cytoscape initializations
@@ -59,6 +60,7 @@ const CytoscapeGraph = ({
   const onNodeSelectionChangeRef = useRef(onNodeSelectionChange);
   const onEdgeDirectionChangeRef = useRef(onEdgeDirectionChange);
   const onDeleteSelectedNodesRef = useRef(onDeleteSelectedNodes);
+  const onNodeSizeChangeRef = useRef(onNodeSizeChange);
   
   // Update refs when callbacks change
   onZoomChangeRef.current = onZoomChange;
@@ -69,6 +71,7 @@ const CytoscapeGraph = ({
   onNodeSelectionChangeRef.current = onNodeSelectionChange;
   onEdgeDirectionChangeRef.current = onEdgeDirectionChange;
   onDeleteSelectedNodesRef.current = onDeleteSelectedNodes;
+  onNodeSizeChangeRef.current = onNodeSizeChange;
 
   // Initialize Cytoscape instance only once or when structure changes
   useEffect(() => {
@@ -344,6 +347,40 @@ const CytoscapeGraph = ({
         
         if (onEdgeDirectionChangeRef.current) {
           onEdgeDirectionChangeRef.current(edgeId, newDirection);
+        }
+        
+        event.stopPropagation();
+      });
+      
+      // Node double-click handling for size cycling
+      instanceRef.current.on('dblclick', 'node', (event) => {
+        const nodeId = event.target.id();
+        const nodeData = event.target.data();
+        const currentSize = nodeData.size || "regular";
+        
+        // Cycle through sizes: half -> regular -> double -> half
+        let newSize;
+        switch (currentSize) {
+          case "half":
+            newSize = "regular";
+            break;
+          case "regular":
+            newSize = "double";
+            break;
+          case "double":
+            newSize = "half";
+            break;
+          default:
+            newSize = "regular";
+        }
+        
+        printDebug('🔄 Node size change:', nodeId, currentSize, '->', newSize);
+        
+        // Update the node data directly in Cytoscape for immediate visual update
+        event.target.data('size', newSize);
+        
+        if (onNodeSizeChangeRef.current) {
+          onNodeSizeChangeRef.current(nodeId, newSize);
         }
         
         event.stopPropagation();
