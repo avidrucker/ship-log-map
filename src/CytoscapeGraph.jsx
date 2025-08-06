@@ -11,8 +11,8 @@ const printDebug = (...args) => {
 // Simple test SVG to debug rendering issues
 const TEST_ICON_SVG = 'data:image/svg+xml;utf8,' + encodeURIComponent(`<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100" preserveAspectRatio="xMidYMid meet">
-  <rect x="5" y="5" width="90" height="90" fill="red" stroke="blue" stroke-width="2"/>
-  <circle cx="50" cy="50" r="20" fill="yellow"/>
+  <rect x="0" y="0" width="100" height="100" fill="red" stroke="blue" stroke-width="2"/>
+  <circle cx="50" cy="50" r="25" fill="yellow"/>
   <text x="50" y="55" text-anchor="middle" font-size="14" fill="black" font-family="Arial">TEST</text>
 </svg>`);
 
