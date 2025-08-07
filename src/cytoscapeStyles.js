@@ -8,34 +8,79 @@ const DARK_RED = "#CD5C5C"; // Dark red
 const RED = "#FF5722"; // Red
 const DARK_BLUE = "#1a237e"; // Dark blue
 const BLUE = "#2196F3"; // Blue
+const DARK_GRAY = "#424242"; // Dark gray
+const GRAY = "#9E9E9E"; // Gray
 
 const cytoscapeStyles = [
-  // Base node style
+  // Base node style - default gray
   {
     selector: "node",
     style: {
-      "background-color": "#CD5C5C", // Dark burnt orange
+      "background-color": DARK_GRAY, // Default gray
       "label": "data(label)",
       "color": "#fff", // White text
       "text-valign": "center",
       "text-halign": "center",
-      "text-margin-y": -58, // Position text near top
+      "text-margin-y": -61, // Position text near top
       "width": 120, // Regular size
-      "height": 168,
+      "height": 175,
       "font-size": 15,
-      "line-height": 1.15,
+      "line-height": 1.1,
       "font-weight": "bold",
       "font-family": "monospace",
       "text-wrap": "wrap",
       "text-max-width": 115,
       "shape": "rectangle",
       "border-width": 5,
-      "border-color": "white", // Darker border
+      "border-color": DARK_GRAY,
       "background-image": "data(icon)",
       "background-repeat": "no-repeat",
-      "background-position-y": "45px", // Center horizontally, position vertically
-      "background-width": "120px", // Square size that should fit well
-      "background-height": "120px" // Square size that should fit well
+      "background-position-y": "52px",
+      "background-width": "120px",
+      "background-height": "120px"
+    }
+  },
+  // Color-specific node styles (unselected/dimmed)
+  {
+    selector: 'node[color="gray"]',
+    style: {
+      "background-color": DARK_GRAY,
+      "border-color": DARK_GRAY
+    }
+  },
+  {
+    selector: 'node[color="green"]',
+    style: {
+      "background-color": GRAY_GREEN,
+      "border-color": GRAY_GREEN
+    }
+  },
+  {
+    selector: 'node[color="orange"]',
+    style: {
+      "background-color": BURNT_ORANGE,
+      "border-color": BURNT_ORANGE
+    }
+  },
+  {
+    selector: 'node[color="purple"]',
+    style: {
+      "background-color": PURPLE,
+      "border-color": PURPLE
+    }
+  },
+  {
+    selector: 'node[color="red"]',
+    style: {
+      "background-color": DARK_RED,
+      "border-color": DARK_RED
+    }
+  },
+  {
+    selector: 'node[color="blue"]',
+    style: {
+      "background-color": DARK_BLUE,
+      "border-color": DARK_BLUE
     }
   },
   // Double size nodes
@@ -43,14 +88,14 @@ const cytoscapeStyles = [
     selector: 'node[size="double"]',
     style: {
       "width": 240,
-      "height": 310,
+      "height": 340,
       "font-size": 30,
-      "line-height": 1.25,
+      "line-height": 1.1,
       "text-max-width": 230,
-      "text-margin-y": -110,
+      "text-margin-y": -118,
       "background-width": "240px", // Proportionally larger square
       "background-height": "240px",
-      "background-position-y": "80px",
+      "background-position-y": "100px",
       "background-repeat": "no-repeat",
     }
   },
@@ -63,20 +108,62 @@ const cytoscapeStyles = [
       "font-size": 12,
       "line-height": 1.05,
       "text-max-width": 78,
-      "text-margin-y": -36,
+      "text-margin-y": -38,
       "background-width": "75px", // Proportionally smaller square
       "background-height": "75px",
       "background-repeat": "no-repeat",
+      "background-position-y": "42px",
     }
   },
-  // Selected node styles
+  // Selected node styles - bright colors when selected
   {
     selector: 'node:selected',
     style: {
       "border-width": 7,
       "border-color": "#4fc3f7",
-      "background-color": "#E67E22", // Slightly different orange for selected
       "opacity": 1
+    }
+  },
+  {
+    selector: 'node[color="gray"]:selected',
+    style: {
+      "background-color": GRAY,
+      "border-color": GRAY
+    }
+  },
+  {
+    selector: 'node[color="green"]:selected',
+    style: {
+      "background-color": GREEN,
+      "border-color": GREEN
+    }
+  },
+  {
+    selector: 'node[color="orange"]:selected',
+    style: {
+      "background-color": ORANGE,
+      "border-color": ORANGE
+    }
+  },
+  {
+    selector: 'node[color="purple"]:selected',
+    style: {
+      "background-color": BRIGHT_PURPLE,
+      "border-color": BRIGHT_PURPLE
+    }
+  },
+  {
+    selector: 'node[color="red"]:selected',
+    style: {
+      "background-color": RED,
+      "border-color": RED
+    }
+  },
+  {
+    selector: 'node[color="blue"]:selected',
+    style: {
+      "background-color": BLUE,
+      "border-color": BLUE
     }
   },
   // Hover effect for nodes
@@ -94,7 +181,8 @@ const cytoscapeStyles = [
       "line-style": "solid",
       "width": 5,
       "line-color": "#fff",
-      "curve-style": "bezier"
+      "curve-style": "bezier",
+      "arrow-scale": 1.5
     }
   },
   {
