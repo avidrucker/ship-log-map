@@ -5,84 +5,192 @@
       "title": "Ash Twin Project",
       "size": "double",
       "x": 729,
-      "y": 470
+      "y": 470,
+      "color": "orange"
     },
     {
       "id": "sun_station",
       "title": "Sun Station",
       "size": "regular",
       "x": 113,
-      "y": 481
+      "y": 481,
+      "color": "orange"
     },
     {
       "id": "white_hole_station",
       "title": "White Hole Station",
       "size": "regular",
       "x": 248,
-      "y": 162
+      "y": 162,
+      "color": "orange"
     },
     {
       "id": "ash_twin_towers",
       "title": "Ash Twin Towers",
       "size": "regular",
       "x": 330,
-      "y": 482
+      "y": 482,
+      "color": "orange"
     },
     {
       "id": "black_hole_forge",
       "title": "Black Hole Forge",
       "size": "regular",
       "x": 396,
-      "y": 713
+      "y": 713,
+      "color": "orange"
     },
     {
       "id": "high_energy_lab",
       "title": "High Energy Lab",
       "size": "regular",
       "x": 557,
-      "y": 163
+      "y": 163,
+      "color": "orange"
     },
     {
       "id": "nomai_mines",
       "title": "Nomai Mines",
       "size": "regular",
       "x": 991,
-      "y": 720
+      "y": 720,
+      "color": "orange"
     },
     {
       "id": "statue_island",
       "title": "Statue Island",
       "size": "regular",
       "x": 1033,
-      "y": 218
+      "y": 218,
+      "color": "orange"
     },
     {
       "id": "volcanic_testing_site",
       "title": "Volcanic Testing Site",
       "size": "regular",
       "x": 1188,
-      "y": 723
+      "y": 723,
+      "color": "orange"
     },
     {
       "id": "ash_twin_tower_designs",
       "title": "Ash Twin Tower Designs",
       "size": "half",
       "x": 492,
-      "y": 267
+      "y": 267,
+      "color": "orange"
     },
     {
       "id": "alignment_angle_diagram",
       "title": "Alignment Angle Diagram",
       "size": "half",
       "x": 453,
-      "y": 808
+      "y": 808,
+      "color": "orange"
     },
     {
       "id": "statue_workshop",
       "title": "Statue Workshop",
       "size": "half",
       "x": 990,
+      "y": 302,
+      "color": "orange"
+    },
+    {
+      "id": "OrbitalProbeCannon",
+      "title": "Orbital Probe Cannon",
+      "size": "double",
+      "x": 2014,
+      "y": 122,
+      "color": "green"
+    },
+    {
+      "id": "EyeSignalLocator",
+      "title": "Eye Signal Locator",
+      "size": "regular",
+      "x": 2030,
+      "y": -325,
+      "color": "green"
+    },
+    {
+      "id": "SouthernObservatory",
+      "title": "Southern Observatory",
+      "size": "regular",
+      "x": 2582,
+      "y": -183,
+      "color": "green"
+    },
+    {
+      "id": "ConstructionYard",
+      "title": "Construction Yard",
+      "size": "regular",
+      "x": 2472,
+      "y": 258,
+      "color": "green"
+    },
+    {
+      "id": "OceanDepths",
+      "title": "Ocean Depths",
+      "size": "regular",
+      "color": "green",
+      "x": 2013,
+      "y": 523
+    },
+    {
+      "id": "BrambleIsland",
+      "title": "Bramble Island",
+      "size": "regular",
+      "color": "green",
+      "x": 2710,
+      "y": 530
+    },
+    {
+      "id": "FeldsparsCamp",
+      "title": "Feldspar's Camp",
+      "size": "regular",
+      "color": "green",
+      "x": 2813,
+      "y": 138
+    },
+    {
+      "id": "FrozenJellyfish",
+      "title": "Frozen Jellyfish",
+      "size": "regular",
+      "color": "green",
+      "x": 3133,
+      "y": 254
+    },
+    {
+      "id": "ControlModule",
+      "title": "Control Module",
+      "size": "half",
+      "color": "green",
+      "x": 1913,
+      "y": 299
+    },
+    {
+      "id": "LaunchModule",
+      "title": "Launch Module",
+      "size": "half",
+      "color": "green",
+      "x": 2012,
       "y": 302
+    },
+    {
+      "id": "ProbeTrackingModule",
+      "title": "Probe Tracking Module",
+      "size": "half",
+      "color": "green",
+      "x": 2121,
+      "y": 301
+    },
+    {
+      "id": "TornadoSimulation",
+      "title": "Tornado Simulation",
+      "size": "half",
+      "color": "green",
+      "x": 2699,
+      "y": -104
     }
   ],
   "edges": [
@@ -144,6 +252,66 @@
     {
       "source": "black_hole_forge",
       "target": "ash_twin_tower_designs",
+      "direction": "forward"
+    },
+    {
+      "source": "EyeSignalLocator",
+      "target": "SouthernObservatory",
+      "direction": "forward"
+    },
+    {
+      "source": "SouthernObservatory",
+      "target": "OrbitalProbeCannon",
+      "direction": "forward"
+    },
+    {
+      "source": "OrbitalProbeCannon",
+      "target": "ConstructionYard",
+      "direction": "bidirectional"
+    },
+    {
+      "source": "ConstructionYard",
+      "target": "SouthernObservatory",
+      "direction": "forward"
+    },
+    {
+      "source": "ConstructionYard",
+      "target": "OceanDepths",
+      "direction": "forward"
+    },
+    {
+      "source": "BrambleIsland",
+      "target": "OceanDepths",
+      "direction": "forward"
+    },
+    {
+      "source": "BrambleIsland",
+      "target": "FeldsparsCamp",
+      "direction": "forward"
+    },
+    {
+      "source": "FeldsparsCamp",
+      "target": "FrozenJellyfish",
+      "direction": "forward"
+    },
+    {
+      "source": "ControlModule",
+      "target": "OrbitalProbeCannon",
+      "direction": "forward"
+    },
+    {
+      "source": "LaunchModule",
+      "target": "OrbitalProbeCannon",
+      "direction": "forward"
+    },
+    {
+      "source": "ProbeTrackingModule",
+      "target": "OrbitalProbeCannon",
+      "direction": "forward"
+    },
+    {
+      "source": "ConstructionYard",
+      "target": "TornadoSimulation",
       "direction": "forward"
     }
   ]
