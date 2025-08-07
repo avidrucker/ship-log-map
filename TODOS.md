@@ -1,0 +1,17 @@
+# To-Do's
+
+- [ ] Implement animation of nodes appearing
+- [ ] Implement animation of edges connecting one node to another
+- [ ] Implement "question mark" nodes that can be transformed into specific nodes
+- [ ] Implement context menu to replace current UI for adding/removing nodes, edges, renaming nodes, etc.
+- [x] Implement a "save" button to save the current graph state
+- [x] Implement a "load" button to load a previously saved graph state
+- [ ] Implement a "new" button to clear the current graph state and start fresh with zero nodes, edges, and the camera is reset to the default position and zoom
+- [ ] Implement a "debug" button to log the current graph state to the console
+- [ ] Change selected node outline/border color to be the node's bright color instead of white
+- [x] Implement a "delete" button to remove the currently selected node and all its edges
+- [x] Implement a "rename" button to rename the currently selected node
+- [x] Implement a "connect" button to connect the currently selected node to another node
+- [ ] Implement a "play mode" button which hides the UI and allows the user to interact with the graph without editing it
+- [ ] Implement an explicit "edit mode" button which shows the UI and allows the user to edit the graph
+- [ ] Implement a "zoom to node" button which zooms the camera to the currently selected node, centering it in the viewport and zooming in to a comfortable reading/viewing level (this zoom amount should vary depending on the node size)
