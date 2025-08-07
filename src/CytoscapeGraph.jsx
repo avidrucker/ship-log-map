@@ -11,7 +11,7 @@ const printDebug = (...args) => {
 // Simple test SVG to debug rendering issues
 const TEST_ICON_SVG = 'data:image/svg+xml;utf8,' + encodeURIComponent(`<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100" preserveAspectRatio="xMidYMid meet">
-  <rect x="0" y="0" width="100" height="100" fill="red" stroke="blue" stroke-width="2"/>
+  <rect x="0" y="0" width="100" height="100" fill="red" stroke="blue" stroke-width="0"/>
   <circle cx="50" cy="50" r="25" fill="yellow"/>
   <text x="50" y="55" text-anchor="middle" font-size="14" fill="black" font-family="Arial">TEST</text>
 </svg>`);
@@ -41,7 +41,8 @@ const CytoscapeGraph = ({
   onNodeSelectionChange,
   onEdgeDirectionChange,
   onDeleteSelectedNodes,
-  onNodeSizeChange
+  onNodeSizeChange,
+  onNodeColorChange
 }) => {
   const cyRef = useRef(null);
   const instanceRef = useRef(null); // To prevent multiple Cytoscape initializations
@@ -61,6 +62,7 @@ const CytoscapeGraph = ({
   const onEdgeDirectionChangeRef = useRef(onEdgeDirectionChange);
   const onDeleteSelectedNodesRef = useRef(onDeleteSelectedNodes);
   const onNodeSizeChangeRef = useRef(onNodeSizeChange);
+  const onNodeColorChangeRef = useRef(onNodeColorChange);
   
   // Update refs when callbacks change
   onZoomChangeRef.current = onZoomChange;
@@ -72,6 +74,7 @@ const CytoscapeGraph = ({
   onEdgeDirectionChangeRef.current = onEdgeDirectionChange;
   onDeleteSelectedNodesRef.current = onDeleteSelectedNodes;
   onNodeSizeChangeRef.current = onNodeSizeChange;
+  onNodeColorChangeRef.current = onNodeColorChange;
 
   // Initialize Cytoscape instance only once or when structure changes
   useEffect(() => {
@@ -134,6 +137,7 @@ const CytoscapeGraph = ({
             id: n.id, 
             label: `${n.title}`, // \n(${n.x}, ${n.y})
             size: n.size || "regular",
+            color: n.color || "gray",
             x: n.x, 
             y: n.y,
             icon: TEST_ICON_SVG // REACT_ICON_SVG
@@ -488,6 +492,7 @@ const CytoscapeGraph = ({
           cyNode.data('y', nodeData.y);
           cyNode.data('label', `${nodeData.title}`); // \n(${nodeData.x}, ${nodeData.y})
           cyNode.data('size', nodeData.size || "regular");
+          cyNode.data('color', nodeData.color || "gray");
           cyNode.data('icon', TEST_ICON_SVG); // REACT_ICON_SVG
         }
       });

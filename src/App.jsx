@@ -25,11 +25,17 @@ function App() {
         typeof node.x === 'number' && typeof node.y === 'number'
       );
       
+      // Ensure all nodes have color property
+      const migratedNodes = parsedData.nodes.map(node => ({
+        ...node,
+        color: node.color || "gray"
+      }));
+      
       if (hasCoordinates) {
-        return parsedData;
+        return { ...parsedData, nodes: migratedNodes };
       } else {
         // Merge saved data with initial graph to get coordinates
-        const mergedNodes = parsedData.nodes.map(savedNode => {
+        const mergedNodes = migratedNodes.map(savedNode => {
           const initialNode = defaultShipLogData.nodes.find(n => n.id === savedNode.id);
           return {
             ...savedNode,
@@ -455,6 +461,7 @@ function App() {
       id: uniqueId,
       title: uniqueTitle,
       size: "regular",
+      color: "gray",
       x: Math.round(centerX),
       y: Math.round(centerY)
     };
@@ -488,6 +495,23 @@ function App() {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   };
+
+  const handleNodeColorChange = useCallback((nodeIds, newColor) => {
+    printDebug('🏠 App: Changing node color for:', nodeIds, 'to:', newColor);
+    
+    setGraphData(prevData => {
+      const updatedNodes = prevData.nodes.map(node => 
+        nodeIds.includes(node.id)
+          ? { ...node, color: newColor }
+          : node
+      );
+      
+      return {
+        ...prevData,
+        nodes: updatedNodes
+      };
+    });
+  }, []);
 
   return (
     <div 
@@ -645,6 +669,49 @@ function App() {
           >
             Connect: {nodeSelectionOrder[0]} → {nodeSelectionOrder[1]}
           </button>
+        )}
+        
+        {selectedNodeIds.length > 0 && (
+          <div style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: "5px"
+          }}>
+            <label style={{
+              fontSize: "12px",
+              color: "#fff",
+              fontWeight: "bold",
+              textAlign: "center"
+            }}>
+              Node Color:
+            </label>
+            <select
+              value=""
+              onChange={(e) => {
+                if (e.target.value) {
+                  handleNodeColorChange(selectedNodeIds, e.target.value);
+                  e.target.value = ""; // Reset to placeholder
+                }
+              }}
+              style={{
+                padding: "6px 8px",
+                fontSize: "12px",
+                border: "1px solid #ccc",
+                borderRadius: "4px",
+                background: "#000",
+                color: "#fff",
+                cursor: "pointer"
+              }}
+            >
+              <option value="">Change Color...</option>
+              <option value="gray">Gray</option>
+              <option value="green">Green</option>
+              <option value="orange">Orange</option>
+              <option value="purple">Purple</option>
+              <option value="red">Red</option>
+              <option value="blue">Blue</option>
+            </select>
+          </div>
         )}
       </div>
 
@@ -812,6 +879,7 @@ function App() {
         onEdgeDirectionChange={handleEdgeDirectionChange}
         onDeleteSelectedNodes={handleDeleteSelectedNodes}
         onNodeSizeChange={handleNodeSizeChange}
+        onNodeColorChange={handleNodeColorChange}
       />
     </div>
   );
