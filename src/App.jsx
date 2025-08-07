@@ -2,6 +2,10 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import CytoscapeGraph from "./CytoscapeGraph";
 import defaultShipLogData from "./default_ship_log.json";
 import { loadAndValidateRumorMapFromFile } from "./rumorMapValidation";
+import GraphControls from "./GraphControls";
+import NodeRenameModal from "./NodeRenameModal";
+import CameraInfo from "./CameraInfo";
+import ErrorDisplay from "./ErrorDisplay";
 
 // Debug flag - set to false to disable all debug logging
 const DEBUG = false;
@@ -116,10 +120,6 @@ function App() {
   const handleFitCompleted = useCallback(() => {
     printDebug('🏠 App: handleFitCompleted called, setting shouldFitOnNextRender to false');
     setShouldFitOnNextRender(false);
-  }, []);
-
-  const handleLoadMap = useCallback(() => {
-    fileInputRef.current?.click();
   }, []);
 
   const handleFileSelect = useCallback(async (event) => {
@@ -533,345 +533,40 @@ function App() {
       }}
       onMouseDown={handleBackgroundMouseDown}
     >
-      <div style={{
-        position: "absolute",
-        top: "10px",
-        right: "10px",
-        zIndex: 1000,
-        display: "flex",
-        flexDirection: "column",
-        gap: "10px"
-      }}>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".json"
-          onChange={handleFileSelect}
-          style={{ display: "none" }}
-        />
-        
-        <button
-          style={{
-            padding: "8px 12px",
-            background: "#222",
-            color: "#fff",
-            border: "1px solid #444",
-            cursor: "pointer"
-          }}
-          onClick={exportMap}
-        >
-          Export Map JSON
-        </button>
-        
-        <button
-          style={{
-            padding: "8px 12px",
-            background: "#1976d2",
-            color: "#fff",
-            border: "1px solid #0d47a1",
-            cursor: "pointer"
-          }}
-          onClick={handleLoadMap}
-        >
-          Load Map JSON
-        </button>
-        
-        <button
-          style={{
-            padding: "8px 12px",
-            background: "#222",
-            color: "#fff",
-            border: "1px solid #444",
-            cursor: "pointer"
-          }}
-          onClick={handleFitToView}
-        >
-          Fit
-        </button>
-        
-        <button
-          style={{
-            padding: "8px 12px",
-            background: "#d32f2f",
-            color: "#fff",
-            border: "1px solid #b71c1c",
-            cursor: "pointer"
-          }}
-          onClick={handleResetToInitial}
-        >
-          Reset
-        </button>
-        
-        <button
-          style={{
-            padding: "8px 12px",
-            background: "#4caf50",
-            color: "#fff",
-            border: "1px solid #388e3c",
-            cursor: "pointer"
-          }}
-          onClick={handleCreateNode}
-        >
-          Create Node
-        </button>
-        
-        {selectedEdgeIds.length > 0 && (
-          <button
-            style={{
-              padding: "8px 12px",
-              background: "#ff5722",
-              color: "#fff",
-              border: "1px solid #d84315",
-              cursor: "pointer",
-              fontWeight: "bold"
-            }}
-            onClick={() => handleDeleteSelectedEdges(selectedEdgeIds)}
-          >
-            Delete {selectedEdgeIds.length} Edge{selectedEdgeIds.length > 1 ? 's' : ''}
-          </button>
-        )}
-        
-        {selectedNodeIds.length === 1 && !renamingNodeId && (
-          <button
-            style={{
-              padding: "8px 12px",
-              background: "#9c27b0",
-              color: "#fff",
-              border: "1px solid #6a1b9a",
-              cursor: "pointer",
-              fontWeight: "bold"
-            }}
-            onClick={() => handleStartRename(selectedNodeIds[0])}
-          >
-            Rename Node
-          </button>
-        )}
-        
-        {selectedNodeIds.length > 0 && (
-          <button
-            style={{
-              padding: "8px 12px",
-              background: "#e91e63",
-              color: "#fff",
-              border: "1px solid #ad1457",
-              cursor: "pointer",
-              fontWeight: "bold"
-            }}
-            onClick={() => handleDeleteSelectedNodes(selectedNodeIds)}
-          >
-            Delete {selectedNodeIds.length} Node{selectedNodeIds.length > 1 ? 's' : ''}
-          </button>
-        )}
-        
-        {selectedNodeIds.length === 2 && nodeSelectionOrder.length === 2 && !areNodesConnected(nodeSelectionOrder[0], nodeSelectionOrder[1]) && (
-          <button
-            style={{
-              padding: "8px 12px",
-              background: "#4caf50",
-              color: "#fff",
-              border: "1px solid #388e3c",
-              cursor: "pointer",
-              fontWeight: "bold"
-            }}
-            onClick={handleConnectSelectedNodes}
-          >
-            Connect
-            {/* Connect: {nodeSelectionOrder[0]} → {nodeSelectionOrder[1]} */}
-          </button>
-        )}
-        
-        {selectedNodeIds.length > 0 && (
-          <div style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: "5px"
-          }}>
-            <label style={{
-              fontSize: "12px",
-              color: "#fff",
-              fontWeight: "bold",
-              textAlign: "center"
-            }}>
-              Node Color:
-            </label>
-            <select
-              value=""
-              onChange={(e) => {
-                if (e.target.value) {
-                  handleNodeColorChange(selectedNodeIds, e.target.value);
-                  e.target.value = ""; // Reset to placeholder
-                }
-              }}
-              style={{
-                padding: "6px 8px",
-                fontSize: "12px",
-                border: "1px solid #ccc",
-                borderRadius: "4px",
-                background: "#000",
-                color: "#fff",
-                cursor: "pointer"
-              }}
-            >
-              <option value="">Change Color...</option>
-              <option value="gray">Gray</option>
-              <option value="green">Green</option>
-              <option value="orange">Orange</option>
-              <option value="purple">Purple</option>
-              <option value="red">Red</option>
-              <option value="blue">Blue</option>
-            </select>
-          </div>
-        )}
-      </div>
+      <GraphControls
+        selectedNodes={selectedNodeIds}
+        selectedEdges={selectedEdgeIds}
+        onCreateNode={handleCreateNode}
+        onDeleteSelectedNodes={handleDeleteSelectedNodes}
+        onDeleteSelectedEdges={handleDeleteSelectedEdges}
+        onRenameNode={handleStartRename}
+        onConnectNodes={handleConnectSelectedNodes}
+        onExportMap={exportMap}
+        onImportFile={handleFileSelect}
+        onResetMap={handleResetToInitial}
+        onFitToView={handleFitToView}
+        fileInputRef={fileInputRef}
+        onNodeColorChange={handleNodeColorChange}
+        areNodesConnected={areNodesConnected}
+        renamingNodeId={renamingNodeId}
+      />
 
-      {renamingNodeId && (
-        <div 
-          data-rename-modal="true"
-          onClick={(e) => e.stopPropagation()}
-          style={{
-            position: "absolute",
-            top: "10px",
-            left: "50%",
-            transform: "translateX(-50%)",
-            zIndex: 1001,
-            background: "rgba(0, 0, 0, 0.9)",
-            color: "#fff",
-            padding: "15px",
-            borderRadius: "8px",
-            border: "2px solid #9c27b0",
-            display: "flex",
-            flexDirection: "column",
-            gap: "10px",
-            minWidth: "300px"
-          }}
-        >
-          <div style={{ fontWeight: "bold", textAlign: "center" }}>
-            Rename Node: {renamingNodeId}
-          </div>
-          
-          <input
-            type="text"
-            value={renameInputValue}
-            onChange={(e) => setRenameInputValue(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                handleSubmitRename();
-              } else if (e.key === 'Escape') {
-                handleCancelRename();
-              }
-            }}
-            style={{
-              padding: "8px",
-              fontSize: "14px",
-              border: "1px solid #ccc",
-              borderRadius: "4px",
-              outline: "none"
-            }}
-            placeholder="Enter new node name..."
-            autoFocus
-          />
-          
-          <div style={{
-            display: "flex",
-            gap: "10px",
-            justifyContent: "center"
-          }}>
-            <button
-              onClick={handleSubmitRename}
-              style={{
-                padding: "6px 12px",
-                background: "#4caf50",
-                color: "#fff",
-                border: "1px solid #388e3c",
-                borderRadius: "4px",
-                cursor: "pointer",
-                fontSize: "12px"
-              }}
-            >
-              Rename
-            </button>
-            
-            <button
-              onClick={handleCancelRename}
-              style={{
-                padding: "6px 12px",
-                background: "#f44336",
-                color: "#fff",
-                border: "1px solid #d32f2f",
-                borderRadius: "4px",
-                cursor: "pointer",
-                fontSize: "12px"
-              }}
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
+      <NodeRenameModal
+        renamingNodeId={renamingNodeId}
+        renameInputValue={renameInputValue}
+        setRenameInputValue={setRenameInputValue}
+        onSubmitRename={handleSubmitRename}
+        onCancelRename={handleCancelRename}
+      />
 
-      <div style={{
-        position: "absolute",
-        top: "10px",
-        left: "10px",
-        zIndex: 1000,
-        background: "rgba(0, 0, 0, 0.7)",
-        color: "#fff",
-        padding: "10px",
-        borderRadius: "5px",
-        fontFamily: "monospace",
-        fontSize: "12px"
-      }}>
-        <div>Zoom: {(zoomLevel * 100).toFixed(0)}%</div>
-        <div>Camera: ({Math.round(cameraPosition.x)}, {Math.round(cameraPosition.y)})</div>
-        {selectedNodeIds.length > 0 && (
-          <div style={{ color: "#4fc3f7" }}>
-            Nodes: {selectedNodeIds.length} selected
-          </div>
-        )}
-        {selectedEdgeIds.length > 0 && (
-          <div style={{ color: "#ff6b6b" }}>
-            Edges: {selectedEdgeIds.length} selected
-          </div>
-        )}
-      </div>
+      <CameraInfo
+        zoom={zoomLevel}
+        pan={cameraPosition}
+        selectedNodeIds={selectedNodeIds}
+        selectedEdgeIds={selectedEdgeIds}
+      />
 
-      {loadError && (
-        <div style={{
-          position: "absolute",
-          bottom: "10px",
-          left: "10px",
-          right: "10px",
-          zIndex: 1000,
-          background: "rgba(211, 47, 47, 0.9)",
-          color: "#fff",
-          padding: "10px",
-          borderRadius: "5px",
-          fontFamily: "sans-serif",
-          fontSize: "14px",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-start",
-          gap: "10px"
-        }}>
-          <div style={{ flex: 1 }}>
-            <strong>Load Error:</strong> {loadError}
-          </div>
-          <button
-            onClick={clearError}
-            style={{
-              background: "transparent",
-              border: "1px solid #fff",
-              color: "#fff",
-              padding: "2px 8px",
-              cursor: "pointer",
-              borderRadius: "3px",
-              fontSize: "12px"
-            }}
-          >
-            ×
-          </button>
-        </div>
-      )}
+      <ErrorDisplay error={loadError} onClearError={clearError} />
 
       <CytoscapeGraph 
         graphData={graphData} 
