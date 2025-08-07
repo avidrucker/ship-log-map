@@ -513,6 +513,14 @@ function App() {
     });
   }, []);
 
+  // Helper function to check if two nodes are already connected
+  const areNodesConnected = useCallback((sourceId, targetId) => {
+    return graphData.edges.some(edge => 
+      (edge.source === sourceId && edge.target === targetId) ||
+      (edge.source === targetId && edge.target === sourceId)
+    );
+  }, [graphData.edges]);
+
   return (
     <div 
       style={{ 
@@ -655,7 +663,7 @@ function App() {
           </button>
         )}
         
-        {selectedNodeIds.length === 2 && nodeSelectionOrder.length === 2 && (
+        {selectedNodeIds.length === 2 && nodeSelectionOrder.length === 2 && !areNodesConnected(nodeSelectionOrder[0], nodeSelectionOrder[1]) && (
           <button
             style={{
               padding: "8px 12px",
@@ -667,7 +675,8 @@ function App() {
             }}
             onClick={handleConnectSelectedNodes}
           >
-            Connect: {nodeSelectionOrder[0]} → {nodeSelectionOrder[1]}
+            Connect
+            {/* Connect: {nodeSelectionOrder[0]} → {nodeSelectionOrder[1]} */}
           </button>
         )}
         
