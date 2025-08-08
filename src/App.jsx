@@ -68,7 +68,11 @@ function App() {
   // Notes data structure: { [targetId]: [note1, note2, ...] }
   const [notesData, setNotesData] = useState(() => {
     const saved = localStorage.getItem("shipLogNotes");
-    return saved ? JSON.parse(saved) : {};
+    if (saved) {
+      return JSON.parse(saved);
+    }
+    // If no saved notes, load from default JSON if present
+    return defaultShipLogData.notes || {};
   });
 
   // Use the unified state reducer for selections, camera, and UI state
@@ -167,6 +171,10 @@ function App() {
         // Load the new map data
         setGraphData(result.data);
         
+        // Load notes data if present, or initialize empty notes if not
+        const loadedNotes = result.data.notes || {};
+        setNotesData(loadedNotes);
+        
         // Reset camera to initial state
         dispatchAppState({ type: ACTION_TYPES.SET_ZOOM, payload: { zoom: 1 } });
         dispatchAppState({ type: ACTION_TYPES.SET_CAMERA_POSITION, payload: { position: { x: 0, y: 0 } } });
@@ -191,6 +199,10 @@ function App() {
   const handleResetToInitial = useCallback(() => {
     // Reset graph data to initial state
     setGraphData(defaultShipLogData);
+    
+    // Reset notes data to initial state (load from default if present, or empty if not)
+    const initialNotes = defaultShipLogData.notes || {};
+    setNotesData(initialNotes);
     
     // Reset camera to initial state (zoom 100%, center position)
     dispatchAppState({ type: ACTION_TYPES.SET_ZOOM, payload: { zoom: 1 } });
@@ -501,7 +513,12 @@ function App() {
       updatedNodes = graphData.nodes;
     }
     
-    const updatedGraph = { ...graphData, nodes: updatedNodes };
+    // Include notes data in the exported JSON
+    const updatedGraph = { 
+      ...graphData, 
+      nodes: updatedNodes,
+      notes: notesData 
+    };
 
     const blob = new Blob([JSON.stringify(updatedGraph, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
@@ -513,7 +530,7 @@ function App() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-  }, [graphData, exportNodePositions]);
+  }, [graphData, exportNodePositions, notesData]);
 
   const handleNodeColorChange = useCallback((nodeIds, newColor) => {
     printDebug('🏠 App: Changing node color for:', nodeIds, 'to:', newColor);
@@ -654,6 +671,7 @@ function App() {
         onNodeColorChange={handleNodeColorChange}
         onNodeClick={handleStartNoteEditing}
         onEdgeClick={handleStartNoteEditing}
+        onBackgroundClick={handleCloseNoteEditing}
         onCytoscapeInstanceReady={setCytoscapeInstance}
       />
     </div>

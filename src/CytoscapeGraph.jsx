@@ -45,6 +45,7 @@ const CytoscapeGraph = ({
   onNodeColorChange,
   onNodeClick, // New prop for node single-click
   onEdgeClick, // New prop for edge single-click
+  onBackgroundClick, // New prop for background click
   onCytoscapeInstanceReady // New prop to share instance reference
 }) => {
   const cyRef = useRef(null);
@@ -68,6 +69,7 @@ const CytoscapeGraph = ({
   const onNodeColorChangeRef = useRef(onNodeColorChange);
   const onNodeClickRef = useRef(onNodeClick);
   const onEdgeClickRef = useRef(onEdgeClick);
+  const onBackgroundClickRef = useRef(onBackgroundClick);
   
   // Update refs when callbacks change
   onZoomChangeRef.current = onZoomChange;
@@ -82,6 +84,7 @@ const CytoscapeGraph = ({
   onNodeColorChangeRef.current = onNodeColorChange;
   onNodeClickRef.current = onNodeClick;
   onEdgeClickRef.current = onEdgeClick;
+  onBackgroundClickRef.current = onBackgroundClick;
 
   // Initialize Cytoscape instance only once or when structure changes
   useEffect(() => {
@@ -467,6 +470,16 @@ const CytoscapeGraph = ({
         if (edgeClickTimeout) {
           clearTimeout(edgeClickTimeout);
           edgeClickTimeout = null;
+        }
+      });
+      
+      // Background click handling (clicking on the graph background, not on nodes or edges)
+      instanceRef.current.on('tap', (event) => {
+        // Only handle background clicks (when target is the core, not a node or edge)
+        if (event.target === instanceRef.current) {
+          if (onBackgroundClickRef.current) {
+            onBackgroundClickRef.current();
+          }
         }
       });
       
