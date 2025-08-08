@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+REFACTORING_SUMMARY.md
+AppOptimized.jsx
