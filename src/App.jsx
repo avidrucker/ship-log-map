@@ -4,6 +4,7 @@ import defaultShipLogData from "./default_ship_log.json";
 import { loadAndValidateRumorMapFromFile } from "./rumorMapValidation";
 import GraphControls from "./GraphControls";
 import NodeRenameModal from "./NodeRenameModal";
+import NoteEditorModal from "./NoteEditorModal";
 import CameraInfo from "./CameraInfo";
 import ErrorDisplay from "./ErrorDisplay";
 import { useCytoscapeInstance } from "./useCytoscapeInstance";
@@ -64,6 +65,12 @@ function App() {
     return defaultShipLogData;
   });
 
+  // Notes data structure: { [targetId]: [note1, note2, ...] }
+  const [notesData, setNotesData] = useState(() => {
+    const saved = localStorage.getItem("shipLogNotes");
+    return saved ? JSON.parse(saved) : {};
+  });
+
   // Use the unified state reducer for selections, camera, and UI state
   const [appState, dispatchAppState] = useReducer(appStateReducer, {
     ...initialAppState,
@@ -86,6 +93,8 @@ function App() {
   const selectedEdgeIds = selections.edges.ids;
   const renamingNodeId = selections.renaming.nodeId;
   const renameInputValue = selections.renaming.value;
+  const noteEditingTarget = selections.noteEditing.targetId;
+  const noteEditingType = selections.noteEditing.targetType;
   const zoomLevel = camera.zoom;
   const cameraPosition = camera.position;
   const shouldFitOnNextRender = ui.shouldFitOnNextRender;
@@ -115,6 +124,11 @@ function App() {
       position: cameraPosition
     }));
   }, [zoomLevel, cameraPosition]);
+
+  // Save notes data to localStorage
+  useEffect(() => {
+    localStorage.setItem("shipLogNotes", JSON.stringify(notesData));
+  }, [notesData]);
 
   const handleNodeMove = useCallback((nodeId, newX, newY) => {
     printDebug('🏠 App: handleNodeMove called for node:', nodeId, 'new position:', newX, newY);
@@ -540,6 +554,26 @@ function App() {
   const setCameraPosition = useCallback((position) => {
     dispatchAppState({ type: ACTION_TYPES.SET_CAMERA_POSITION, payload: { position } });
   }, []);
+
+  // Note management handlers
+  const handleStartNoteEditing = useCallback((targetId, targetType) => {
+    dispatchAppState({ 
+      type: ACTION_TYPES.START_NOTE_EDITING, 
+      payload: { targetId, targetType } 
+    });
+  }, []);
+
+  const handleCloseNoteEditing = useCallback(() => {
+    dispatchAppState({ type: ACTION_TYPES.CLOSE_NOTE_EDITING });
+  }, []);
+
+  const handleUpdateNotes = useCallback((targetId, newNotes) => {
+    setNotesData(prevData => ({
+      ...prevData,
+      [targetId]: newNotes
+    }));
+  }, []);
+
   const areNodesConnected = useCallback((sourceId, targetId) => {
     return graphData.edges.some(edge => 
       (edge.source === sourceId && edge.target === targetId) ||
@@ -585,6 +619,14 @@ function App() {
         onCancelRename={handleCancelRename}
       />
 
+      <NoteEditorModal
+        targetId={noteEditingTarget}
+        targetType={noteEditingType}
+        notes={noteEditingTarget ? (notesData[noteEditingTarget] || []) : []}
+        onUpdateNotes={handleUpdateNotes}
+        onClose={handleCloseNoteEditing}
+      />
+
       <CameraInfo
         zoom={zoomLevel}
         pan={cameraPosition}
@@ -610,6 +652,8 @@ function App() {
         onDeleteSelectedNodes={handleDeleteSelectedNodes}
         onNodeSizeChange={handleNodeSizeChange}
         onNodeColorChange={handleNodeColorChange}
+        onNodeClick={handleStartNoteEditing}
+        onEdgeClick={handleStartNoteEditing}
         onCytoscapeInstanceReady={setCytoscapeInstance}
       />
     </div>

@@ -43,6 +43,8 @@ const CytoscapeGraph = ({
   onDeleteSelectedNodes,
   onNodeSizeChange,
   onNodeColorChange,
+  onNodeClick, // New prop for node single-click
+  onEdgeClick, // New prop for edge single-click
   onCytoscapeInstanceReady // New prop to share instance reference
 }) => {
   const cyRef = useRef(null);
@@ -64,6 +66,8 @@ const CytoscapeGraph = ({
   const onDeleteSelectedNodesRef = useRef(onDeleteSelectedNodes);
   const onNodeSizeChangeRef = useRef(onNodeSizeChange);
   const onNodeColorChangeRef = useRef(onNodeColorChange);
+  const onNodeClickRef = useRef(onNodeClick);
+  const onEdgeClickRef = useRef(onEdgeClick);
   
   // Update refs when callbacks change
   onZoomChangeRef.current = onZoomChange;
@@ -76,6 +80,8 @@ const CytoscapeGraph = ({
   onDeleteSelectedNodesRef.current = onDeleteSelectedNodes;
   onNodeSizeChangeRef.current = onNodeSizeChange;
   onNodeColorChangeRef.current = onNodeColorChange;
+  onNodeClickRef.current = onNodeClick;
+  onEdgeClickRef.current = onEdgeClick;
 
   // Initialize Cytoscape instance only once or when structure changes
   useEffect(() => {
@@ -409,6 +415,59 @@ const CytoscapeGraph = ({
         }
         
         event.stopPropagation();
+      });
+      
+      // Single-click handling for notes (with delay to distinguish from double-click)
+      let nodeClickTimeout = null;
+      let edgeClickTimeout = null;
+      
+      instanceRef.current.on('tap', 'node', (event) => {
+        const nodeId = event.target.id();
+        
+        // Clear any existing timeout
+        if (nodeClickTimeout) {
+          clearTimeout(nodeClickTimeout);
+        }
+        
+        // Set a timeout to handle single click after double-click detection window
+        nodeClickTimeout = setTimeout(() => {
+          if (onNodeClickRef.current) {
+            onNodeClickRef.current(nodeId, 'node');
+          }
+          nodeClickTimeout = null;
+        }, 250); // 250ms delay to distinguish from double-click
+      });
+      
+      instanceRef.current.on('tap', 'edge', (event) => {
+        const edgeId = event.target.id();
+        
+        // Clear any existing timeout
+        if (edgeClickTimeout) {
+          clearTimeout(edgeClickTimeout);
+        }
+        
+        // Set a timeout to handle single click after double-click detection window
+        edgeClickTimeout = setTimeout(() => {
+          if (onEdgeClickRef.current) {
+            onEdgeClickRef.current(edgeId, 'edge');
+          }
+          edgeClickTimeout = null;
+        }, 250); // 250ms delay to distinguish from double-click
+      });
+      
+      // Cancel single-click timeouts on double-click
+      instanceRef.current.on('dblclick', 'node', () => {
+        if (nodeClickTimeout) {
+          clearTimeout(nodeClickTimeout);
+          nodeClickTimeout = null;
+        }
+      });
+      
+      instanceRef.current.on('dblclick', 'edge', () => {
+        if (edgeClickTimeout) {
+          clearTimeout(edgeClickTimeout);
+          edgeClickTimeout = null;
+        }
       });
       
       // Keyboard event handling for delete - simplified approach

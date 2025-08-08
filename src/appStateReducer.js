@@ -22,6 +22,10 @@ export const ACTION_TYPES = {
   SET_ZOOM: 'SET_ZOOM',
   SET_CAMERA_POSITION: 'SET_CAMERA_POSITION',
   
+  // Note editing actions
+  START_NOTE_EDITING: 'START_NOTE_EDITING',
+  CLOSE_NOTE_EDITING: 'CLOSE_NOTE_EDITING',
+  
   // UI state actions
   SET_SHOULD_FIT: 'SET_SHOULD_FIT',
   SET_LOAD_ERROR: 'SET_LOAD_ERROR',
@@ -40,6 +44,10 @@ export const initialAppState = {
     renaming: {
       nodeId: null,
       value: ""
+    },
+    noteEditing: {
+      targetId: null,
+      targetType: null // 'node' or 'edge'
     }
   },
   camera: {
@@ -120,6 +128,30 @@ export function appStateReducer(state, action) {
           renaming: {
             nodeId: null,
             value: ""
+          }
+        }
+      };
+      
+    case ACTION_TYPES.START_NOTE_EDITING:
+      return {
+        ...state,
+        selections: {
+          ...state.selections,
+          noteEditing: {
+            targetId: action.payload.targetId,
+            targetType: action.payload.targetType
+          }
+        }
+      };
+      
+    case ACTION_TYPES.CLOSE_NOTE_EDITING:
+      return {
+        ...state,
+        selections: {
+          ...state.selections,
+          noteEditing: {
+            targetId: null,
+            targetType: null
           }
         }
       };
@@ -208,6 +240,15 @@ export const actions = {
   setShouldFit: (shouldFit) => ({
     type: ACTION_TYPES.SET_SHOULD_FIT,
     payload: { shouldFit }
+  }),
+  
+  startNoteEditing: (targetId, targetType) => ({
+    type: ACTION_TYPES.START_NOTE_EDITING,
+    payload: { targetId, targetType }
+  }),
+  
+  closeNoteEditing: () => ({
+    type: ACTION_TYPES.CLOSE_NOTE_EDITING
   }),
   
   setLoadError: (error) => ({
