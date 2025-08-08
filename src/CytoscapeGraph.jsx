@@ -42,7 +42,8 @@ const CytoscapeGraph = ({
   onEdgeDirectionChange,
   onDeleteSelectedNodes,
   onNodeSizeChange,
-  onNodeColorChange
+  onNodeColorChange,
+  onCytoscapeInstanceReady // New prop to share instance reference
 }) => {
   const cyRef = useRef(null);
   const instanceRef = useRef(null); // To prevent multiple Cytoscape initializations
@@ -183,6 +184,11 @@ const CytoscapeGraph = ({
       // Expose the Cytoscape instance to the DOM for the export function
       if (cyRef.current) {
         cyRef.current._cy = instanceRef.current;
+      }
+      
+      // Share the instance reference with parent component
+      if (onCytoscapeInstanceReady) {
+        onCytoscapeInstanceReady(instanceRef.current);
       }
 
       // Track drag state to differentiate between clicks and drags
@@ -530,7 +536,7 @@ const CytoscapeGraph = ({
         printDebug('🧹 Cleanup: keeping instance alive (no recreation needed)');
       }
     };
-  }, [graphData]); // onNodeMove is handled via ref to avoid unnecessary re-runs
+  }, [graphData, onCytoscapeInstanceReady]); // onNodeMove is handled via ref to avoid unnecessary re-runs
 
   // Cleanup on unmount only
   useEffect(() => {
@@ -569,7 +575,8 @@ const CytoscapeGraph = ({
     top: 0,
     left: 0,
     width: "100%", 
-    height: "100%"
+    height: "100%",
+    outline: "none", // Remove focus outline - change to "1px solid white" to see when canvas has focus
   }}></div>;
 };
 
