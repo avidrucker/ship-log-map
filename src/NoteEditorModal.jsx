@@ -201,7 +201,7 @@ function NoteEditorModal({
                 }}>
                   {note}
                 </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                <div style={{ display: "flex", flexDirection: "row", gap: "4px" }}>
                   <button
                     onClick={() => handleStartEdit(index)}
                     style={{
