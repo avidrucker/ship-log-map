@@ -24,4 +24,5 @@ dist-ssr
 *.sw?
 
 REFACTORING_SUMMARY.md
+NOTE_EDITOR_IMPLEMENTATION.md
 AppOptimized.jsx
