@@ -15,3 +15,5 @@
 - [ ] Implement a "play mode" button which hides the UI and allows the user to interact with the graph without editing it
 - [ ] Implement an explicit "edit mode" button which shows the UI and allows the user to edit the graph
 - [ ] Implement a "zoom to node" button which zooms the camera to the currently selected node, centering it in the viewport and zooming in to a comfortable reading/viewing level (this zoom amount should vary depending on the node size)
+- [ ] Implement adding of clues/hints to edges, which can be displayed when an edge is clicked
+- [ ] Implement adding of clues/hints to nodes, which can be displayed when a node is clicked
