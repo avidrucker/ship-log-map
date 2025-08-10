@@ -23,6 +23,11 @@ dist-ssr
 *.sln
 *.sw?
 
+# misc docs, temp files
 REFACTORING_SUMMARY.md
 NOTE_EDITOR_IMPLEMENTATION.md
 AppOptimized.jsx
+
+# Project-specific files 
+ship-log-map-project.zip
+
