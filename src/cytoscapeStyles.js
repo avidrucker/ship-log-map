@@ -1,186 +1,133 @@
-const GRAY_GREEN = "#376933"; // Gray green
-const GREEN = "#4CAF50"; // Green
-const BURNT_ORANGE = "#7d3d15"; // Dark burnt orange
-const ORANGE = "#FF5722"; // Orange
-const PURPLE = "#6a0dad"; // Purple
-const BRIGHT_PURPLE = "#9c27b0"; // Bright purple
-const DARK_RED = "#CD5C5C"; // Dark red
-const RED = "#FF5722"; // Red
-const DARK_BLUE = "#1a237e"; // Dark blue
-const BLUE = "#2196F3"; // Blue
-const DARK_GRAY = "#424242"; // Dark gray
-const GRAY = "#9E9E9E"; // Gray
+// src/cytoscapeStyles.js
+import { COLORS, NODE_SIZES, BORDER } from "./styles/tokens.js";
 
-const cytoscapeStyles = [
-  // Base node style - default gray
+const baseNode = {
+  "background-color": COLORS.gray.base,
+  "border-color": COLORS.gray.base,
+  "border-width": BORDER.width,
+  "shape": "rectangle",
+  "width": NODE_SIZES.regular.width,
+  "height": NODE_SIZES.regular.height,
+
+  // Text
+  "label": "data(label)",
+  "color": COLORS.text,
+  "font-weight": "bold",
+  "text-wrap": "wrap",
+  "text-halign": "center",
+  "text-valign": "center",
+  "line-height": 1.1,
+  "font-family": "monospace",
+
+  // Images: keep square aspect, centered horizontally, bottom aligned.
+  "background-image": "data(icon)",
+  "background-repeat": "no-repeat"
+};
+
+const sizeRules = [
   {
-    selector: "node",
+    selector: 'node[size="regular"]',
     style: {
-      "background-color": DARK_GRAY, // Default gray
-      "label": "data(label)",
-      "color": "#fff", // White text
-      "text-valign": "center",
-      "text-halign": "center",
-      "text-margin-y": -61, // Position text near top
-      "width": 120, // Regular size
-      "height": 175,
-      "font-size": 15,
-      "line-height": 1.1,
-      "font-weight": "bold",
-      "font-family": "monospace",
-      "text-wrap": "wrap",
-      "text-max-width": 115,
-      "shape": "rectangle",
-      "border-width": 5,
-      "border-color": DARK_GRAY,
-      "background-image": "data(icon)",
-      "background-repeat": "no-repeat",
-      "background-position-y": "52px",
-      "background-width": "120px",
-      "background-height": "120px"
+      "width": NODE_SIZES.regular.width,
+      "height": NODE_SIZES.regular.height,
+      "background-position-y": NODE_SIZES.regular["background-position-y"],
+      "background-width": NODE_SIZES.regular["background-width"],
+      "background-height": NODE_SIZES.regular["background-height"],
+      "text-margin-y": NODE_SIZES.regular["text-margin-y"],
+      "text-max-width": NODE_SIZES.regular["text-max-width"],
+      "font-size": NODE_SIZES.regular["font-size"]
     }
   },
-  // Color-specific node styles (unselected/dimmed)
-  {
-    selector: 'node[color="gray"]',
-    style: {
-      "background-color": DARK_GRAY,
-      "border-color": DARK_GRAY
-    }
-  },
-  {
-    selector: 'node[color="green"]',
-    style: {
-      "background-color": GRAY_GREEN,
-      "border-color": GRAY_GREEN
-    }
-  },
-  {
-    selector: 'node[color="orange"]',
-    style: {
-      "background-color": BURNT_ORANGE,
-      "border-color": BURNT_ORANGE
-    }
-  },
-  {
-    selector: 'node[color="purple"]',
-    style: {
-      "background-color": PURPLE,
-      "border-color": PURPLE
-    }
-  },
-  {
-    selector: 'node[color="red"]',
-    style: {
-      "background-color": DARK_RED,
-      "border-color": DARK_RED
-    }
-  },
-  {
-    selector: 'node[color="blue"]',
-    style: {
-      "background-color": DARK_BLUE,
-      "border-color": DARK_BLUE
-    }
-  },
-  // Double size nodes
   {
     selector: 'node[size="double"]',
     style: {
-      "width": 240,
-      "height": 340,
-      "font-size": 30,
-      "line-height": 1.1,
-      "text-max-width": 230,
-      "text-margin-y": -118,
-      "background-width": "240px", // Proportionally larger square
-      "background-height": "240px",
-      "background-position-y": "100px",
-      "background-repeat": "no-repeat",
+      "width": NODE_SIZES.double.width,
+      "height": NODE_SIZES.double.height,
+      "background-position-y": NODE_SIZES.double["background-position-y"],
+      "background-width": NODE_SIZES.double["background-width"],
+      "background-height": NODE_SIZES.double["background-height"],
+      "text-margin-y": NODE_SIZES.double["text-margin-y"],
+      "text-max-width": NODE_SIZES.double["text-max-width"],
+      "font-size": NODE_SIZES.double["font-size"]
     }
   },
-  // Half size nodes
   {
     selector: 'node[size="half"]',
     style: {
-      "width": 80,
-      "height": 120,
-      "font-size": 12,
-      "line-height": 1.05,
-      "text-max-width": 78,
-      "text-margin-y": -38,
-      "background-width": "75px", // Proportionally smaller square
-      "background-height": "75px",
-      "background-repeat": "no-repeat",
-      "background-position-y": "42px",
+      "width": NODE_SIZES.small.width,
+      "height": NODE_SIZES.small.height,
+      "background-position-y": NODE_SIZES.small["background-position-y"],
+      "background-width": NODE_SIZES.small["background-width"],
+      "background-height": NODE_SIZES.small["background-height"],
+      "text-margin-y": NODE_SIZES.small["text-margin-y"],
+      "text-max-width": NODE_SIZES.small["text-max-width"],
+      "font-size": NODE_SIZES.small["font-size"]
     }
-  },
-  // Selected node styles - bright colors when selected
+  }
+];
+
+const colorRules = [
   {
-    selector: 'node:selected',
-    style: {
-      "border-width": 7,
-      "border-color": "#4fc3f7",
-      "opacity": 1
-    }
+    selector: 'node[color="gray"]',
+    style: { "background-color": COLORS.gray.base, "border-color": COLORS.gray.base }
   },
   {
-    selector: 'node[color="gray"]:selected',
-    style: {
-      "background-color": GRAY,
-      "border-color": GRAY
-    }
+    selector: 'node[color="green"]',
+    style: { "background-color": COLORS.green.base, "border-color": COLORS.green.base }
   },
   {
-    selector: 'node[color="green"]:selected',
-    style: {
-      "background-color": GREEN,
-      "border-color": GREEN
-    }
+    selector: 'node[color="orange"]',
+    style: { "background-color": COLORS.orange.base, "border-color": COLORS.orange.base }
   },
   {
-    selector: 'node[color="orange"]:selected',
-    style: {
-      "background-color": ORANGE,
-      "border-color": ORANGE
-    }
+    selector: 'node[color="purple"]',
+    style: { "background-color": COLORS.purple.base, "border-color": COLORS.purple.base }
   },
   {
-    selector: 'node[color="purple"]:selected',
-    style: {
-      "background-color": BRIGHT_PURPLE,
-      "border-color": BRIGHT_PURPLE
-    }
+    selector: 'node[color="red"]',
+    style: { "background-color": COLORS.red.base, "border-color": COLORS.red.base }
   },
   {
-    selector: 'node[color="red"]:selected',
-    style: {
-      "background-color": RED,
-      "border-color": RED
-    }
-  },
-  {
-    selector: 'node[color="blue"]:selected',
-    style: {
-      "background-color": BLUE,
-      "border-color": BLUE
-    }
-  },
-  // Hover effect for nodes
-  {
-    selector: 'node:active',
-    style: {
-      "border-color": "#ffdd59",
-      "border-width": 6
-    }
-  },
-  // Edge styles with arrows
+    selector: 'node[color="blue"]',
+    style: { "background-color": COLORS.blue.base, "border-color": COLORS.blue.base }
+  }
+];
+
+// Selected border uses the bright variant of the node’s color.
+const selectedRules = [
+  { selector: 'node:selected[color="gray"]',   
+    style: {  "border-color": COLORS.gray.bright,   
+              "border-width": BORDER.selectedWidth,
+              "background-color": COLORS.gray.bright } },
+  { selector: 'node:selected[color="green"]',  
+    style: { "border-color": COLORS.green.bright,  
+      "border-width": BORDER.selectedWidth, 
+      "background-color": COLORS.green.bright } },
+  { selector: 'node:selected[color="orange"]', 
+    style: { "border-color": COLORS.orange.bright, 
+      "border-width": BORDER.selectedWidth, 
+      "background-color": COLORS.orange.bright } },
+  { selector: 'node:selected[color="purple"]', 
+    style: { "border-color": COLORS.purple.bright, 
+      "border-width": BORDER.selectedWidth, 
+      "background-color": COLORS.purple.bright } },
+  { selector: 'node:selected[color="red"]',    
+    style: { "border-color": COLORS.red.bright,    
+      "border-width": BORDER.selectedWidth, 
+      "background-color": COLORS.red.bright } },
+  { selector: 'node:selected[color="blue"]',   
+    style: { "border-color": COLORS.blue.bright,   
+      "border-width": BORDER.selectedWidth, 
+      "background-color": COLORS.blue.bright } }
+];
+
+const edgeBase = [
   {
     selector: 'edge',
     style: {
       "line-style": "solid",
       "width": 5,
-      "line-color": "#fff",
+      "line-color": COLORS.edge,
       "curve-style": "bezier",
       "arrow-scale": 1.5
     }
@@ -189,37 +136,25 @@ const cytoscapeStyles = [
     selector: 'edge[direction="forward"]',
     style: {
       "target-arrow-shape": "triangle",
-      "target-arrow-color": "#fff",
+      "target-arrow-color": COLORS.edge
     }
   },
   {
     selector: 'edge[direction="backward"]',
     style: {
       "source-arrow-shape": "triangle",
-      "source-arrow-color": "#fff"
+      "source-arrow-color": COLORS.edge
     }
   },
   {
     selector: 'edge[direction="bidirectional"]',
     style: {
-      "target-arrow-shape": "triangle",
-      "target-arrow-color": "#fff",
       "source-arrow-shape": "triangle",
-      "source-arrow-color": "#fff",
+      "target-arrow-shape": "triangle",
+      "source-arrow-color": COLORS.edge,
+      "target-arrow-color": COLORS.edge
     }
   },
-  // Selected edge styles
-  {
-    selector: 'edge:selected',
-    style: {
-      "line-color": "#ff6b6b",
-      "target-arrow-color": "#ff6b6b",
-      "source-arrow-color": "#ff6b6b",
-      "width": 7,
-      "opacity": 1
-    }
-  },
-  // Hover effect for edges
   {
     selector: 'edge:active',
     style: {
@@ -229,6 +164,14 @@ const cytoscapeStyles = [
       "width": 7
     }
   }
+];
+
+const cytoscapeStyles = [
+  { selector: 'node', style: baseNode },
+  ...sizeRules,
+  ...colorRules,
+  ...selectedRules,
+  ...edgeBase
 ];
 
 export default cytoscapeStyles;
