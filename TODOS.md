@@ -20,7 +20,7 @@
 - [ ] Pressing Esc while a modal is open should close the modal (for both note editor and node renaming)
 - [ ] Selecting a node will deselect all edges
 - [ ] Selecting an edge will deselect all nodes
-- [ ] Clicking outside of the Note Editor Modal closes it, including when clicking on the background or other nodes/edges
+- [x] Clicking outside of the Note Editor Modal closes it, including when clicking on the background or other nodes/edges
 - [ ] Fix bug where edges are not properly styled when they are selected
 - [ ] Implement "double-edges" where each edge has a second edge below it with a thicker line and different color to mimic source material styling
 - [ ] See if arrows can be moved to the center of edges instead of being at the end
