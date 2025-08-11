@@ -11,7 +11,7 @@ export const COLORS = {
   white: "#FFFFFF",
   text:  "#FFFFFF",
   bg:    "#121212",
-  edge:  "#ECECEC"
+  edge:  "darkgray"
 };
 
 export const NODE_SIZES = {

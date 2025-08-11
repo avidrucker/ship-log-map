@@ -129,7 +129,11 @@ const edgeBase = [
       "width": 5,
       "line-color": COLORS.edge,
       "curve-style": "bezier",
-      "arrow-scale": 1.5
+      "arrow-scale": 1.5,
+      // 👇 this is the "second, thicker line" underneath
+      'underlay-color': 'gray',    // your “border” color
+      'underlay-opacity': 1,
+      'underlay-padding': 5,       // how much thicker than the line (px)
     }
   },
   {
@@ -158,21 +162,19 @@ const edgeBase = [
   {
     selector: 'edge:active',
     style: {
-      "line-color": "#ffdd59",
-      "mid-target-arrow-color": "#ffdd59",
-      "mid-source-arrow-color": "#ffdd59",
-      "width": 5,
+      "line-color": "lightgray",
+      "mid-target-arrow-color": "lightgray",
+      "mid-source-arrow-color": "lightgray",
       "arrow-scale": 1.5
     }
   },
   {
     selector: 'edge:selected',
     style: {
-      "line-color": "#ffdd59",
-      "mid-target-arrow-color": "#ffdd59",
-      "mid-source-arrow-color": "#ffdd59",
-      "width": 7,
-      "arrow-scale": 1.2
+      "line-color": "lightgray",
+      "mid-target-arrow-color": "lightgray",
+      "mid-source-arrow-color": "lightgray",
+      "arrow-scale": 2
     }
   }
 ];
