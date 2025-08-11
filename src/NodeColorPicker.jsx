@@ -11,16 +11,9 @@ const NodeColorPicker = ({ selectedNodeIds, onNodeColorChange }) => {
       flexDirection: "column",
       gap: "5px"
     }}>
-      <label style={{
-        fontSize: "12px",
-        color: "#fff",
-        fontWeight: "bold",
-        textAlign: "center"
-      }}>
-        Node Color:
-      </label>
       <select
         value=""
+        title="Change Node Color"
         onChange={(e) => {
           if (e.target.value) {
             onNodeColorChange(selectedNodeIds, e.target.value);
@@ -37,7 +30,7 @@ const NodeColorPicker = ({ selectedNodeIds, onNodeColorChange }) => {
           cursor: "pointer"
         }}
       >
-        <option value="">Change Color...</option>
+        <option value="">Color:</option>
         <option value="gray">Gray</option>
         <option value="green">Green</option>
         <option value="orange">Orange</option>
