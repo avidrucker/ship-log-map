@@ -132,6 +132,15 @@ export function wireEvents(cy, handlers = {}) {
     }
   });
 
+  // Cursor handling for nodes and edges
+  cy.on("mouseover", "node, edge", (evt) => {
+    evt.cy.container().style.cursor = "pointer";
+  });
+
+  cy.on("mouseout", "node, edge", (evt) => {
+    evt.cy.container().style.cursor = "default";
+  });
+
   return () => {
     cy.removeListener("select");
     cy.removeListener("unselect");
@@ -139,5 +148,7 @@ export function wireEvents(cy, handlers = {}) {
     cy.removeListener("dbltap");
     cy.removeListener("dragfree");
     cy.removeListener("viewport");
+    cy.removeListener("mouseover");
+    cy.removeListener("mouseout");
   };
 }
