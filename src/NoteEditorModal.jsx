@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 
 function NoteEditorModal({
   targetId,
@@ -15,6 +15,40 @@ function NoteEditorModal({
   const [newNoteValue, setNewNoteValue] = useState("");
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleValue, setTitleValue] = useState(currentTitle);
+
+  // Add keyboard event listener for Escape key
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        // Check if we're editing the title and the title input has focus
+        if (isEditingTitle && event.target.tagName === 'INPUT') {
+          // Let the title input's onKeyDown handle this (it will call handleCancelTitleEdit)
+          return;
+        }
+        
+        // Check if we're editing a note and a textarea has focus
+        if ((editingIndex !== null || isAddingNew) && event.target.tagName === 'TEXTAREA') {
+          // Let the textarea's onKeyDown handle this (it will call handleCancelEdit or handleCancelNew)
+          return;
+        }
+        
+        // If no input/textarea has focus, close the modal
+        if (event.target.tagName !== 'INPUT' && event.target.tagName !== 'TEXTAREA') {
+          event.preventDefault();
+          onClose();
+        }
+      }
+    };
+
+    // Add event listener when modal is open
+    if (targetId) {
+      document.addEventListener('keydown', handleKeyDown);
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [targetId, onClose, isEditingTitle, editingIndex, isAddingNew]);
 
   const handleStartEdit = useCallback((index) => {
     setEditingIndex(index);
