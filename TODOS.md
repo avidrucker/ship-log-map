@@ -21,8 +21,11 @@
 - [ ] Selecting a node will deselect all edges
 - [ ] Selecting an edge will deselect all nodes
 - [x] Clicking outside of the Note Editor Modal closes it, including when clicking on the background or other nodes/edges
-- [ ] Fix bug where edges are not properly styled when they are selected
-- [ ] Implement "double-edges" where each edge has a second edge below it with a thicker line and different color to mimic source material styling
-- [ ] See if arrows can be moved to the center of edges instead of being at the end
+- [x] Fix bug where edges are not properly styled when they are selected
+- [x] Implement "double-edges" where each edge has a second edge below it with a thicker line and different color to mimic source material styling
+- [x] See if arrows can be moved to the center of edges instead of being at the end
 - [ ] Fix focused/active nodes to not have different border colors (they should match the node's color always)
 - [x] Change cursor to pointer when hovering over nodes and edges
+- [ ] Implement re-ordering of notes in the Note Editor Modal
+- [ ] Implement "unlocking" of nodes in player mode where initially a question mark is shown on the node instead of its title and picture to indicate that a node exists, but is not yet accessible
+- [ ] Implement "unlocking" of notes where, in the note viewer modal, there is an indicator that further notes exist, but are not yet accessible
