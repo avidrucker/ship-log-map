@@ -14,11 +14,16 @@ export const FEATURES = {
   // Debug logging for all app operations
   DEBUG_LOGGING: false,
   
+  // Enable editing/playing mode toggle
+  // When enabled, users can switch between editing mode (full functionality) and playing mode (view-only)
+  MODE_TOGGLE: true,
+  
   // Future feature flags can be added here...
 };
 
 // Export individual flags for convenience
 export const {
   ZOOM_TO_SELECTION,
-  DEBUG_LOGGING
+  DEBUG_LOGGING,
+  MODE_TOGGLE
 } = FEATURES;

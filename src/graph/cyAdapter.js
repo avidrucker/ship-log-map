@@ -5,7 +5,8 @@ import { deserializeGraph } from "./ops.js";
 import { TEST_ICON_SVG } from "../constants/testAssets.js";
 
 // Convert domain graph -> Cytoscape elements
-export function buildElementsFromDomain(graph) {
+export function buildElementsFromDomain(graph, options = {}) {
+  const { mode = 'editing' } = options;
   const g = deserializeGraph(graph);
 
   const nodes = g.nodes.map(n => ({
@@ -19,7 +20,7 @@ export function buildElementsFromDomain(graph) {
     },
     position: { x: n.x, y: n.y },
     selectable: true,
-    grabbable: true
+    grabbable: mode === 'editing' // Only grabbable in editing mode
   }));
 
   const edges = g.edges.map(e => ({
@@ -30,15 +31,15 @@ export function buildElementsFromDomain(graph) {
       target: e.target,
       direction: e.direction ?? "forward"
     },
-    selectable: true
+    selectable: mode === 'editing' // Only selectable in editing mode
   }));
 
   return [...nodes, ...edges];
 }
 
 // Create & mount Cytoscape instance
-export function mountCy({ container, graph, styles = cytoscapeStyles }) {
-  const elements = buildElementsFromDomain(graph);
+export function mountCy({ container, graph, styles = cytoscapeStyles, mode = 'editing' }) {
+  const elements = buildElementsFromDomain(graph, { mode });
   const cy = cytoscape({
     container,
     style: styles,
@@ -51,8 +52,8 @@ export function mountCy({ container, graph, styles = cytoscapeStyles }) {
 }
 
 // Replace elements with a fresh build from the domain state
-export function syncElements(cy, graph) {
-  const elements = buildElementsFromDomain(graph);
+export function syncElements(cy, graph, options = {}) {
+  const elements = buildElementsFromDomain(graph, options);
   cy.json({ elements }); // full resync (simple & predictable for now)
   return cy;
 }

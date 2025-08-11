@@ -1,6 +1,6 @@
 import React from "react";
 
-function CameraInfo({ zoom, pan, selectedNodeIds, selectedEdgeIds }) {
+function CameraInfo({ zoom, pan, selectedNodeIds, selectedEdgeIds, mode }) {
   return (
     <div style={{
       position: "absolute",
@@ -14,6 +14,15 @@ function CameraInfo({ zoom, pan, selectedNodeIds, selectedEdgeIds }) {
       fontFamily: "monospace",
       fontSize: "12px"
     }}>
+      <div style={{ 
+        color: mode === 'editing' ? "#4caf50" : "#2196f3",
+        fontWeight: "bold",
+        marginBottom: "8px",
+        textTransform: "uppercase",
+        fontSize: "14px"
+      }}>
+        {mode === 'editing' ? 'Editing' : 'Playing'}
+      </div>
       <div>Zoom: {(zoom * 100).toFixed(0)}%</div>
       <div>Camera:<br/>({Math.round(pan.x)},{Math.round(pan.y)})</div>
       {selectedNodeIds.length > 0 && (

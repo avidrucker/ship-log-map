@@ -321,5 +321,6 @@
       "cheese",
       "potato"
     ]
-  }
+  },
+  "mode": "editing"
 }

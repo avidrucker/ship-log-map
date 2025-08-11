@@ -6,6 +6,7 @@ import { mountCy, syncElements, wireEvents } from "./graph/cyAdapter.js";
 function CytoscapeGraph({
   nodes = [],
   edges = [],
+  mode = 'editing',
 
   // Camera / viewport
   initialZoom,
@@ -18,6 +19,8 @@ function CytoscapeGraph({
   // Selections & clicks
   onNodeSelectionChange,
   onEdgeSelectionChange,
+  onNodeClick,
+  onEdgeClick,
   onNodeDoubleClick,
   onEdgeDoubleClick,
   onBackgroundClick,
@@ -45,7 +48,8 @@ function CytoscapeGraph({
 
     cyRef.current = mountCy({
       container: containerRef.current,
-      graph: { nodes, edges }
+      graph: { nodes, edges },
+      mode
     });
 
     // Initial viewport
@@ -76,6 +80,8 @@ function CytoscapeGraph({
     const off = wireEvents(cyRef.current, {
       onNodeSelectionChange,
       onEdgeSelectionChange,
+      onNodeClick,
+      onEdgeClick,
       onNodeDoubleClick,
       onEdgeDoubleClick,
       onBackgroundClick,
@@ -87,13 +93,13 @@ function CytoscapeGraph({
     return () => {
       off?.();
     };
-  }, [onNodeSelectionChange, onEdgeSelectionChange, onNodeDoubleClick, onEdgeDoubleClick, onBackgroundClick, onNodeMove, onZoomChange, onCameraMove]);
+  }, [onNodeSelectionChange, onEdgeSelectionChange, onNodeClick, onEdgeClick, onNodeDoubleClick, onEdgeDoubleClick, onBackgroundClick, onNodeMove, onZoomChange, onCameraMove]);
 
   // Sync when domain elements change
   useEffect(() => {
     if (!cyRef.current) return;
-    syncElements(cyRef.current, { nodes, edges });
-  }, [nodes, edges]);
+    syncElements(cyRef.current, { nodes, edges }, { mode });
+  }, [nodes, edges, mode]);
 
   // Fit request
   useEffect(() => {

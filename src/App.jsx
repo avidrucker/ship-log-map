@@ -5,15 +5,16 @@ import defaultShipLogData from "./default_ship_log.json";
 import { loadAndValidateRumorMapFromFile } from "./rumorMapValidation";
 import GraphControls from "./GraphControls";
 import NoteEditorModal from "./NoteEditorModal";
+import NoteViewerModal from "./NoteViewerModal";
 import CameraInfo from "./CameraInfo";
 import ErrorDisplay from "./ErrorDisplay";
 import { TEST_ICON_SVG } from "./constants/testAssets.js";
 import { useCytoscapeInstance } from "./useCytoscapeInstance";
 import { appStateReducer, initialAppState, ACTION_TYPES } from "./appStateReducer";
-import { ZOOM_TO_SELECTION, DEBUG_LOGGING } from "./config/features.js";
+import { ZOOM_TO_SELECTION, DEBUG_LOGGING, MODE_TOGGLE } from "./config/features.js";
 
 // 🚀 New imports: centralized persistence + edge id helper
-import { saveToLocal, loadFromLocal } from "./persistence/index.js";
+import { saveToLocal, loadFromLocal, saveModeToLocal, loadModeFromLocal } from "./persistence/index.js";
 import { edgeId } from "./graph/ops.js";
 
 // Debug flag - controlled by feature config
@@ -29,6 +30,7 @@ function normalizeGraphData(data) {
   const nodes = Array.isArray(data?.nodes) ? data.nodes : [];
   const edges = Array.isArray(data?.edges) ? data.edges : [];
   const notes = data?.notes && typeof data.notes === "object" ? data.notes : {};
+  const mode = typeof data?.mode === "string" ? data.mode : "editing";
 
   const normNodes = nodes.map(n => ({
     id: n.id,
@@ -47,7 +49,7 @@ function normalizeGraphData(data) {
     direction: e.direction ?? "forward"
   }));
 
-  return { nodes: normNodes, edges: normEdges, notes };
+  return { nodes: normNodes, edges: normEdges, notes, mode };
 }
 
 // if any node lacks coords, hydrate from default by id
@@ -84,7 +86,7 @@ function App() {
     hasOriginalCamera
   } = useCytoscapeInstance();
 
-  // ---------- graph (nodes/edges/notes) ----------
+  // ---------- graph (nodes/edges/notes/mode) ----------
   const [graphData, setGraphData] = useState(() => {
     // Try new persistence; fall back to default
     const saved = loadFromLocal();
@@ -110,16 +112,25 @@ function App() {
         const saved = localStorage.getItem("shipLogCamera");
         return saved ? JSON.parse(saved).position || { x: 0, y: 0 } : { x: 0, y: 0 };
       })()
-    }
+    },
+    mode: (() => {
+      // Try to get mode from loaded graph data first, then from localStorage
+      const saved = loadFromLocal();
+      if (saved && saved.mode) {
+        return saved.mode;
+      }
+      return loadModeFromLocal();
+    })()
   });
 
   // Extract frequently used state for easier access
-  const { selections, camera, ui } = appState;
+  const { selections, camera, ui, mode } = appState;
   const selectedNodeIds = selections.nodes.ids;
   const nodeSelectionOrder = selections.nodes.order;
   const selectedEdgeIds = selections.edges.ids;
   const noteEditingTarget = selections.noteEditing.targetId;
   const noteEditingType = selections.noteEditing.targetType;
+  const noteViewingTarget = selections.noteViewing.targetId;
   const zoomLevel = camera.zoom;
   const cameraPosition = camera.position;
   const shouldFitOnNextRender = ui.shouldFitOnNextRender;
@@ -132,9 +143,10 @@ function App() {
 
   // ---------- persistence ----------
   useEffect(() => {
-    // persist graph (nodes/edges/notes)
-    saveToLocal(graphData);
-  }, [graphData]);
+    // persist graph (nodes/edges/notes) and mode
+    const dataWithMode = { ...graphData, mode };
+    saveToLocal(dataWithMode);
+  }, [graphData, mode]);
 
   // Save camera state to localStorage (kept as-is)
   useEffect(() => {
@@ -143,6 +155,11 @@ function App() {
       position: cameraPosition
     }));
   }, [zoomLevel, cameraPosition]);
+
+  // Save mode to localStorage
+  useEffect(() => {
+    saveModeToLocal(mode);
+  }, [mode]);
 
   /** ---------- handlers ---------- **/
 
@@ -176,6 +193,11 @@ function App() {
         const g1 = normalizeGraphData(result.data);
         const g2 = hydrateCoordsIfMissing(g1, defaultShipLogData);
         setGraphData(g2);
+
+        // Set mode if it's included in the imported data
+        if (g1.mode) {
+          dispatchAppState({ type: ACTION_TYPES.SET_MODE, payload: { mode: g1.mode } });
+        }
 
         // Reset camera + fit
         dispatchAppState({ type: ACTION_TYPES.SET_ZOOM, payload: { zoom: 1 } });
@@ -413,7 +435,8 @@ function App() {
 
     const updatedGraph = {
       ...graphData,
-      nodes: updatedNodes
+      nodes: updatedNodes,
+      mode // Include current mode in export
     };
 
     const blob = new Blob([JSON.stringify(updatedGraph, null, 2)], { type: "application/json" });
@@ -426,7 +449,7 @@ function App() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-  }, [graphData, exportNodePositions]);
+  }, [graphData, exportNodePositions, mode]);
 
   const handleNodeColorChange = useCallback((nodeIds, newColor) => {
     printDebug('🏠 App: Change color:', nodeIds, '->', newColor);
@@ -483,6 +506,37 @@ function App() {
     dispatchAppState({ type: ACTION_TYPES.CLOSE_NOTE_EDITING });
   }, [restoreOriginalCamera, hasOriginalCamera]);
 
+  const handleStartNoteViewing = useCallback((targetId) => {
+    dispatchAppState({
+      type: ACTION_TYPES.START_NOTE_VIEWING,
+      payload: { targetId }
+    });
+  }, []);
+
+  const handleCloseNoteViewing = useCallback(() => {
+    dispatchAppState({ type: ACTION_TYPES.CLOSE_NOTE_VIEWING });
+  }, []);
+
+  const handleModeToggle = useCallback(() => {
+    const newMode = mode === 'editing' ? 'playing' : 'editing';
+    dispatchAppState({
+      type: ACTION_TYPES.SET_MODE,
+      payload: { mode: newMode }
+    });
+    
+    // Clear selections when switching modes
+    clearCytoscapeSelections();
+    dispatchAppState({ type: ACTION_TYPES.CLEAR_ALL_SELECTIONS });
+    
+    // Close any open modals
+    if (noteEditingTarget) {
+      handleCloseNoteEditing();
+    }
+    if (noteViewingTarget) {
+      handleCloseNoteViewing();
+    }
+  }, [mode, noteEditingTarget, noteViewingTarget, clearCytoscapeSelections, handleCloseNoteEditing, handleCloseNoteViewing]);
+
   const handleUpdateNotes = useCallback((targetId, newNotes) => {
     setGraphData(prev => ({
       ...prev,
@@ -503,6 +557,33 @@ function App() {
     }
   }, []);
 
+  const handleNodeClick = useCallback((nodeId) => {
+    if (mode === 'playing') {
+      // In playing mode, clicking a node opens the note viewer
+      handleStartNoteViewing(nodeId);
+    }
+    // In editing mode, clicking does nothing (selection is handled by Cytoscape)
+  }, [mode, handleStartNoteViewing]);
+
+  const handleEdgeClick = useCallback((edgeId) => {
+    if (mode === 'playing') {
+      // In playing mode, clicking an edge opens the note viewer
+      handleStartNoteViewing(edgeId);
+    }
+    // In editing mode, clicking does nothing (selection is handled by Cytoscape)
+  }, [mode, handleStartNoteViewing]);
+
+  const handleBackgroundClick = useCallback(() => {
+    // Close note editing modal if open
+    if (noteEditingTarget) {
+      handleCloseNoteEditing();
+    }
+    // Close note viewing modal if open
+    if (noteViewingTarget) {
+      handleCloseNoteViewing();
+    }
+  }, [noteEditingTarget, noteViewingTarget, handleCloseNoteEditing, handleCloseNoteViewing]);
+
   const areNodesConnected = useCallback((sourceId, targetId) => {
     return graphData.edges.some(e =>
       (e.source === sourceId && e.target === targetId) ||
@@ -513,7 +594,8 @@ function App() {
   // ---------- keyboard shortcuts ----------
   useEffect(() => {
     const handleKeyDown = (event) => {
-      // Only handle Delete key
+      // Only handle Delete key in editing mode
+      if (mode !== 'editing') return;
       if (event.key !== 'Delete' && event.key !== 'Backspace') return;
       
       // Don't handle if user is typing in an input/textarea
@@ -538,7 +620,7 @@ function App() {
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [selectedNodeIds, selectedEdgeIds, handleDeleteSelectedNodes, handleDeleteSelectedEdges]);
+  }, [mode, selectedNodeIds, selectedEdgeIds, handleDeleteSelectedNodes, handleDeleteSelectedEdges]);
 
   /** ---------- render ---------- **/
   return (
@@ -560,6 +642,8 @@ function App() {
         fileInputRef={fileInputRef}
         onNodeColorChange={handleNodeColorChange}
         areNodesConnected={areNodesConnected}
+        mode={mode}
+        onModeToggle={MODE_TOGGLE ? handleModeToggle : undefined}
       />
 
       <NoteEditorModal
@@ -574,11 +658,18 @@ function App() {
         onClose={handleCloseNoteEditing}
       />
 
+      <NoteViewerModal
+        targetId={noteViewingTarget}
+        notes={noteViewingTarget ? (graphData.notes?.[noteViewingTarget] || []) : []}
+        onClose={handleCloseNoteViewing}
+      />
+
       <CameraInfo
         zoom={zoomLevel}
         pan={cameraPosition}
         selectedNodeIds={selectedNodeIds}
         selectedEdgeIds={selectedEdgeIds}
+        mode={mode}
       />
 
       <ErrorDisplay error={loadError} onClearError={clearError} />
@@ -587,6 +678,7 @@ function App() {
         // 🔁 pass nodes/edges (not graphData)
         nodes={graphData.nodes}
         edges={graphData.edges}
+        mode={mode}
 
         onNodeMove={handleNodeMove}
         onZoomChange={setZoomLevel}
@@ -598,6 +690,8 @@ function App() {
 
         onEdgeSelectionChange={handleEdgeSelectionChange}
         onNodeSelectionChange={handleNodeSelectionChange}
+        onNodeClick={handleNodeClick}
+        onEdgeClick={handleEdgeClick}
         onNodeDoubleClick={handleNodeDoubleClick}
         onEdgeDoubleClick={handleEdgeDoubleClick}
         onEdgeDirectionChange={handleEdgeDirectionChange}
@@ -606,7 +700,7 @@ function App() {
         onNodeSizeChange={handleNodeSizeChange}
         onNodeColorChange={handleNodeColorChange}
 
-        onBackgroundClick={handleCloseNoteEditing}
+        onBackgroundClick={handleBackgroundClick}
 
         onCytoscapeInstanceReady={setCytoscapeInstance}
       />

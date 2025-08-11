@@ -15,7 +15,9 @@ function GraphControls({
   onFitToView,
   fileInputRef,
   onNodeColorChange,
-  areNodesConnected
+  areNodesConnected,
+  mode,
+  onModeToggle
 }) {
   const canConnect = selectedNodes.length === 2 && !areNodesConnected(selectedNodes[0], selectedNodes[1]);
 
@@ -79,35 +81,54 @@ function GraphControls({
         Fit
       </button>
       
-      <button
-        style={{
-          padding: "8px 12px",
-          background: "#d32f2f",
-          color: "#fff",
-          border: "1px solid #b71c1c",
-          cursor: "pointer"
-        }}
-        onClick={onResetMap}
-        title="Reset Map to Initial State"
-      >
-        Reset
-      </button>
+      {mode === 'editing' && (
+        <button
+          style={{
+            padding: "8px 12px",
+            background: "#d32f2f",
+            color: "#fff",
+            border: "1px solid #b71c1c",
+            cursor: "pointer"
+          }}
+          onClick={onResetMap}
+          title="Reset Map to Initial State"
+        >
+          Reset
+        </button>
+      )}
+      
+      {mode === 'editing' && (
+        <button
+          style={{
+            padding: "8px 12px",
+            background: "#4caf50",
+            color: "#fff",
+            border: "1px solid #388e3c",
+            cursor: "pointer"
+          }}
+          onClick={onCreateNode}
+          title="Add New Node"
+        >
+          Add
+        </button>
+      )}
       
       <button
         style={{
           padding: "8px 12px",
-          background: "#4caf50",
+          background: mode === 'editing' ? "#ff9800" : "#2196f3",
           color: "#fff",
-          border: "1px solid #388e3c",
-          cursor: "pointer"
+          border: `1px solid ${mode === 'editing' ? "#f57c00" : "#1976d2"}`,
+          cursor: "pointer",
+          fontWeight: "bold"
         }}
-        onClick={onCreateNode}
-        title="Add New Node"
+        onClick={onModeToggle}
+        title={`Switch to ${mode === 'editing' ? 'Playing' : 'Editing'} Mode`}
       >
-        Add
+        Mode
       </button>
       
-      {selectedEdges.length > 0 && (
+      {mode === 'editing' && selectedEdges.length > 0 && (
         <button
           style={{
             padding: "8px 12px",
@@ -124,7 +145,7 @@ function GraphControls({
         </button>
       )}
       
-      {(selectedNodes.length === 1 || selectedEdges.length === 1) && (
+      {mode === 'editing' && (selectedNodes.length === 1 || selectedEdges.length === 1) && (
         <button
           style={{
             padding: "8px 12px",
@@ -141,7 +162,7 @@ function GraphControls({
         </button>
       )}
       
-      {selectedNodes.length > 0 && (
+      {mode === 'editing' && selectedNodes.length > 0 && (
         <button
           style={{
             padding: "8px 12px",
@@ -158,7 +179,7 @@ function GraphControls({
         </button>
       )}
       
-      {canConnect && (
+      {canConnect && mode === 'editing' && (
         <button
           style={{
             padding: "8px 12px",
@@ -174,7 +195,7 @@ function GraphControls({
         </button>
       )}
       
-      {selectedNodes.length > 0 && (
+      {mode === 'editing' && selectedNodes.length > 0 && (
         <NodeColorPicker
           selectedNodeIds={selectedNodes}
           onNodeColorChange={onNodeColorChange}

@@ -26,6 +26,13 @@ export const ACTION_TYPES = {
   START_NOTE_EDITING: 'START_NOTE_EDITING',
   CLOSE_NOTE_EDITING: 'CLOSE_NOTE_EDITING',
   
+  // Note viewing actions (for playing mode)
+  START_NOTE_VIEWING: 'START_NOTE_VIEWING',
+  CLOSE_NOTE_VIEWING: 'CLOSE_NOTE_VIEWING',
+  
+  // Mode actions
+  SET_MODE: 'SET_MODE',
+  
   // UI state actions
   SET_SHOULD_FIT: 'SET_SHOULD_FIT',
   SET_LOAD_ERROR: 'SET_LOAD_ERROR',
@@ -48,12 +55,16 @@ export const initialAppState = {
     noteEditing: {
       targetId: null,
       targetType: null // 'node' or 'edge'
+    },
+    noteViewing: {
+      targetId: null
     }
   },
   camera: {
     zoom: 1,
     position: { x: 0, y: 0 }
   },
+  mode: 'editing', // 'editing' or 'playing'
   ui: {
     shouldFitOnNextRender: false,
     loadError: null
@@ -156,6 +167,34 @@ export function appStateReducer(state, action) {
         }
       };
       
+    case ACTION_TYPES.START_NOTE_VIEWING:
+      return {
+        ...state,
+        selections: {
+          ...state.selections,
+          noteViewing: {
+            targetId: action.payload.targetId
+          }
+        }
+      };
+      
+    case ACTION_TYPES.CLOSE_NOTE_VIEWING:
+      return {
+        ...state,
+        selections: {
+          ...state.selections,
+          noteViewing: {
+            targetId: null
+          }
+        }
+      };
+      
+    case ACTION_TYPES.SET_MODE:
+      return {
+        ...state,
+        mode: action.payload.mode
+      };
+      
     case ACTION_TYPES.SET_ZOOM:
       return {
         ...state,
@@ -249,6 +288,20 @@ export const actions = {
   
   closeNoteEditing: () => ({
     type: ACTION_TYPES.CLOSE_NOTE_EDITING
+  }),
+  
+  startNoteViewing: (targetId) => ({
+    type: ACTION_TYPES.START_NOTE_VIEWING,
+    payload: { targetId }
+  }),
+  
+  closeNoteViewing: () => ({
+    type: ACTION_TYPES.CLOSE_NOTE_VIEWING
+  }),
+  
+  setMode: (mode) => ({
+    type: ACTION_TYPES.SET_MODE,
+    payload: { mode }
   }),
   
   setLoadError: (error) => ({

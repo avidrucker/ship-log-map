@@ -6,12 +6,13 @@ export function edgeId(source, target) {
   return `${source}__${target}`;
 }
 
-// Normalize graph to { nodes, edges, notes }
+// Normalize graph to { nodes, edges, notes, mode }
 export function normalizeGraph(graph) {
   const nodes = Array.isArray(graph?.nodes) ? graph.nodes : [];
   const edges = Array.isArray(graph?.edges) ? graph.edges : [];
   const notes = graph?.notes && typeof graph.notes === "object" ? graph.notes : {};
-  return { nodes, edges, notes };
+  const mode = typeof graph?.mode === "string" ? graph.mode : "editing";
+  return { nodes, edges, notes, mode };
 }
 
 // Add node
@@ -102,7 +103,7 @@ export function setEdgeMeta(graph, idOrPair, patch) {
 export function serializeGraph(graph) {
   const g = normalizeGraph(graph);
   // keep clean shape
-  return JSON.stringify({ nodes: g.nodes, edges: g.edges, notes: g.notes }, null, 2);
+  return JSON.stringify({ nodes: g.nodes, edges: g.edges, notes: g.notes, mode: g.mode }, null, 2);
 }
 
 // Accepts an object (already parsed) or a string
@@ -129,6 +130,7 @@ export function deserializeGraph(input) {
   }));
 
   const notes = g.notes;
+  const mode = g.mode;
 
-  return { nodes, edges, notes };
+  return { nodes, edges, notes, mode };
 }
