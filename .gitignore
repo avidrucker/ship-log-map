@@ -26,6 +26,7 @@ dist-ssr
 # misc docs, temp files
 REFACTORING_SUMMARY.md
 NOTE_EDITOR_IMPLEMENTATION.md
+FEATURE_CHANGES.md
 AppOptimized.jsx
 
 # Project-specific files 
