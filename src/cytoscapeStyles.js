@@ -135,33 +135,44 @@ const edgeBase = [
   {
     selector: 'edge[direction="forward"]',
     style: {
-      "target-arrow-shape": "triangle",
-      "target-arrow-color": COLORS.edge
+      "mid-target-arrow-shape": "chevron",
+      "mid-target-arrow-color": COLORS.edge
     }
   },
   {
     selector: 'edge[direction="backward"]',
     style: {
-      "source-arrow-shape": "triangle",
-      "source-arrow-color": COLORS.edge
+      "mid-source-arrow-shape": "chevron",
+      "mid-source-arrow-color": COLORS.edge
     }
   },
   {
     selector: 'edge[direction="bidirectional"]',
     style: {
-      "source-arrow-shape": "triangle",
-      "target-arrow-shape": "triangle",
-      "source-arrow-color": COLORS.edge,
-      "target-arrow-color": COLORS.edge
+      "mid-source-arrow-shape": "chevron",
+      "mid-target-arrow-shape": "chevron",
+      "mid-source-arrow-color": COLORS.edge,
+      "mid-target-arrow-color": COLORS.edge
     }
   },
   {
     selector: 'edge:active',
     style: {
       "line-color": "#ffdd59",
-      "target-arrow-color": "#ffdd59",
-      "source-arrow-color": "#ffdd59",
-      "width": 7
+      "mid-target-arrow-color": "#ffdd59",
+      "mid-source-arrow-color": "#ffdd59",
+      "width": 5,
+      "arrow-scale": 1.5
+    }
+  },
+  {
+    selector: 'edge:selected',
+    style: {
+      "line-color": "#ffdd59",
+      "mid-target-arrow-color": "#ffdd59",
+      "mid-source-arrow-color": "#ffdd59",
+      "width": 7,
+      "arrow-scale": 1.2
     }
   }
 ];
