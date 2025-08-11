@@ -25,3 +25,4 @@
 - [ ] Implement "double-edges" where each edge has a second edge below it with a thicker line and different color to mimic source material styling
 - [ ] See if arrows can be moved to the center of edges instead of being at the end
 - [ ] Fix focused/active nodes to not have different border colors (they should match the node's color always)
+- [x] Change cursor to pointer when hovering over nodes and edges
