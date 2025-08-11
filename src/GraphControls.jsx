@@ -7,7 +7,7 @@ function GraphControls({
   onCreateNode,
   onDeleteSelectedNodes,
   onDeleteSelectedEdges,
-  onRenameNode,
+  onEditSelected,
   onConnectNodes,
   onExportMap,
   onImportFile,
@@ -15,8 +15,7 @@ function GraphControls({
   onFitToView,
   fileInputRef,
   onNodeColorChange,
-  areNodesConnected,
-  renamingNodeId
+  areNodesConnected
 }) {
   const canConnect = selectedNodes.length === 2 && !areNodesConnected(selectedNodes[0], selectedNodes[1]);
 
@@ -47,8 +46,9 @@ function GraphControls({
           cursor: "pointer"
         }}
         onClick={onExportMap}
+        title="Export Map JSON"
       >
-        Export Map JSON
+        Export
       </button>
       
       <button
@@ -60,8 +60,9 @@ function GraphControls({
           cursor: "pointer"
         }}
         onClick={() => fileInputRef.current?.click()}
+        title="Load Map JSON"
       >
-        Load Map JSON
+        Load
       </button>
       
       <button
@@ -73,6 +74,7 @@ function GraphControls({
           cursor: "pointer"
         }}
         onClick={onFitToView}
+        title="Fit Map to Viewport"
       >
         Fit
       </button>
@@ -86,6 +88,7 @@ function GraphControls({
           cursor: "pointer"
         }}
         onClick={onResetMap}
+        title="Reset Map to Initial State"
       >
         Reset
       </button>
@@ -99,8 +102,9 @@ function GraphControls({
           cursor: "pointer"
         }}
         onClick={onCreateNode}
+        title="Add New Node"
       >
-        Create Node
+        Add
       </button>
       
       {selectedEdges.length > 0 && (
@@ -114,12 +118,13 @@ function GraphControls({
             fontWeight: "bold"
           }}
           onClick={() => onDeleteSelectedEdges(selectedEdges)}
+          title={`Delete ${selectedEdges.length} Edge${selectedEdges.length > 1 ? 's' : ''}`}
         >
-          Delete {selectedEdges.length} Edge{selectedEdges.length > 1 ? 's' : ''}
+          Delete
         </button>
       )}
       
-      {selectedNodes.length === 1 && !renamingNodeId && (
+      {(selectedNodes.length === 1 || selectedEdges.length === 1) && (
         <button
           style={{
             padding: "8px 12px",
@@ -129,9 +134,10 @@ function GraphControls({
             cursor: "pointer",
             fontWeight: "bold"
           }}
-          onClick={() => onRenameNode(selectedNodes[0])}
+          onClick={onEditSelected}
+          title="Edit Label/Notes"
         >
-          Rename Node
+          Edit
         </button>
       )}
       
@@ -146,8 +152,9 @@ function GraphControls({
             fontWeight: "bold"
           }}
           onClick={() => onDeleteSelectedNodes(selectedNodes)}
+          title={`Delete ${selectedNodes.length} Node${selectedNodes.length > 1 ? 's' : ''}`}
         >
-          Delete {selectedNodes.length} Node{selectedNodes.length > 1 ? 's' : ''}
+          Delete
         </button>
       )}
       

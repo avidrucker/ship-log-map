@@ -1,0 +1,83 @@
+// src/graph/ops.test.js
+import {
+  addNode, removeNodeAndEdges, renameNode,
+  connectNodes, disconnectNodes, setNodeMeta,
+  setEdgeMeta, serializeGraph, deserializeGraph, edgeId
+} from "./ops.js";
+
+describe("graph ops", () => {
+  const blank = { nodes: [], edges: [], notes: {} };
+
+  test("add/rename/remove node", () => {
+    let g = addNode(blank, { id: "A", title: "Alpha", x: 10, y: 20 });
+    expect(g.nodes).toHaveLength(1);
+    g = renameNode(g, "A", "A1");
+    expect(g.nodes[0].title).toBe("A1");
+    g = removeNodeAndEdges(g, "A");
+    expect(g.nodes).toHaveLength(0);
+  });
+
+  test("connect/disconnect edge", () => {
+    let g = { ...blank, nodes: [{ id: "A" }, { id: "B" }] };
+    g = connectNodes(g, "A", "B", "forward");
+    expect(g.edges).toHaveLength(1);
+    const id = edgeId("A", "B");
+    g = setEdgeMeta(g, id, { direction: "both" });
+    expect(g.edges[0].direction).toBe("both");
+    g = disconnectNodes(g, { source: "A", target: "B" });
+    expect(g.edges).toHaveLength(0);
+  });
+
+  test("serialize/deserialize", () => {
+    let g = addNode(blank, { id: "N1", title: "Node", x: 0, y: 0, color: "orange" });
+    g = connectNodes(g, "N1", "N1", "forward");
+    const text = serializeGraph(g);
+    const g2 = deserializeGraph(text);
+    expect(g2.nodes[0].color).toBe("orange");
+    expect(g2.edges[0].id).toBe(edgeId("N1", "N1"));
+  });
+
+  test("setNodeMeta updates node properties", () => {
+    // Start with a node with default properties
+    let g = addNode(blank, { id: "TestNode", title: "Original Title", x: 10, y: 20, color: "gray", size: "regular" });
+    
+    // Verify initial state
+    expect(g.nodes[0].title).toBe("Original Title");
+    expect(g.nodes[0].color).toBe("gray");
+    expect(g.nodes[0].size).toBe("regular");
+    expect(g.nodes[0].x).toBe(10);
+    expect(g.nodes[0].y).toBe(20);
+
+    // Update single property
+    g = setNodeMeta(g, "TestNode", { color: "blue" });
+    expect(g.nodes[0].color).toBe("blue");
+    expect(g.nodes[0].title).toBe("Original Title"); // other properties unchanged
+
+    // Update multiple properties at once
+    g = setNodeMeta(g, "TestNode", { 
+      size: "double", 
+      x: 100, 
+      y: 200,
+      title: "Updated Title"
+    });
+    expect(g.nodes[0].size).toBe("double");
+    expect(g.nodes[0].x).toBe(100);
+    expect(g.nodes[0].y).toBe(200);
+    expect(g.nodes[0].title).toBe("Updated Title");
+    expect(g.nodes[0].color).toBe("blue"); // previous change preserved
+
+    // Try to update non-existent node (should return unchanged graph)
+    const originalLength = g.nodes.length;
+    const gUnchanged = setNodeMeta(g, "NonExistentNode", { color: "red" });
+    expect(gUnchanged.nodes).toHaveLength(originalLength);
+    expect(gUnchanged.nodes[0].color).toBe("blue"); // no changes to existing node
+
+    // Test with empty patch object
+    const gEmptyPatch = setNodeMeta(g, "TestNode", {});
+    expect(gEmptyPatch.nodes[0]).toEqual(g.nodes[0]); // should be identical
+
+    // Test updating imageUrl property
+    g = setNodeMeta(g, "TestNode", { imageUrl: "custom-image-url" });
+    expect(g.nodes[0].imageUrl).toBe("custom-image-url");
+  });
+});

@@ -3,14 +3,18 @@ import React, { useState, useCallback } from "react";
 function NoteEditorModal({
   targetId,
   targetType, // 'node' or 'edge'
+  currentTitle,
   notes, // array of note strings for this target
   onUpdateNotes,
+  onUpdateTitle,
   onClose
 }) {
   const [editingIndex, setEditingIndex] = useState(null);
   const [editingValue, setEditingValue] = useState("");
   const [isAddingNew, setIsAddingNew] = useState(false);
   const [newNoteValue, setNewNoteValue] = useState("");
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [titleValue, setTitleValue] = useState(currentTitle);
 
   const handleStartEdit = useCallback((index) => {
     setEditingIndex(index);
@@ -58,6 +62,23 @@ function NoteEditorModal({
     setNewNoteValue("");
   }, []);
 
+  const handleStartEditTitle = useCallback(() => {
+    setIsEditingTitle(true);
+    setTitleValue(currentTitle);
+  }, [currentTitle]);
+
+  const handleSaveTitle = useCallback(() => {
+    if (titleValue.trim() && titleValue.trim() !== currentTitle) {
+      onUpdateTitle(targetId, targetType, titleValue.trim());
+    }
+    setIsEditingTitle(false);
+  }, [titleValue, currentTitle, targetId, targetType, onUpdateTitle]);
+
+  const handleCancelTitleEdit = useCallback(() => {
+    setIsEditingTitle(false);
+    setTitleValue(currentTitle);
+  }, [currentTitle]);
+
   if (!targetId) return null;
 
   return (
@@ -86,9 +107,76 @@ function NoteEditorModal({
         alignItems: "center",
         background: "rgba(0, 0, 0, 0.95)"
       }}>
-        <h3 style={{ margin: 0, color: "#4caf50" }}>
-          Notes for {targetType}: {targetId}
-        </h3>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <span style={{ color: "#4caf50", fontSize: "14px" }}>
+            Notes for {targetType}:
+          </span>
+          {isEditingTitle ? (
+            <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
+              <input
+                type="text"
+                value={titleValue}
+                onChange={(e) => setTitleValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleSaveTitle();
+                  if (e.key === "Escape") handleCancelTitleEdit();
+                }}
+                style={{
+                  background: "#333",
+                  color: "#fff",
+                  border: "1px solid #4caf50",
+                  padding: "4px 8px",
+                  borderRadius: "3px",
+                  fontSize: "16px",
+                  fontWeight: "bold",
+                  minWidth: "120px"
+                }}
+                autoFocus
+              />
+              <button
+                onClick={handleSaveTitle}
+                style={{
+                  background: "#4caf50",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: "3px",
+                  padding: "4px 8px",
+                  cursor: "pointer",
+                  fontSize: "12px"
+                }}
+              >
+                ✓
+              </button>
+              <button
+                onClick={handleCancelTitleEdit}
+                style={{
+                  background: "#666",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: "3px",
+                  padding: "4px 8px",
+                  cursor: "pointer",
+                  fontSize: "12px"
+                }}
+              >
+                ✕
+              </button>
+            </div>
+          ) : (
+            <h3 
+              style={{ 
+                margin: 0, 
+                color: "#4caf50",
+                cursor: targetType === "node" ? "pointer" : "default",
+                textDecoration: targetType === "node" ? "underline dotted" : "none"
+              }}
+              onClick={targetType === "node" ? handleStartEditTitle : undefined}
+              title={targetType === "node" ? "Click to edit title" : ""}
+            >
+              {currentTitle || targetId}
+            </h3>
+          )}
+        </div>
         <button
           onClick={onClose}
           style={{

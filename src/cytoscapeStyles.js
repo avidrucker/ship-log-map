@@ -20,7 +20,7 @@ const baseNode = {
   "font-family": "monospace",
 
   // Images: keep square aspect, centered horizontally, bottom aligned.
-  "background-image": "data(icon)",
+  "background-image": "data(imageUrl)",
   "background-repeat": "no-repeat"
 };
 
