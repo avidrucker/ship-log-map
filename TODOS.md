@@ -17,3 +17,11 @@
 - [ ] Implement a "zoom to node" button which zooms the camera to the currently selected node, centering it in the viewport and zooming in to a comfortable reading/viewing level (this zoom amount should vary depending on the node size)
 - [ ] Implement adding of clues/hints to edges, which can be displayed when an edge is clicked
 - [ ] Implement adding of clues/hints to nodes, which can be displayed when a node is clicked
+- [ ] Pressing Esc while a modal is open should close the modal (for both note editor and node renaming)
+- [ ] Selecting a node will deselect all edges
+- [ ] Selecting an edge will deselect all nodes
+- [ ] Clicking outside of the Note Editor Modal closes it, including when clicking on the background or other nodes/edges
+- [ ] Fix bug where edges are not properly styled when they are selected
+- [ ] Implement "double-edges" where each edge has a second edge below it with a thicker line and different color to mimic source material styling
+- [ ] See if arrows can be moved to the center of edges instead of being at the end
+- [ ] Fix focused/active nodes to not have different border colors (they should match the node's color always)
