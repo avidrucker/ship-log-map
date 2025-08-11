@@ -10,13 +10,14 @@ import ErrorDisplay from "./ErrorDisplay";
 import { TEST_ICON_SVG } from "./constants/testAssets.js";
 import { useCytoscapeInstance } from "./useCytoscapeInstance";
 import { appStateReducer, initialAppState, ACTION_TYPES } from "./appStateReducer";
+import { ZOOM_TO_SELECTION, DEBUG_LOGGING } from "./config/features.js";
 
 // 🚀 New imports: centralized persistence + edge id helper
 import { saveToLocal, loadFromLocal } from "./persistence/index.js";
 import { edgeId } from "./graph/ops.js";
 
-// Debug flag - set to false to disable all debug logging
-const DEBUG = false;
+// Debug flag - controlled by feature config
+const DEBUG = DEBUG_LOGGING;
 const printDebug = (...args) => {
   if (DEBUG) console.log(...args);
 };
@@ -75,7 +76,12 @@ function App() {
     clearCytoscapeSelections,
     fitToView,
     getViewportCenter,
-    exportNodePositions
+    exportNodePositions,
+    // Camera state management for zoom-to-selection
+    saveOriginalCamera, // eslint-disable-line no-unused-vars
+    restoreOriginalCamera,
+    fitToSelection,
+    hasOriginalCamera
   } = useCytoscapeInstance();
 
   // ---------- graph (nodes/edges/notes) ----------
@@ -442,11 +448,22 @@ function App() {
 
   // notes — now stored in graphData.notes
   const handleStartNoteEditing = useCallback((targetId, targetType) => {
+    // Zoom to selection if feature is enabled
+    if (ZOOM_TO_SELECTION && targetId) {
+      fitToSelection([targetId], {
+        animate: true,
+        padding: 80,
+        targetHalf: 'top',
+        saveCamera: true,
+        zoomLevel: 'close' // Zoom in close for single element editing
+      });
+    }
+    
     dispatchAppState({
       type: ACTION_TYPES.START_NOTE_EDITING,
       payload: { targetId, targetType }
     });
-  }, []);
+  }, [fitToSelection]);
 
   const handleEditSelected = useCallback(() => {
     // Edit the first selected node or edge
@@ -458,8 +475,13 @@ function App() {
   }, [selectedNodeIds, selectedEdgeIds, handleStartNoteEditing]);
 
   const handleCloseNoteEditing = useCallback(() => {
+    // Restore original camera if feature is enabled and we have a saved camera state
+    if (ZOOM_TO_SELECTION && hasOriginalCamera()) {
+      restoreOriginalCamera(true);
+    }
+    
     dispatchAppState({ type: ACTION_TYPES.CLOSE_NOTE_EDITING });
-  }, []);
+  }, [restoreOriginalCamera, hasOriginalCamera]);
 
   const handleUpdateNotes = useCallback((targetId, newNotes) => {
     setGraphData(prev => ({
