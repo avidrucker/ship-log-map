@@ -1,12 +1,12 @@
 // src/styles/tokens.js
 
 export const COLORS = {
-  gray:   { base: "#9E9E9E", bright: "#BDBDBD" },
-  green:  { base: "#4CAF50", bright: "#81C784" },
-  orange: { base: "#FF5722", bright: "#FF8A65" },
-  purple: { base: "#6A0DAD", bright: "#9C27B0" },
-  red:    { base: "#CD5C5C", bright: "#FF8A80" },
-  blue:   { base: "#2196F3", bright: "#64B5F6" },
+  gray:   { base: "#5e666a", bright: "#25271c" },
+  green:  { base: "#2d6e4a", bright: "#008e53" },
+  orange: { base: "#905e3b", bright: "#8e3b00" },
+  purple: { base: "#3f2e71", bright: "#26008e" },
+  red:    { base: "#903b3b", bright: "#8e0000" },
+  blue:   { base: "#173b76", bright: "#0042ae" },
 
   white: "#FFFFFF",
   text:  "#FFFFFF",

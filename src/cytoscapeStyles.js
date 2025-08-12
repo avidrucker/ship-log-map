@@ -121,6 +121,33 @@ const selectedRules = [
       "background-color": COLORS.blue.bright } }
 ];
 
+const activeRules = [
+  { selector: 'node:active[color="gray"]',   
+    style: {  "border-color": COLORS.gray.bright,   
+              "border-width": BORDER.selectedWidth,
+              "background-color": COLORS.gray.bright } },
+  { selector: 'node:active[color="green"]',  
+    style: { "border-color": COLORS.green.bright,  
+      "border-width": BORDER.selectedWidth, 
+      "background-color": COLORS.green.bright } },
+  { selector: 'node:active[color="orange"]', 
+    style: { "border-color": COLORS.orange.bright, 
+      "border-width": BORDER.selectedWidth, 
+      "background-color": COLORS.orange.bright } },
+  { selector: 'node:active[color="purple"]', 
+    style: { "border-color": COLORS.purple.bright, 
+      "border-width": BORDER.selectedWidth, 
+      "background-color": COLORS.purple.bright } },
+  { selector: 'node:active[color="red"]',    
+    style: { "border-color": COLORS.red.bright,    
+      "border-width": BORDER.selectedWidth, 
+      "background-color": COLORS.red.bright } },
+  { selector: 'node:active[color="blue"]',   
+    style: { "border-color": COLORS.blue.bright,   
+      "border-width": BORDER.selectedWidth, 
+      "background-color": COLORS.blue.bright } }
+]
+
 const edgeBase = [
   {
     selector: 'edge',
@@ -184,6 +211,7 @@ const cytoscapeStyles = [
   ...sizeRules,
   ...colorRules,
   ...selectedRules,
+  ...activeRules,
   ...edgeBase
 ];
 
