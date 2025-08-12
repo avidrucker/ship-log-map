@@ -29,3 +29,5 @@
 - [ ] Implement re-ordering of notes in the Note Editor Modal
 - [ ] Implement "unlocking" of nodes in player mode where initially a question mark is shown on the node instead of its title and picture to indicate that a node exists, but is not yet accessible
 - [ ] Implement "unlocking" of notes where, in the note viewer modal, there is an indicator that further notes exist, but are not yet accessible
+- [x] Fix node and edge selection so that single clicking adds to the selection (instead of requiring shift+click) and clicking on the background deselects all nodes and edges
+- [x] fix colors to match original source material
