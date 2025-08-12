@@ -74,6 +74,7 @@ function App() {
   // Use the Cytoscape instance management hook
   const {
     setCytoscapeInstance,
+    getCytoscapeInstance,
     updateNodeInPlace,
     clearCytoscapeSelections,
     fitToView,
@@ -232,6 +233,43 @@ function App() {
     clearCytoscapeSelections();
     dispatchAppState({ type: ACTION_TYPES.CLEAR_ALL_SELECTIONS });
   }, [clearCytoscapeSelections]);
+
+  const handleNewMap = useCallback(() => {
+    // Check if there are any nodes in the current map
+    if (graphData.nodes.length > 0) {
+      // Show confirmation dialog
+      const confirmed = window.confirm("Are you sure you want to delete this map and start a new one?");
+      if (!confirmed) {
+        return; // User cancelled
+      }
+    }
+
+    // Create a completely empty map
+    setGraphData({
+      nodes: [],
+      edges: [],
+      notes: {},
+      mode: mode // preserve current mode
+    });
+
+    // Camera reset - update both app state and Cytoscape instance
+    dispatchAppState({ type: ACTION_TYPES.SET_ZOOM, payload: { zoom: 1 } });
+    dispatchAppState({ type: ACTION_TYPES.SET_CAMERA_POSITION, payload: { position: { x: 0, y: 0 } } });
+    
+    // Apply camera reset to Cytoscape instance immediately
+    const cy = getCytoscapeInstance();
+    if (cy) {
+      cy.zoom(1);
+      cy.pan({ x: 0, y: 0 });
+    }
+    
+    dispatchAppState({ type: ACTION_TYPES.SET_SHOULD_FIT, payload: { shouldFit: true } });
+
+    // Clear errors & selections
+    dispatchAppState({ type: ACTION_TYPES.SET_LOAD_ERROR, payload: { error: null } });
+    clearCytoscapeSelections();
+    dispatchAppState({ type: ACTION_TYPES.CLEAR_ALL_SELECTIONS });
+  }, [graphData.nodes.length, mode, getCytoscapeInstance, clearCytoscapeSelections]);
 
   const clearError = useCallback(() => {
     dispatchAppState({ type: ACTION_TYPES.SET_LOAD_ERROR, payload: { error: null } });
@@ -649,6 +687,7 @@ function App() {
         onExportMap={exportMap}
         onImportFile={handleFileSelect}
         onResetMap={handleResetToInitial}
+        onNewMap={handleNewMap}
         onFitToView={handleFitToView}
         fileInputRef={fileInputRef}
         onNodeColorChange={handleNodeColorChange}

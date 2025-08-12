@@ -12,6 +12,7 @@ function GraphControls({
   onExportMap,
   onImportFile,
   onResetMap,
+  onNewMap,
   onFitToView,
   fileInputRef,
   onNodeColorChange,
@@ -110,6 +111,22 @@ function GraphControls({
           title="Add New Node"
         >
           Add
+        </button>
+      )}
+      
+      {mode === 'editing' && (
+        <button
+          style={{
+            padding: "8px 12px",
+            background: "#9e9e9e",
+            color: "#fff",
+            border: "1px solid #757575",
+            cursor: "pointer"
+          }}
+          onClick={onNewMap}
+          title="Create New Empty Map"
+        >
+          New
         </button>
       )}
       
