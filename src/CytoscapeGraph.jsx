@@ -88,12 +88,12 @@ function CytoscapeGraph({
       onNodeMove,
       onZoomChange,
       onCameraMove
-    });
+    }, mode);
 
     return () => {
       off?.();
     };
-  }, [onNodeSelectionChange, onEdgeSelectionChange, onNodeClick, onEdgeClick, onNodeDoubleClick, onEdgeDoubleClick, onBackgroundClick, onNodeMove, onZoomChange, onCameraMove]);
+  }, [onNodeSelectionChange, onEdgeSelectionChange, onNodeClick, onEdgeClick, onNodeDoubleClick, onEdgeDoubleClick, onBackgroundClick, onNodeMove, onZoomChange, onCameraMove, mode]);
 
   // Sync when domain elements change
   useEffect(() => {

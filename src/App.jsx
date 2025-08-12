@@ -237,13 +237,30 @@ function App() {
     dispatchAppState({ type: ACTION_TYPES.SET_LOAD_ERROR, payload: { error: null } });
   }, []);
 
+  // Note viewing handlers - defined early to avoid circular dependencies
+  const handleStartNoteViewing = useCallback((targetId) => {
+    dispatchAppState({
+      type: ACTION_TYPES.START_NOTE_VIEWING,
+      payload: { targetId }
+    });
+  }, []);
+
+  const handleCloseNoteViewing = useCallback(() => {
+    dispatchAppState({ type: ACTION_TYPES.CLOSE_NOTE_VIEWING });
+  }, []);
+
   const handleEdgeSelectionChange = useCallback((edgeIds) => {
     printDebug('🏠 App: Edge selection changed:', edgeIds);
     dispatchAppState({
       type: ACTION_TYPES.SET_EDGE_SELECTION,
       payload: { edgeIds }
     });
-  }, []);
+
+    // In playing mode, close note viewer if no edges are selected
+    if (mode === 'playing' && edgeIds.length === 0 && noteViewingTarget) {
+      handleCloseNoteViewing();
+    }
+  }, [mode, noteViewingTarget, handleCloseNoteViewing]);
 
   // Now deletes by actual edge.id (not index)
   const handleDeleteSelectedEdges = useCallback((edgeIds) => {
@@ -294,7 +311,12 @@ function App() {
       type: ACTION_TYPES.SET_NODE_SELECTION,
       payload: { nodeIds, selectionOrder: updatedOrder }
     });
-  }, [nodeSelectionOrder]);
+
+    // In playing mode, close note viewer if no nodes are selected
+    if (mode === 'playing' && nodeIds.length === 0 && noteViewingTarget) {
+      handleCloseNoteViewing();
+    }
+  }, [nodeSelectionOrder, mode, noteViewingTarget, handleCloseNoteViewing]);
 
   const handleConnectSelectedNodes = useCallback(() => {
     if (selectedNodeIds.length === 2 && nodeSelectionOrder.length === 2) {
@@ -505,17 +527,6 @@ function App() {
     
     dispatchAppState({ type: ACTION_TYPES.CLOSE_NOTE_EDITING });
   }, [restoreOriginalCamera, hasOriginalCamera]);
-
-  const handleStartNoteViewing = useCallback((targetId) => {
-    dispatchAppState({
-      type: ACTION_TYPES.START_NOTE_VIEWING,
-      payload: { targetId }
-    });
-  }, []);
-
-  const handleCloseNoteViewing = useCallback(() => {
-    dispatchAppState({ type: ACTION_TYPES.CLOSE_NOTE_VIEWING });
-  }, []);
 
   const handleModeToggle = useCallback(() => {
     const newMode = mode === 'editing' ? 'playing' : 'editing';

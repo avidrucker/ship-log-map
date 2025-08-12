@@ -31,7 +31,7 @@ export function buildElementsFromDomain(graph, options = {}) {
       target: e.target,
       direction: e.direction ?? "forward"
     },
-    selectable: mode === 'editing' // Only selectable in editing mode
+    selectable: true // Always selectable, but behavior differs by mode
   }));
 
   return [...nodes, ...edges];
@@ -44,7 +44,7 @@ export function mountCy({ container, graph, styles = cytoscapeStyles, mode = 'ed
     container,
     style: styles,
     elements,
-    selectionType: "single",
+    selectionType: mode === 'editing' ? "additive" : "single", // Dynamic selection based on mode
     wheelSensitivity: 0.2,
     pixelRatio: 1
   });
@@ -59,7 +59,7 @@ export function syncElements(cy, graph, options = {}) {
 }
 
 // Wire common events; handlers are optional
-export function wireEvents(cy, handlers = {}) {
+export function wireEvents(cy, handlers = {}, mode = 'editing') {
   const {
     onNodeSelectionChange,
     onEdgeSelectionChange,
@@ -88,17 +88,76 @@ export function wireEvents(cy, handlers = {}) {
     }
   });
 
-  // Clicks
+  // Mode-specific selection behavior - only for playing mode
+  if (mode === 'playing') {
+    // In playing mode: when something gets selected, unselect everything else
+    cy.on('select', (evt) => {
+      if (evt.target.isNode() || evt.target.isEdge()) {
+        const selectedElement = evt.target;
+        // Use setTimeout to avoid interfering with the current selection event
+        setTimeout(() => {
+          // Unselect all other elements, keeping only the current one
+          cy.elements().not(selectedElement).unselect();
+        }, 0);
+      }
+    });
+  }
+  // In editing mode, don't add any custom selection behavior - let Cytoscape handle it
+
+  // Clicks for functionality (not selection)
   cy.on("tap", "node", (evt) => {
+    if (mode === 'playing') {
+      const clickedNode = evt.target;
+      // In playing mode, if the node is already selected, deselect it
+      // We need to check the selection state before the tap event processes
+      const wasSelected = clickedNode.selected();
+      
+      // Use setTimeout to check after the selection has been processed
+      setTimeout(() => {
+        if (wasSelected) {
+          // If it was selected before the click, deselect it now
+          clickedNode.unselect();
+          return; // Don't call onNodeClick when deselecting
+        } else {
+          // If it wasn't selected before, call the click handler
+          if (onNodeClick) onNodeClick(evt.target.id(), "node");
+        }
+      }, 0);
+      return; // Exit early to prevent immediate onNodeClick call
+    }
     if (onNodeClick) onNodeClick(evt.target.id(), "node");
   });
 
   cy.on("tap", "edge", (evt) => {
+    if (mode === 'playing') {
+      const clickedEdge = evt.target;
+      // In playing mode, if the edge is already selected, deselect it
+      // We need to check the selection state before the tap event processes
+      const wasSelected = clickedEdge.selected();
+      
+      // Use setTimeout to check after the selection has been processed
+      setTimeout(() => {
+        if (wasSelected) {
+          // If it was selected before the click, deselect it now
+          clickedEdge.unselect();
+          return; // Don't call onEdgeClick when deselecting
+        } else {
+          // If it wasn't selected before, call the click handler
+          if (onEdgeClick) onEdgeClick(evt.target.id(), "edge");
+        }
+      }, 0);
+      return; // Exit early to prevent immediate onEdgeClick call
+    }
     if (onEdgeClick) onEdgeClick(evt.target.id(), "edge");
   });
 
+  // Background clicks to deselect and call handler
   cy.on("tap", (evt) => {
-    if (evt.target === cy && onBackgroundClick) onBackgroundClick();
+    if (evt.target === cy) {
+      // Background click - deselect all elements
+      cy.elements().unselect();
+      if (onBackgroundClick) onBackgroundClick();
+    }
   });
 
   // Double-click for node size cycling
