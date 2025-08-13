@@ -10,7 +10,7 @@ export const COLORS = {
 
   white: "#FFFFFF",
   text:  "#FFFFFF",
-  bg:    "#121212",
+  bg:    "#020d16",
   edge:  "darkgray"
 };
 
