@@ -35,7 +35,8 @@ const sizeRules = [
       "background-height": NODE_SIZES.regular["background-height"],
       "text-margin-y": NODE_SIZES.regular["text-margin-y"],
       "text-max-width": NODE_SIZES.regular["text-max-width"],
-      "font-size": NODE_SIZES.regular["font-size"]
+      "font-size": NODE_SIZES.regular["font-size"],
+      "z-index": 2 // Regular nodes in middle layer
     }
   },
   {
@@ -48,7 +49,8 @@ const sizeRules = [
       "background-height": NODE_SIZES.double["background-height"],
       "text-margin-y": NODE_SIZES.double["text-margin-y"],
       "text-max-width": NODE_SIZES.double["text-max-width"],
-      "font-size": NODE_SIZES.double["font-size"]
+      "font-size": NODE_SIZES.double["font-size"],
+      "z-index": 1 // Double nodes on bottom (rendered first, appear behind)
     }
   },
   {
@@ -61,7 +63,8 @@ const sizeRules = [
       "background-height": NODE_SIZES.small["background-height"],
       "text-margin-y": NODE_SIZES.small["text-margin-y"],
       "text-max-width": NODE_SIZES.small["text-max-width"],
-      "font-size": NODE_SIZES.small["font-size"]
+      "font-size": NODE_SIZES.small["font-size"],
+      "z-index": 3 // Half nodes on top (rendered last, appear in front)
     }
   }
 ];
