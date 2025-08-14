@@ -16,7 +16,7 @@ import { ZOOM_TO_SELECTION, DEBUG_LOGGING, MODE_TOGGLE, DEV_MODE } from "./confi
 
 // 🚀 New imports: centralized persistence + edge id helper
 import { saveToLocal, loadFromLocal, saveModeToLocal, loadModeFromLocal } from "./persistence/index.js";
-import { edgeId } from "./graph/ops.js";
+import { edgeId, renameNode } from "./graph/ops.js";
 
 // Debug flag - controlled by feature config
 const DEBUG = DEBUG_LOGGING;
@@ -606,16 +606,51 @@ function App() {
 
   const handleUpdateTitle = useCallback((targetId, targetType, newTitle) => {
     if (targetType === "node") {
-      setGraphData(prev => ({
-        ...prev,
-        nodes: prev.nodes.map(n => (n.id === targetId ? { ...n, title: newTitle } : n))
-      }));
+      setGraphData(prev => {
+        // Use the renameNode function to handle ID updates and cascading changes
+        const updatedGraph = renameNode(prev, targetId, newTitle);
+        
+        // Check if the node ID actually changed
+        const oldNode = prev.nodes.find(n => n.id === targetId);
+        const newNode = updatedGraph.nodes.find(n => n.title === newTitle);
+        
+        if (oldNode && newNode && oldNode.id !== newNode.id) {
+          // Node ID changed, update selections if this node is selected
+          if (selectedNodeIds.includes(targetId)) {
+            const newSelectedIds = selectedNodeIds.map(id => id === targetId ? newNode.id : id);
+            const newSelectionOrder = nodeSelectionOrder.map(id => id === targetId ? newNode.id : id);
+            
+            dispatchAppState({
+              type: ACTION_TYPES.SET_NODE_SELECTION,
+              payload: { nodeIds: newSelectedIds, selectionOrder: newSelectionOrder }
+            });
+          }
+          
+          // Update note editing target if it's the renamed node
+          if (noteEditingTarget === targetId) {
+            dispatchAppState({
+              type: ACTION_TYPES.START_NOTE_EDITING,
+              payload: { targetId: newNode.id, targetType: 'node' }
+            });
+          }
+          
+          // Update note viewing target if it's the renamed node
+          if (noteViewingTarget === targetId) {
+            dispatchAppState({
+              type: ACTION_TYPES.START_NOTE_VIEWING,
+              payload: { targetId: newNode.id }
+            });
+          }
+        }
+        
+        return updatedGraph;
+      });
     } else if (targetType === "edge") {
       // For edges, we could store title in a custom property or handle differently
       // For now, let's assume edges don't have editable titles, but we'll keep the interface
       console.warn("Edge title editing not yet implemented");
     }
-  }, []);
+  }, [selectedNodeIds, nodeSelectionOrder, noteEditingTarget, noteViewingTarget]);
 
   const handleNodeClick = useCallback((nodeId) => {
     if (mode === 'playing') {

@@ -25,6 +25,41 @@ export function addNode(graph, { id, title, x, y, size = "regular", color = "gra
   };
 }
 
+// Helper: Generate a valid ID from title text
+export function generateIdFromTitle(title) {
+  // Handle empty or whitespace-only titles
+  if (!title || typeof title !== 'string' || title.trim() === '') {
+    return 'node'; // Default fallback
+  }
+  
+  // Replace spaces with underscores and remove any other problematic characters
+  // Keep only alphanumeric characters and underscores
+  const cleanId = title.trim().replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '');
+  
+  // If the cleaning process results in an empty string, use fallback
+  return cleanId || 'node';
+}
+
+// Helper: Find a unique ID by appending numbers if needed
+export function findUniqueId(graph, baseId, excludeId = null) {
+  const g = normalizeGraph(graph);
+  const existingIds = new Set(g.nodes.map(n => n.id).filter(id => id !== excludeId));
+  
+  if (!existingIds.has(baseId)) {
+    return baseId;
+  }
+  
+  let counter = 1;
+  let candidateId = `${baseId}${counter}`;
+  
+  while (existingIds.has(candidateId)) {
+    counter++;
+    candidateId = `${baseId}${counter}`;
+  }
+  
+  return candidateId;
+}
+
 // Remove node and connected edges
 export function removeNodeAndEdges(graph, nodeId) {
   const g = normalizeGraph(graph);
@@ -36,12 +71,78 @@ export function removeNodeAndEdges(graph, nodeId) {
   };
 }
 
-// Rename node title
+// Rename node title and update ID to match, with cascade updates
 export function renameNode(graph, nodeId, newTitle) {
   const g = normalizeGraph(graph);
+  
+  // Find the node to rename
+  const nodeToRename = g.nodes.find(n => n.id === nodeId);
+  if (!nodeToRename) {
+    console.warn(`renameNode: Node with ID "${nodeId}" not found`);
+    return g; // Node not found, no-op
+  }
+  
+  // Generate new ID from title
+  const baseNewId = generateIdFromTitle(newTitle);
+  const newId = findUniqueId(g, baseNewId, nodeId);
+  
+  console.log(`renameNode: Renaming node "${nodeId}" to title "${newTitle}", new ID: "${newId}"`);
+  
+  // If the ID doesn't change, just update the title
+  if (newId === nodeId) {
+    console.log(`renameNode: ID unchanged, only updating title`);
+    return {
+      ...g,
+      nodes: g.nodes.map(n => (n.id === nodeId ? { ...n, title: newTitle } : n))
+    };
+  }
+  
+  console.log(`renameNode: ID changed from "${nodeId}" to "${newId}", updating all references`);
+  
+  // Update node with new ID and title
+  const updatedNodes = g.nodes.map(n => 
+    n.id === nodeId ? { ...n, id: newId, title: newTitle } : n
+  );
+  
+  // Update all edges that reference the old node ID
+  const updatedEdges = g.edges.map(e => {
+    const newEdge = { ...e };
+    
+    // Update source references
+    if (e.source === nodeId) {
+      newEdge.source = newId;
+      console.log(`renameNode: Updated edge source from "${nodeId}" to "${newId}" for edge "${e.id}"`);
+    }
+    
+    // Update target references
+    if (e.target === nodeId) {
+      newEdge.target = newId;
+      console.log(`renameNode: Updated edge target from "${nodeId}" to "${newId}" for edge "${e.id}"`);
+    }
+    
+    // Regenerate edge ID if it was affected
+    if (e.source === nodeId || e.target === nodeId) {
+      const oldEdgeId = newEdge.id;
+      newEdge.id = edgeId(newEdge.source, newEdge.target);
+      console.log(`renameNode: Updated edge ID from "${oldEdgeId}" to "${newEdge.id}"`);
+    }
+    
+    return newEdge;
+  });
+  
+  // Update notes object - move notes from old ID to new ID
+  const updatedNotes = { ...g.notes };
+  if (updatedNotes[nodeId]) {
+    updatedNotes[newId] = updatedNotes[nodeId];
+    delete updatedNotes[nodeId];
+    console.log(`renameNode: Moved notes from "${nodeId}" to "${newId}"`);
+  }
+  
   return {
     ...g,
-    nodes: g.nodes.map(n => (n.id === nodeId ? { ...n, title: newTitle } : n))
+    nodes: updatedNodes,
+    edges: updatedEdges,
+    notes: updatedNotes
   };
 }
 
