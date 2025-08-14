@@ -40,6 +40,10 @@ export const ACTION_TYPES = {
   // UI state actions
   SET_SHOULD_FIT: 'SET_SHOULD_FIT',
   SET_LOAD_ERROR: 'SET_LOAD_ERROR',
+  
+  // Undo actions
+  SET_UNDO_STATE: 'SET_UNDO_STATE',
+  CLEAR_UNDO_STATE: 'CLEAR_UNDO_STATE',
 };
 
 // Initial state
@@ -75,6 +79,9 @@ export const initialAppState = {
   ui: {
     shouldFitOnNextRender: false,
     loadError: null
+  },
+  undo: {
+    lastGraphState: null
   }
 };
 
@@ -260,6 +267,22 @@ export function appStateReducer(state, action) {
         }
       };
       
+    case ACTION_TYPES.SET_UNDO_STATE:
+      return {
+        ...state,
+        undo: {
+          lastGraphState: action.payload.graphState
+        }
+      };
+      
+    case ACTION_TYPES.CLEAR_UNDO_STATE:
+      return {
+        ...state,
+        undo: {
+          lastGraphState: null
+        }
+      };
+      
     default:
       return state;
   }
@@ -344,5 +367,14 @@ export const actions = {
   setLoadError: (error) => ({
     type: ACTION_TYPES.SET_LOAD_ERROR,
     payload: { error }
+  }),
+  
+  setUndoState: (graphState) => ({
+    type: ACTION_TYPES.SET_UNDO_STATE,
+    payload: { graphState }
+  }),
+  
+  clearUndoState: () => ({
+    type: ACTION_TYPES.CLEAR_UNDO_STATE
   })
 };

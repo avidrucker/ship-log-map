@@ -20,7 +20,9 @@ function GraphControls({
   areNodesConnected,
   mode,
   onModeToggle,
-  onOpenDebugModal
+  onOpenDebugModal,
+  onUndo,
+  canUndo
 }) {
   const canConnect = selectedNodes.length === 2 && !areNodesConnected(selectedNodes[0], selectedNodes[1]);
 
@@ -82,6 +84,22 @@ function GraphControls({
         title="Fit Map to Viewport"
       >
         Fit
+      </button>
+      
+      <button
+        style={{
+          padding: "8px 12px",
+          background: canUndo ? "#ff9800" : "#666",
+          color: canUndo ? "#fff" : "#999",
+          border: `1px solid ${canUndo ? "#f57c00" : "#555"}`,
+          cursor: canUndo ? "pointer" : "not-allowed",
+          opacity: canUndo ? 1 : 0.6
+        }}
+        onClick={canUndo ? onUndo : undefined}
+        disabled={!canUndo}
+        title={canUndo ? "Undo last action" : "No action to undo"}
+      >
+        Undo
       </button>
       
       {mode === 'editing' && (

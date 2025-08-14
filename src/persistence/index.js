@@ -3,6 +3,7 @@ import { deserializeGraph, serializeGraph } from "../graph/ops.js";
 
 const STORAGE_KEY = "ship_log_map_v1";
 const MODE_STORAGE_KEY = "ship_log_map_mode_v1";
+const UNDO_STORAGE_KEY = "ship_log_map_undo_v1";
 const SCHEMA_VERSION = 1;
 
 export function newBlankMap() {
@@ -38,6 +39,35 @@ export function loadModeFromLocal() {
   } catch (e) {
     console.error("loadModeFromLocal failed:", e);
     return 'editing';
+  }
+}
+
+export function saveUndoStateToLocal(graphState) {
+  try {
+    if (graphState) {
+      const payload = { ...graphState, __version: SCHEMA_VERSION };
+      localStorage.setItem(UNDO_STORAGE_KEY, serializeGraph(payload));
+    } else {
+      localStorage.removeItem(UNDO_STORAGE_KEY);
+    }
+    return true;
+  } catch (e) {
+    console.error("saveUndoStateToLocal failed:", e);
+    return false;
+  }
+}
+
+export function loadUndoStateFromLocal() {
+  try {
+    const raw = localStorage.getItem(UNDO_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    // Version gate if we ever need migrations
+    if (typeof parsed.__version !== "number") parsed.__version = 1;
+    return deserializeGraph(parsed);
+  } catch (e) {
+    console.error("loadUndoStateFromLocal failed:", e);
+    return null;
   }
 }
 

@@ -15,7 +15,7 @@ import { appStateReducer, initialAppState, ACTION_TYPES } from "./appStateReduce
 import { ZOOM_TO_SELECTION, DEBUG_LOGGING, MODE_TOGGLE, DEV_MODE } from "./config/features.js";
 
 // 🚀 New imports: centralized persistence + edge id helper
-import { saveToLocal, loadFromLocal, saveModeToLocal, loadModeFromLocal } from "./persistence/index.js";
+import { saveToLocal, loadFromLocal, saveModeToLocal, loadModeFromLocal, saveUndoStateToLocal, loadUndoStateFromLocal } from "./persistence/index.js";
 import { edgeId, renameNode } from "./graph/ops.js";
 
 // Debug flag - controlled by feature config
@@ -122,11 +122,14 @@ function App() {
         return saved.mode;
       }
       return loadModeFromLocal();
-    })()
+    })(),
+    undo: {
+      lastGraphState: loadUndoStateFromLocal()
+    }
   });
 
   // Extract frequently used state for easier access
-  const { selections, camera, ui, mode } = appState;
+  const { selections, camera, ui, mode, undo } = appState;
   const selectedNodeIds = selections.nodes.ids;
   const nodeSelectionOrder = selections.nodes.order;
   const selectedEdgeIds = selections.edges.ids;
@@ -138,6 +141,7 @@ function App() {
   const cameraPosition = camera.position;
   const shouldFitOnNextRender = ui.shouldFitOnNextRender;
   const loadError = ui.loadError;
+  const lastUndoState = undo.lastGraphState;
 
   // ---------- debug taps ----------
   useEffect(() => { printDebug('🏠 App: zoomLevel changed to:', zoomLevel); }, [zoomLevel]);
@@ -164,17 +168,53 @@ function App() {
     saveModeToLocal(mode);
   }, [mode]);
 
+  // Save undo state to localStorage
+  useEffect(() => {
+    saveUndoStateToLocal(lastUndoState);
+  }, [lastUndoState]);
+
+  /** ---------- helpers ---------- **/
+
+  // Helper to save current graph state before making undoable changes
+  const saveUndoState = useCallback(() => {
+    dispatchAppState({
+      type: ACTION_TYPES.SET_UNDO_STATE,
+      payload: { graphState: graphData }
+    });
+  }, [graphData]);
+
+  // Helper to clear undo state (for new/load operations)
+  const clearUndoState = useCallback(() => {
+    dispatchAppState({ type: ACTION_TYPES.CLEAR_UNDO_STATE });
+  }, []);
+
+  // Handle undo functionality
+  const handleUndo = useCallback(() => {
+    if (lastUndoState) {
+      setGraphData(lastUndoState);
+      clearUndoState(); // Clear undo after using it
+      
+      // Clear selections since they might reference nodes/edges that changed
+      dispatchAppState({ type: ACTION_TYPES.CLEAR_ALL_SELECTIONS });
+      clearCytoscapeSelections();
+    }
+  }, [lastUndoState, clearUndoState, clearCytoscapeSelections]);
+
   /** ---------- handlers ---------- **/
 
   // (changed signature) receives position object {x, y}
   const handleNodeMove = useCallback((nodeId, pos) => {
     const { x: newX, y: newY } = pos;
     printDebug('🏠 App: handleNodeMove', nodeId, newX, newY);
+    
+    // Save undo state before moving node
+    saveUndoState();
+    
     setGraphData(prev => ({
       ...prev,
       nodes: prev.nodes.map(n => (n.id === nodeId ? { ...n, x: newX, y: newY } : n))
     }));
-  }, []);
+  }, [saveUndoState]);
 
   const handleFitToView = useCallback(() => {
     fitToView(50);
@@ -207,9 +247,10 @@ function App() {
         dispatchAppState({ type: ACTION_TYPES.SET_CAMERA_POSITION, payload: { position: { x: 0, y: 0 } } });
         dispatchAppState({ type: ACTION_TYPES.SET_SHOULD_FIT, payload: { shouldFit: true } });
 
-        // Clear selections
+        // Clear selections and undo state (loading clears undo)
         clearCytoscapeSelections();
         dispatchAppState({ type: ACTION_TYPES.CLEAR_ALL_SELECTIONS });
+        clearUndoState();
       } else {
         dispatchAppState({ type: ACTION_TYPES.SET_LOAD_ERROR, payload: { error: `Invalid map file: ${result.errors.join('; ')}` } });
       }
@@ -219,7 +260,7 @@ function App() {
 
     // Clear the input so the same file can be selected again
     event.target.value = '';
-  }, [clearCytoscapeSelections]);
+  }, [clearCytoscapeSelections, clearUndoState]);
 
   const handleResetToInitial = useCallback(() => {
     // Show confirmation dialog
@@ -236,11 +277,12 @@ function App() {
     dispatchAppState({ type: ACTION_TYPES.SET_CAMERA_POSITION, payload: { position: { x: 0, y: 0 } } });
     dispatchAppState({ type: ACTION_TYPES.SET_SHOULD_FIT, payload: { shouldFit: true } });
 
-    // Clear errors & selections
+    // Clear errors & selections and undo state (reset clears undo)
     dispatchAppState({ type: ACTION_TYPES.SET_LOAD_ERROR, payload: { error: null } });
     clearCytoscapeSelections();
     dispatchAppState({ type: ACTION_TYPES.CLEAR_ALL_SELECTIONS });
-  }, [clearCytoscapeSelections]);
+    clearUndoState();
+  }, [clearCytoscapeSelections, clearUndoState]);
 
   const handleNewMap = useCallback(() => {
     // Check if there are any nodes in the current map
@@ -273,11 +315,12 @@ function App() {
     
     dispatchAppState({ type: ACTION_TYPES.SET_SHOULD_FIT, payload: { shouldFit: true } });
 
-    // Clear errors & selections
+    // Clear errors & selections and undo state (new map clears undo)
     dispatchAppState({ type: ACTION_TYPES.SET_LOAD_ERROR, payload: { error: null } });
     clearCytoscapeSelections();
     dispatchAppState({ type: ACTION_TYPES.CLEAR_ALL_SELECTIONS });
-  }, [graphData.nodes.length, mode, getCytoscapeInstance, clearCytoscapeSelections]);
+    clearUndoState();
+  }, [graphData.nodes.length, mode, getCytoscapeInstance, clearCytoscapeSelections, clearUndoState]);
 
   const clearError = useCallback(() => {
     dispatchAppState({ type: ACTION_TYPES.SET_LOAD_ERROR, payload: { error: null } });
@@ -320,6 +363,10 @@ function App() {
   // Now deletes by actual edge.id (not index)
   const handleDeleteSelectedEdges = useCallback((edgeIds) => {
     printDebug('🏠 App: Deleting edges by id:', edgeIds);
+    
+    // Save undo state before deleting edges
+    saveUndoState();
+    
     setGraphData(prev => ({
       ...prev,
       edges: prev.edges.filter(e => !edgeIds.includes(e.id))
@@ -330,11 +377,14 @@ function App() {
       type: ACTION_TYPES.SET_EDGE_SELECTION,
       payload: { edgeIds: [] }
     });
-  }, [clearCytoscapeSelections]);
+  }, [clearCytoscapeSelections, saveUndoState]);
 
   const handleDeleteSelectedNodes = useCallback((nodeIds) => {
     printDebug('🏠 App: Deleting nodes:', nodeIds);
 
+    // Save undo state before deleting nodes
+    saveUndoState();
+    
     setGraphData(prev => {
       const nodes = prev.nodes.filter(n => !nodeIds.includes(n.id));
       const edges = prev.edges.filter(e => !nodeIds.includes(e.source) && !nodeIds.includes(e.target));
@@ -346,7 +396,7 @@ function App() {
       type: ACTION_TYPES.SET_NODE_SELECTION,
       payload: { nodeIds: [], selectionOrder: [] }
     });
-  }, [clearCytoscapeSelections]);
+  }, [clearCytoscapeSelections, saveUndoState]);
 
   // We now set selection order == ids from adapter; if you later emit order, it will still work
   const handleNodeSelectionChange = useCallback((nodeIds) => {
@@ -378,6 +428,9 @@ function App() {
       const [sourceId, targetId] = nodeSelectionOrder;
       printDebug('🏠 App: Connecting (ordered):', sourceId, '->', targetId);
 
+      // Save undo state before connecting nodes
+      saveUndoState();
+
       setGraphData(prev => {
         const exists = prev.edges.some(e => e.source === sourceId && e.target === targetId);
         if (exists) return prev;
@@ -396,19 +449,26 @@ function App() {
         payload: { nodeIds: [], selectionOrder: [] }
       });
     }
-  }, [selectedNodeIds, nodeSelectionOrder, clearCytoscapeSelections]);
+  }, [selectedNodeIds, nodeSelectionOrder, clearCytoscapeSelections, saveUndoState]);
 
   // Change direction by edge.id
   const handleEdgeDirectionChange = useCallback((edgeIdArg, newDirection) => {
     printDebug('🏠 App: Changing edge direction:', edgeIdArg, '->', newDirection);
+    
+    // Save undo state before changing direction
+    saveUndoState();
+    
     setGraphData(prev => ({
       ...prev,
       edges: prev.edges.map(e => (e.id === edgeIdArg ? { ...e, direction: newDirection } : e))
     }));
-  }, []);
+  }, [saveUndoState]);
 
   const handleNodeSizeChange = useCallback((nodeId, newSize) => {
     printDebug('🏠 App: Changing node size:', nodeId, '->', newSize);
+
+    // Save undo state before changing size
+    saveUndoState();
 
     // instant visual
     updateNodeInPlace(nodeId, { size: newSize });
@@ -418,7 +478,7 @@ function App() {
       ...prev,
       nodes: prev.nodes.map(n => (n.id === nodeId ? { ...n, size: newSize } : n))
     }));
-  }, [updateNodeInPlace]);
+  }, [updateNodeInPlace, saveUndoState]);
 
   const handleNodeDoubleClick = useCallback((nodeId) => {
     printDebug('🏠 App: Node double-clicked:', nodeId);
@@ -497,8 +557,10 @@ function App() {
       imageUrl: TEST_ICON_SVG // Use the test icon SVG as the default image
     };
 
+    // Save undo state before creating node
+    saveUndoState();
     setGraphData(prev => ({ ...prev, nodes: [...prev.nodes, newNode] }));
-  }, [graphData, getViewportCenter]);
+  }, [graphData, getViewportCenter, saveUndoState]);
 
   const exportMap = useCallback(() => {
     // latest positions from cy (if available)
@@ -531,13 +593,16 @@ function App() {
   const handleNodeColorChange = useCallback((nodeIds, newColor) => {
     printDebug('🏠 App: Change color:', nodeIds, '->', newColor);
 
+    // Save undo state before changing color
+    saveUndoState();
+
     nodeIds.forEach(id => updateNodeInPlace(id, { color: newColor }));
 
     setGraphData(prev => ({
       ...prev,
       nodes: prev.nodes.map(n => (nodeIds.includes(n.id) ? { ...n, color: newColor } : n))
     }));
-  }, [updateNodeInPlace]);
+  }, [updateNodeInPlace, saveUndoState]);
   // camera
   const setZoomLevel = useCallback((zoom) => {
     dispatchAppState({ type: ACTION_TYPES.SET_ZOOM, payload: { zoom } });
@@ -612,6 +677,9 @@ function App() {
 
   const handleUpdateTitle = useCallback((targetId, targetType, newTitle) => {
     if (targetType === "node") {
+      // Save undo state before renaming node
+      saveUndoState();
+      
       setGraphData(prev => {
         // Use the renameNode function to handle ID updates and cascading changes
         const updatedGraph = renameNode(prev, targetId, newTitle);
@@ -656,7 +724,7 @@ function App() {
       // For now, let's assume edges don't have editable titles, but we'll keep the interface
       console.warn("Edge title editing not yet implemented");
     }
-  }, [selectedNodeIds, nodeSelectionOrder, noteEditingTarget, noteViewingTarget]);
+  }, [selectedNodeIds, nodeSelectionOrder, noteEditingTarget, noteViewingTarget, saveUndoState]);
 
   const handleNodeClick = useCallback((nodeId) => {
     if (mode === 'playing') {
@@ -760,6 +828,10 @@ function App() {
         noteViewingTarget,
         debugModalOpen
       },
+      undo: {
+        canUndo: !!lastUndoState,
+        lastGraphState: lastUndoState
+      },
       features: {
         ZOOM_TO_SELECTION,
         DEBUG_LOGGING,
@@ -770,7 +842,8 @@ function App() {
   }, [
     exportNodePositions, graphData, mode, zoomLevel, cameraPosition, 
     selectedNodeIds, nodeSelectionOrder, selectedEdgeIds, shouldFitOnNextRender, 
-    loadError, noteEditingTarget, noteEditingType, noteViewingTarget, debugModalOpen
+    loadError, noteEditingTarget, noteEditingType, noteViewingTarget, debugModalOpen,
+    lastUndoState
   ]);
 
   /** ---------- render ---------- **/
@@ -797,6 +870,8 @@ function App() {
         mode={mode}
         onModeToggle={MODE_TOGGLE ? handleModeToggle : undefined}
         onOpenDebugModal={DEV_MODE ? handleOpenDebugModal : undefined}
+        onUndo={handleUndo}
+        canUndo={!!lastUndoState}
       />
 
       <NoteEditorModal
