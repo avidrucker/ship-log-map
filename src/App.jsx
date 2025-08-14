@@ -222,6 +222,12 @@ function App() {
   }, [clearCytoscapeSelections]);
 
   const handleResetToInitial = useCallback(() => {
+    // Show confirmation dialog
+    const confirmed = window.confirm("Are you sure you want to reset the map to its initial state? This will replace your current map with the default map.");
+    if (!confirmed) {
+      return; // User cancelled
+    }
+
     // Reset to project defaults, normalized
     setGraphData(normalizeGraphData(defaultShipLogData));
 
