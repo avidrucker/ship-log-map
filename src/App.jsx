@@ -698,6 +698,21 @@ function App() {
               type: ACTION_TYPES.SET_NODE_SELECTION,
               payload: { nodeIds: newSelectedIds, selectionOrder: newSelectionOrder }
             });
+            
+            // Update Cytoscape selection to match
+            const cy = getCytoscapeInstance();
+            if (cy) {
+              // Use setTimeout to ensure the DOM has updated with the new node ID
+              setTimeout(() => {
+                cy.nodes().unselect();
+                newSelectedIds.forEach(nodeId => {
+                  const node = cy.getElementById(nodeId);
+                  if (node.length > 0) {
+                    node.select();
+                  }
+                });
+              }, 0);
+            }
           }
           
           // Update note editing target if it's the renamed node
@@ -724,7 +739,7 @@ function App() {
       // For now, let's assume edges don't have editable titles, but we'll keep the interface
       console.warn("Edge title editing not yet implemented");
     }
-  }, [selectedNodeIds, nodeSelectionOrder, noteEditingTarget, noteViewingTarget, saveUndoState]);
+  }, [selectedNodeIds, nodeSelectionOrder, noteEditingTarget, noteViewingTarget, saveUndoState, getCytoscapeInstance]);
 
   const handleNodeClick = useCallback((nodeId) => {
     if (mode === 'playing') {
@@ -743,6 +758,10 @@ function App() {
   }, [mode, handleStartNoteViewing]);
 
   const handleBackgroundClick = useCallback(() => {
+    // Clear all selections first
+    dispatchAppState({ type: ACTION_TYPES.CLEAR_ALL_SELECTIONS });
+    clearCytoscapeSelections();
+    
     // Close note editing modal if open
     if (noteEditingTarget) {
       handleCloseNoteEditing();
@@ -751,7 +770,7 @@ function App() {
     if (noteViewingTarget) {
       handleCloseNoteViewing();
     }
-  }, [noteEditingTarget, noteViewingTarget, handleCloseNoteEditing, handleCloseNoteViewing]);
+  }, [noteEditingTarget, noteViewingTarget, handleCloseNoteEditing, handleCloseNoteViewing, clearCytoscapeSelections]);
 
   const areNodesConnected = useCallback((sourceId, targetId) => {
     return graphData.edges.some(e =>
@@ -915,6 +934,10 @@ function App() {
         nodes={graphData.nodes}
         edges={graphData.edges}
         mode={mode}
+
+        // Selection state for synchronization
+        selectedNodeIds={selectedNodeIds}
+        selectedEdgeIds={selectedEdgeIds}
 
         onNodeMove={handleNodeMove}
         onZoomChange={setZoomLevel}

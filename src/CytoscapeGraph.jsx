@@ -8,6 +8,10 @@ function CytoscapeGraph({
   edges = [],
   mode = 'editing',
 
+  // Selection state for synchronization
+  selectedNodeIds = [],
+  selectedEdgeIds = [],
+
   // Camera / viewport
   initialZoom,
   initialCameraPosition,
@@ -100,6 +104,46 @@ function CytoscapeGraph({
     if (!cyRef.current) return;
     syncElements(cyRef.current, { nodes, edges }, { mode });
   }, [nodes, edges, mode]);
+
+  // Sync selections when app state changes
+  useEffect(() => {
+    if (!cyRef.current) return;
+    
+    const cy = cyRef.current;
+    
+    // Get currently selected elements in Cytoscape
+    const currentSelectedNodes = cy.$("node:selected").map(n => n.id());
+    const currentSelectedEdges = cy.$("edge:selected").map(e => e.id());
+    
+    // Check if selections are out of sync
+    const nodeSelectionsMatch = 
+      currentSelectedNodes.length === selectedNodeIds.length &&
+      currentSelectedNodes.every(id => selectedNodeIds.includes(id));
+    
+    const edgeSelectionsMatch = 
+      currentSelectedEdges.length === selectedEdgeIds.length &&
+      currentSelectedEdges.every(id => selectedEdgeIds.includes(id));
+    
+    if (!nodeSelectionsMatch || !edgeSelectionsMatch) {
+      // Clear all selections first
+      cy.elements().unselect();
+      
+      // Apply new selections
+      selectedNodeIds.forEach(nodeId => {
+        const node = cy.getElementById(nodeId);
+        if (node.length > 0) {
+          node.select();
+        }
+      });
+      
+      selectedEdgeIds.forEach(edgeId => {
+        const edge = cy.getElementById(edgeId);
+        if (edge.length > 0) {
+          edge.select();
+        }
+      });
+    }
+  }, [selectedNodeIds, selectedEdgeIds]);
 
   // Fit request
   useEffect(() => {
