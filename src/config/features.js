@@ -18,6 +18,10 @@ export const FEATURES = {
   // When enabled, users can switch between editing mode (full functionality) and playing mode (view-only)
   MODE_TOGGLE: true,
   
+  // Development mode - shows debug tools and features
+  // Set to false in production to hide debug button and modal
+  DEV_MODE: true,
+  
   // Future feature flags can be added here...
 };
 
@@ -25,5 +29,6 @@ export const FEATURES = {
 export const {
   ZOOM_TO_SELECTION,
   DEBUG_LOGGING,
-  MODE_TOGGLE
+  MODE_TOGGLE,
+  DEV_MODE
 } = FEATURES;

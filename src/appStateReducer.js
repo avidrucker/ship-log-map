@@ -30,6 +30,10 @@ export const ACTION_TYPES = {
   START_NOTE_VIEWING: 'START_NOTE_VIEWING',
   CLOSE_NOTE_VIEWING: 'CLOSE_NOTE_VIEWING',
   
+  // Debug modal actions
+  OPEN_DEBUG_MODAL: 'OPEN_DEBUG_MODAL',
+  CLOSE_DEBUG_MODAL: 'CLOSE_DEBUG_MODAL',
+  
   // Mode actions
   SET_MODE: 'SET_MODE',
   
@@ -58,6 +62,9 @@ export const initialAppState = {
     },
     noteViewing: {
       targetId: null
+    },
+    debugModal: {
+      isOpen: false
     }
   },
   camera: {
@@ -189,6 +196,28 @@ export function appStateReducer(state, action) {
         }
       };
       
+    case ACTION_TYPES.OPEN_DEBUG_MODAL:
+      return {
+        ...state,
+        selections: {
+          ...state.selections,
+          debugModal: {
+            isOpen: true
+          }
+        }
+      };
+      
+    case ACTION_TYPES.CLOSE_DEBUG_MODAL:
+      return {
+        ...state,
+        selections: {
+          ...state.selections,
+          debugModal: {
+            isOpen: false
+          }
+        }
+      };
+      
     case ACTION_TYPES.SET_MODE:
       return {
         ...state,
@@ -297,6 +326,14 @@ export const actions = {
   
   closeNoteViewing: () => ({
     type: ACTION_TYPES.CLOSE_NOTE_VIEWING
+  }),
+  
+  openDebugModal: () => ({
+    type: ACTION_TYPES.OPEN_DEBUG_MODAL
+  }),
+  
+  closeDebugModal: () => ({
+    type: ACTION_TYPES.CLOSE_DEBUG_MODAL
   }),
   
   setMode: (mode) => ({

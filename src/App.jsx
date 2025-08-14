@@ -6,12 +6,13 @@ import { loadAndValidateRumorMapFromFile } from "./rumorMapValidation";
 import GraphControls from "./GraphControls";
 import NoteEditorModal from "./NoteEditorModal";
 import NoteViewerModal from "./NoteViewerModal";
+import DebugModal from "./DebugModal";
 import CameraInfo from "./CameraInfo";
 import ErrorDisplay from "./ErrorDisplay";
 import { TEST_ICON_SVG } from "./constants/testAssets.js";
 import { useCytoscapeInstance } from "./useCytoscapeInstance";
 import { appStateReducer, initialAppState, ACTION_TYPES } from "./appStateReducer";
-import { ZOOM_TO_SELECTION, DEBUG_LOGGING, MODE_TOGGLE } from "./config/features.js";
+import { ZOOM_TO_SELECTION, DEBUG_LOGGING, MODE_TOGGLE, DEV_MODE } from "./config/features.js";
 
 // 🚀 New imports: centralized persistence + edge id helper
 import { saveToLocal, loadFromLocal, saveModeToLocal, loadModeFromLocal } from "./persistence/index.js";
@@ -132,6 +133,7 @@ function App() {
   const noteEditingTarget = selections.noteEditing.targetId;
   const noteEditingType = selections.noteEditing.targetType;
   const noteViewingTarget = selections.noteViewing.targetId;
+  const debugModalOpen = selections.debugModal.isOpen;
   const zoomLevel = camera.zoom;
   const cameraPosition = camera.position;
   const shouldFitOnNextRender = ui.shouldFitOnNextRender;
@@ -285,6 +287,15 @@ function App() {
 
   const handleCloseNoteViewing = useCallback(() => {
     dispatchAppState({ type: ACTION_TYPES.CLOSE_NOTE_VIEWING });
+  }, []);
+
+  // Debug modal handlers
+  const handleOpenDebugModal = useCallback(() => {
+    dispatchAppState({ type: ACTION_TYPES.OPEN_DEBUG_MODAL });
+  }, []);
+
+  const handleCloseDebugModal = useCallback(() => {
+    dispatchAppState({ type: ACTION_TYPES.CLOSE_DEBUG_MODAL });
   }, []);
 
   const handleEdgeSelectionChange = useCallback((edgeIds) => {
@@ -671,6 +682,56 @@ function App() {
     };
   }, [mode, selectedNodeIds, selectedEdgeIds, handleDeleteSelectedNodes, handleDeleteSelectedEdges]);
 
+  // Prepare debug data for debug modal
+  const getDebugData = useCallback(() => {
+    const positions = exportNodePositions();
+    const updatedNodes = positions.length
+      ? positions.map(pos => ({
+          ...graphData.nodes.find(n => n.id === pos.id),
+          x: pos.x, y: pos.y
+        }))
+      : graphData.nodes;
+
+    return {
+      timestamp: new Date().toISOString(),
+      nodes: updatedNodes,
+      edges: graphData.edges,
+      notes: graphData.notes,
+      mode,
+      camera: {
+        zoom: zoomLevel,
+        position: cameraPosition
+      },
+      selections: {
+        nodes: {
+          ids: selectedNodeIds,
+          order: nodeSelectionOrder
+        },
+        edges: {
+          ids: selectedEdgeIds
+        }
+      },
+      ui: {
+        shouldFitOnNextRender,
+        loadError,
+        noteEditingTarget,
+        noteEditingType,
+        noteViewingTarget,
+        debugModalOpen
+      },
+      features: {
+        ZOOM_TO_SELECTION,
+        DEBUG_LOGGING,
+        MODE_TOGGLE,
+        DEV_MODE
+      }
+    };
+  }, [
+    exportNodePositions, graphData, mode, zoomLevel, cameraPosition, 
+    selectedNodeIds, nodeSelectionOrder, selectedEdgeIds, shouldFitOnNextRender, 
+    loadError, noteEditingTarget, noteEditingType, noteViewingTarget, debugModalOpen
+  ]);
+
   /** ---------- render ---------- **/
   return (
     <div
@@ -694,6 +755,7 @@ function App() {
         areNodesConnected={areNodesConnected}
         mode={mode}
         onModeToggle={MODE_TOGGLE ? handleModeToggle : undefined}
+        onOpenDebugModal={DEV_MODE ? handleOpenDebugModal : undefined}
       />
 
       <NoteEditorModal
@@ -713,6 +775,14 @@ function App() {
         notes={noteViewingTarget ? (graphData.notes?.[noteViewingTarget] || []) : []}
         onClose={handleCloseNoteViewing}
       />
+
+      {DEV_MODE && (
+        <DebugModal
+          isOpen={debugModalOpen}
+          onClose={handleCloseDebugModal}
+          debugData={getDebugData()}
+        />
+      )}
 
       <CameraInfo
         zoom={zoomLevel}

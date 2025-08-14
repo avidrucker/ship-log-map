@@ -1,5 +1,6 @@
 import React from "react";
 import NodeColorPicker from "./NodeColorPicker";
+import { DEV_MODE } from "./config/features";
 
 function GraphControls({
   selectedNodes,
@@ -18,7 +19,8 @@ function GraphControls({
   onNodeColorChange,
   areNodesConnected,
   mode,
-  onModeToggle
+  onModeToggle,
+  onOpenDebugModal
 }) {
   const canConnect = selectedNodes.length === 2 && !areNodesConnected(selectedNodes[0], selectedNodes[1]);
 
@@ -144,6 +146,23 @@ function GraphControls({
       >
         Mode
       </button>
+      
+      {DEV_MODE && onOpenDebugModal && (
+        <button
+          style={{
+            padding: "8px 12px",
+            background: "#795548",
+            color: "#fff",
+            border: "1px solid #5d4037",
+            cursor: "pointer",
+            fontWeight: "bold"
+          }}
+          onClick={onOpenDebugModal}
+          title="Open Debug Modal"
+        >
+          Debug
+        </button>
+      )}
       
       {mode === 'editing' && selectedEdges.length > 0 && (
         <button
