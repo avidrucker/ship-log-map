@@ -32,9 +32,10 @@
 - [x] Fix node and edge selection so that single clicking adds to the selection (instead of requiring shift+click) and clicking on the background deselects all nodes and edges
 - [x] fix colors to match original source material
 - [ ] Implement typewriter effect for notes in the Note Viewer Modal
-- [ ] Clicking on the background seems to not deselect nodes and edges properly, fix this
-- [ ] Implement "last graph state" and undo button so that accidental deletions can be undone
-- [ ] Implement z-depth order where changing anything about a node (it's location, size, color, etc.) will move it to the top of the z-order so that it is always on top of other nodes and edges
+- [x] Clicking on the background seems to not deselect nodes and edges properly, fix this (issue was that renaming nodes/edges was accidentally desync'ing the selection state)
+- [x] Implement "last graph state" and undo button so that accidental deletions can be undone
+- ~~Implement z-depth order where changing anything about a node (it's location, size, color, etc.) will move it to the top of the z-order so that it is always on top of other nodes and edges~~
+- [x] Make smaller nodes have a higher z-depth so that they are not hidden behind larger nodes
 - [ ] Implement "tags" that enable overlays so that way nodes can be grouped by tags and the user can toggle visibility of nodes based on their tags
 - [ ] Implement a "search" feature that allows users to search for nodes by title
 - [ ] Implement a "filter" feature that allows users to filter nodes by tags, size, color, etc.
