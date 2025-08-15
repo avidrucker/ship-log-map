@@ -7,8 +7,43 @@ import { GRAYSCALE_IMAGES } from "../config/features.js";
 import { convertImageToGrayscale } from "../utils/grayscaleUtils.js";
 
 // Cache for grayscale images to avoid reprocessing
+const GRAYSCALE_CACHE_KEY = 'shipLogGrayscaleCache';
 const grayscaleCache = new Map();
 const pendingConversions = new Set();
+
+// Load grayscale cache from localStorage on module initialization
+function loadGrayscaleCacheFromStorage() {
+  try {
+    const cached = localStorage.getItem(GRAYSCALE_CACHE_KEY);
+    if (cached) {
+      const parsedCache = JSON.parse(cached);
+      Object.entries(parsedCache).forEach(([key, value]) => {
+        grayscaleCache.set(key, value);
+      });
+    }
+  } catch (error) {
+    console.warn('Failed to load grayscale cache from localStorage:', error);
+  }
+}
+
+// Save grayscale cache to localStorage
+function saveGrayscaleCacheToStorage() {
+  try {
+    const cacheObject = {};
+    grayscaleCache.forEach((value, key) => {
+      // Only save completed conversions (strings), not promises
+      if (typeof value === 'string') {
+        cacheObject[key] = value;
+      }
+    });
+    localStorage.setItem(GRAYSCALE_CACHE_KEY, JSON.stringify(cacheObject));
+  } catch (error) {
+    console.warn('Failed to save grayscale cache to localStorage:', error);
+  }
+}
+
+// Initialize cache from localStorage
+loadGrayscaleCacheFromStorage();
 
 // Preprocess images to grayscale in the background to avoid race conditions
 function preprocessImageToGrayscale(imageUrl) {
@@ -17,7 +52,13 @@ function preprocessImageToGrayscale(imageUrl) {
   }
   
   if (grayscaleCache.has(imageUrl)) {
-    return Promise.resolve(grayscaleCache.get(imageUrl));
+    const cached = grayscaleCache.get(imageUrl);
+    // If it's a string (completed conversion), return it
+    if (typeof cached === 'string') {
+      return Promise.resolve(cached);
+    }
+    // If it's a promise (in progress), return the promise
+    return cached;
   }
   
   // Start conversion in background, but don't wait for it
@@ -25,12 +66,16 @@ function preprocessImageToGrayscale(imageUrl) {
     .then(grayscaleUrl => {
       grayscaleCache.set(imageUrl, grayscaleUrl);
       pendingConversions.delete(imageUrl);
+      // Save to localStorage when conversion completes
+      saveGrayscaleCacheToStorage();
       return grayscaleUrl;
     })
     .catch(error => {
       console.warn('Failed to convert image to grayscale:', error);
       grayscaleCache.set(imageUrl, imageUrl); // Cache the original to avoid retrying
       pendingConversions.delete(imageUrl);
+      // Save to localStorage even on failure to avoid retrying
+      saveGrayscaleCacheToStorage();
       return imageUrl;
     });
   
@@ -82,7 +127,7 @@ export function buildElementsFromDomain(graph, options = {}) {
     if (GRAYSCALE_IMAGES && imageUrl && imageUrl !== TEST_ICON_SVG) {
       const cached = grayscaleCache.get(imageUrl);
       if (cached && typeof cached === 'string') {
-        // We have a processed grayscale URL
+        // We have a processed grayscale URL from cache or previous session
         imageUrl = cached;
       } else if (cached && cached instanceof Promise) {
         // Conversion is in progress, use original for now and trigger update later
@@ -93,6 +138,7 @@ export function buildElementsFromDomain(graph, options = {}) {
       } else {
         // Start preprocessing in background
         preprocessImageToGrayscale(imageUrl);
+        // Continue with original image for now
       }
     }
     
@@ -354,4 +400,15 @@ export function wireEvents(cy, handlers = {}, mode = 'editing') {
     cy.removeListener("mouseover");
     cy.removeListener("mouseout");
   };
+}
+
+// Clear grayscale cache (useful when feature flag is disabled or for debugging)
+export function clearGrayscaleCache() {
+  grayscaleCache.clear();
+  pendingConversions.clear();
+  try {
+    localStorage.removeItem(GRAYSCALE_CACHE_KEY);
+  } catch (error) {
+    console.warn('Failed to clear grayscale cache from localStorage:', error);
+  }
 }

@@ -12,7 +12,7 @@ import ErrorDisplay from "./ErrorDisplay";
 import { TEST_ICON_SVG } from "./constants/testAssets.js";
 import { useCytoscapeInstance } from "./useCytoscapeInstance";
 import { appStateReducer, initialAppState, ACTION_TYPES } from "./appStateReducer";
-import { ZOOM_TO_SELECTION, DEBUG_LOGGING, MODE_TOGGLE, DEV_MODE } from "./config/features.js";
+import { ZOOM_TO_SELECTION, DEBUG_LOGGING, MODE_TOGGLE, DEV_MODE, GRAYSCALE_IMAGES } from "./config/features.js";
 
 // 🚀 New imports: centralized persistence + edge id helper
 import { saveToLocal, loadFromLocal, saveModeToLocal, loadModeFromLocal, saveUndoStateToLocal, loadUndoStateFromLocal, saveMapNameToLocal, loadMapNameFromLocal } from "./persistence/index.js";
@@ -186,6 +186,16 @@ function App() {
   useEffect(() => {
     saveUndoStateToLocal(lastUndoState);
   }, [lastUndoState]);
+
+  // Manage grayscale cache based on feature flag
+  useEffect(() => {
+    // Clear grayscale cache if feature is disabled
+    if (!GRAYSCALE_IMAGES) {
+      import('./graph/cyAdapter.js').then(({ clearGrayscaleCache }) => {
+        clearGrayscaleCache();
+      });
+    }
+  }, []); // Run once on mount
 
   /** ---------- helpers ---------- **/
 
@@ -598,12 +608,21 @@ function App() {
       mapName // Include current map name in export
     };
 
+    // Generate filename from map name: lowercase, spaces to underscores
+    const sanitizedMapName = mapName
+      .toLowerCase()
+      .replace(/\s+/g, '_')  // Replace spaces with underscores
+      .replace(/[^a-z0-9_-]/g, '') // Remove any non-alphanumeric characters except underscores and hyphens
+      || 'untitled_map'; // fallback if map name is empty or becomes empty after sanitization
+    
+    const filename = `${sanitizedMapName}.json`;
+
     const blob = new Blob([JSON.stringify(updatedGraph, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
 
     const a = document.createElement("a");
     a.href = url;
-    a.download = "ship_log_export.json";
+    a.download = filename;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
