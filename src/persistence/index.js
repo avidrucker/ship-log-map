@@ -4,6 +4,7 @@ import { deserializeGraph, serializeGraph } from "../graph/ops.js";
 const STORAGE_KEY = "ship_log_map_v1";
 const MODE_STORAGE_KEY = "ship_log_map_mode_v1";
 const UNDO_STORAGE_KEY = "ship_log_map_undo_v1";
+const MAP_NAME_STORAGE_KEY = "ship_log_map_name_v1";
 const SCHEMA_VERSION = 1;
 
 export function newBlankMap() {
@@ -68,6 +69,26 @@ export function loadUndoStateFromLocal() {
   } catch (e) {
     console.error("loadUndoStateFromLocal failed:", e);
     return null;
+  }
+}
+
+export function saveMapNameToLocal(mapName) {
+  try {
+    localStorage.setItem(MAP_NAME_STORAGE_KEY, mapName);
+    return true;
+  } catch (e) {
+    console.error("saveMapNameToLocal failed:", e);
+    return false;
+  }
+}
+
+export function loadMapNameFromLocal() {
+  try {
+    const mapName = localStorage.getItem(MAP_NAME_STORAGE_KEY);
+    return mapName || 'default_map'; // default map name
+  } catch (e) {
+    console.error("loadMapNameFromLocal failed:", e);
+    return 'default_map';
   }
 }
 

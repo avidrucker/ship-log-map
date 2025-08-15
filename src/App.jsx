@@ -15,7 +15,7 @@ import { appStateReducer, initialAppState, ACTION_TYPES } from "./appStateReduce
 import { ZOOM_TO_SELECTION, DEBUG_LOGGING, MODE_TOGGLE, DEV_MODE } from "./config/features.js";
 
 // 🚀 New imports: centralized persistence + edge id helper
-import { saveToLocal, loadFromLocal, saveModeToLocal, loadModeFromLocal, saveUndoStateToLocal, loadUndoStateFromLocal } from "./persistence/index.js";
+import { saveToLocal, loadFromLocal, saveModeToLocal, loadModeFromLocal, saveUndoStateToLocal, loadUndoStateFromLocal, saveMapNameToLocal, loadMapNameFromLocal } from "./persistence/index.js";
 import { edgeId, renameNode } from "./graph/ops.js";
 
 // Debug flag - controlled by feature config
@@ -32,6 +32,7 @@ function normalizeGraphData(data) {
   const edges = Array.isArray(data?.edges) ? data.edges : [];
   const notes = data?.notes && typeof data.notes === "object" ? data.notes : {};
   const mode = typeof data?.mode === "string" ? data.mode : "editing";
+  const mapName = typeof data?.mapName === "string" ? data.mapName : "default_map";
 
   const normNodes = nodes.map(n => ({
     id: n.id,
@@ -50,7 +51,7 @@ function normalizeGraphData(data) {
     direction: e.direction ?? "forward"
   }));
 
-  return { nodes: normNodes, edges: normEdges, notes, mode };
+  return { nodes: normNodes, edges: normEdges, notes, mode, mapName };
 }
 
 // if any node lacks coords, hydrate from default by id
@@ -123,13 +124,21 @@ function App() {
       }
       return loadModeFromLocal();
     })(),
+    mapName: (() => {
+      // Try to get map name from loaded graph data first, then from localStorage
+      const saved = loadFromLocal();
+      if (saved && saved.mapName) {
+        return saved.mapName;
+      }
+      return loadMapNameFromLocal();
+    })(),
     undo: {
       lastGraphState: loadUndoStateFromLocal()
     }
   });
 
   // Extract frequently used state for easier access
-  const { selections, camera, ui, mode, undo } = appState;
+  const { selections, camera, ui, mode, mapName, undo } = appState;
   const selectedNodeIds = selections.nodes.ids;
   const nodeSelectionOrder = selections.nodes.order;
   const selectedEdgeIds = selections.edges.ids;
@@ -150,10 +159,10 @@ function App() {
 
   // ---------- persistence ----------
   useEffect(() => {
-    // persist graph (nodes/edges/notes) and mode
-    const dataWithMode = { ...graphData, mode };
-    saveToLocal(dataWithMode);
-  }, [graphData, mode]);
+    // persist graph (nodes/edges/notes), mode, and map name
+    const dataWithModeAndName = { ...graphData, mode, mapName };
+    saveToLocal(dataWithModeAndName);
+  }, [graphData, mode, mapName]);
 
   // Save camera state to localStorage (kept as-is)
   useEffect(() => {
@@ -167,6 +176,11 @@ function App() {
   useEffect(() => {
     saveModeToLocal(mode);
   }, [mode]);
+
+  // Save map name to localStorage
+  useEffect(() => {
+    saveMapNameToLocal(mapName);
+  }, [mapName]);
 
   // Save undo state to localStorage
   useEffect(() => {
@@ -240,6 +254,11 @@ function App() {
         // Set mode if it's included in the imported data
         if (g1.mode) {
           dispatchAppState({ type: ACTION_TYPES.SET_MODE, payload: { mode: g1.mode } });
+        }
+
+        // Set map name if it's included in the imported data
+        if (g1.mapName) {
+          dispatchAppState({ type: ACTION_TYPES.SET_MAP_NAME, payload: { mapName: g1.mapName } });
         }
 
         // Reset camera + fit
@@ -575,7 +594,8 @@ function App() {
     const updatedGraph = {
       ...graphData,
       nodes: updatedNodes,
-      mode // Include current mode in export
+      mode, // Include current mode in export
+      mapName // Include current map name in export
     };
 
     const blob = new Blob([JSON.stringify(updatedGraph, null, 2)], { type: "application/json" });
@@ -588,7 +608,7 @@ function App() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-  }, [graphData, exportNodePositions, mode]);
+  }, [graphData, exportNodePositions, mode, mapName]);
 
   const handleNodeColorChange = useCallback((nodeIds, newColor) => {
     printDebug('🏠 App: Change color:', nodeIds, '->', newColor);
@@ -604,11 +624,17 @@ function App() {
     }));
   }, [updateNodeInPlace, saveUndoState]);
   // camera
+  // camera
   const setZoomLevel = useCallback((zoom) => {
     dispatchAppState({ type: ACTION_TYPES.SET_ZOOM, payload: { zoom } });
   }, []);
   const setCameraPosition = useCallback((position) => {
     dispatchAppState({ type: ACTION_TYPES.SET_CAMERA_POSITION, payload: { position } });
+  }, []);
+
+  // map name
+  const setMapName = useCallback((newMapName) => {
+    dispatchAppState({ type: ACTION_TYPES.SET_MAP_NAME, payload: { mapName: newMapName } });
   }, []);
 
   // notes — now stored in graphData.notes
@@ -740,6 +766,20 @@ function App() {
       console.warn("Edge title editing not yet implemented");
     }
   }, [selectedNodeIds, nodeSelectionOrder, noteEditingTarget, noteViewingTarget, saveUndoState, getCytoscapeInstance]);
+
+  const handleUpdateImage = useCallback((nodeId, imagePath) => {
+    // Save undo state before updating image
+    saveUndoState();
+    
+    setGraphData(prev => ({
+      ...prev,
+      nodes: prev.nodes.map(n => 
+        n.id === nodeId 
+          ? { ...n, imageUrl: imagePath }
+          : n
+      )
+    }));
+  }, [saveUndoState]);
 
   const handleNodeClick = useCallback((nodeId) => {
     if (mode === 'playing') {
@@ -899,9 +939,14 @@ function App() {
         currentTitle={noteEditingTarget ? (noteEditingType === "node" 
           ? graphData.nodes.find(n => n.id === noteEditingTarget)?.title || ""
           : noteEditingTarget) : ""}
+        currentImageUrl={noteEditingTarget && noteEditingType === "node" 
+          ? graphData.nodes.find(n => n.id === noteEditingTarget)?.imageUrl || ""
+          : ""}
         notes={noteEditingTarget ? (graphData.notes?.[noteEditingTarget] || []) : []}
+        mapName={mapName}
         onUpdateNotes={handleUpdateNotes}
         onUpdateTitle={handleUpdateTitle}
+        onUpdateImage={handleUpdateImage}
         onClose={handleCloseNoteEditing}
       />
 
@@ -925,6 +970,8 @@ function App() {
         selectedNodeIds={selectedNodeIds}
         selectedEdgeIds={selectedEdgeIds}
         mode={mode}
+        mapName={mapName}
+        onMapNameChange={setMapName}
       />
 
       <ErrorDisplay error={loadError} onClearError={clearError} />

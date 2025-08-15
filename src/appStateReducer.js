@@ -44,6 +44,9 @@ export const ACTION_TYPES = {
   // Undo actions
   SET_UNDO_STATE: 'SET_UNDO_STATE',
   CLEAR_UNDO_STATE: 'CLEAR_UNDO_STATE',
+  
+  // Map name actions
+  SET_MAP_NAME: 'SET_MAP_NAME',
 };
 
 // Initial state
@@ -76,6 +79,7 @@ export const initialAppState = {
     position: { x: 0, y: 0 }
   },
   mode: 'editing', // 'editing' or 'playing'
+  mapName: 'default_map', // Editable map name
   ui: {
     shouldFitOnNextRender: false,
     loadError: null
@@ -231,6 +235,12 @@ export function appStateReducer(state, action) {
         mode: action.payload.mode
       };
       
+    case ACTION_TYPES.SET_MAP_NAME:
+      return {
+        ...state,
+        mapName: action.payload.mapName
+      };
+      
     case ACTION_TYPES.SET_ZOOM:
       return {
         ...state,
@@ -362,6 +372,11 @@ export const actions = {
   setMode: (mode) => ({
     type: ACTION_TYPES.SET_MODE,
     payload: { mode }
+  }),
+  
+  setMapName: (mapName) => ({
+    type: ACTION_TYPES.SET_MAP_NAME,
+    payload: { mapName }
   }),
   
   setLoadError: (error) => ({

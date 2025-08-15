@@ -22,6 +22,11 @@ export const FEATURES = {
   // Set to false in production to hide debug button and modal
   DEV_MODE: true,
   
+  // Render all node images in black and white (grayscale)
+  // When enabled, overlays a gray square image on top of node background images using multiply blend mode
+  // This creates a grayscale effect for images only, without affecting node colors or text
+  GRAYSCALE_IMAGES: true,
+  
   // Future feature flags can be added here...
 };
 
@@ -30,5 +35,6 @@ export const {
   ZOOM_TO_SELECTION,
   DEBUG_LOGGING,
   MODE_TOGGLE,
-  DEV_MODE
+  DEV_MODE,
+  GRAYSCALE_IMAGES
 } = FEATURES;

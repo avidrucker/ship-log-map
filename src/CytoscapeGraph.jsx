@@ -1,6 +1,6 @@
 // src/CytoscapeGraph.jsx
 import React, { useEffect, useRef } from "react";
-import { mountCy, syncElements, wireEvents } from "./graph/cyAdapter.js";
+import { mountCy, syncElements, wireEvents, hasPendingGrayscaleConversions, updateCompletedGrayscaleImages } from "./graph/cyAdapter.js";
 
 // Keep the same props your App already passes in
 function CytoscapeGraph({
@@ -50,21 +50,27 @@ function CytoscapeGraph({
   useEffect(() => {
     if (!containerRef.current) return;
 
-    cyRef.current = mountCy({
-      container: containerRef.current,
-      graph: { nodes, edges },
-      mode
-    });
+    try {
+      const cy = mountCy({
+        container: containerRef.current,
+        graph: { nodes, edges },
+        mode
+      });
 
-    // Initial viewport
-    if (typeof initialZoom === "number") {
-      cyRef.current.zoom(initialZoom);
-    }
-    if (initialCameraPosition && typeof initialCameraPosition.x === "number" && typeof initialCameraPosition.y === "number") {
-      cyRef.current.pan(initialCameraPosition);
-    }
+      cyRef.current = cy;
 
-    if (onCytoscapeInstanceReady) onCytoscapeInstanceReady(cyRef.current);
+      // Initial viewport
+      if (typeof initialZoom === "number") {
+        cy.zoom(initialZoom);
+      }
+      if (initialCameraPosition && typeof initialCameraPosition.x === "number" && typeof initialCameraPosition.y === "number") {
+        cy.pan(initialCameraPosition);
+      }
+
+      if (onCytoscapeInstanceReady) onCytoscapeInstanceReady(cy);
+    } catch (error) {
+      console.error('Failed to initialize Cytoscape:', error);
+    }
 
     return () => {
       try {
@@ -159,6 +165,23 @@ function CytoscapeGraph({
     }, 50);
     return () => clearTimeout(id);
   }, [shouldFitOnNextRender, onFitCompleted]);
+
+  // Periodic check for completed grayscale image conversions
+  useEffect(() => {
+    if (!cyRef.current) return;
+    
+    const interval = setInterval(() => {
+      if (hasPendingGrayscaleConversions()) {
+        const updated = updateCompletedGrayscaleImages(cyRef.current, { nodes, edges });
+        if (updated) {
+          // Force a redraw without changing layout or camera
+          cyRef.current.forceRender();
+        }
+      }
+    }, 500); // Check every 500ms
+    
+    return () => clearInterval(interval);
+  }, [nodes, edges]);
 
   return (
     <div

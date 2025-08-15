@@ -3,25 +3,115 @@ import cytoscape from "cytoscape";
 import cytoscapeStyles from "../cytoscapeStyles.js";
 import { deserializeGraph } from "./ops.js";
 import { TEST_ICON_SVG } from "../constants/testAssets.js";
+import { GRAYSCALE_IMAGES } from "../config/features.js";
+import { convertImageToGrayscale } from "../utils/grayscaleUtils.js";
 
-// Convert domain graph -> Cytoscape elements
+// Cache for grayscale images to avoid reprocessing
+const grayscaleCache = new Map();
+const pendingConversions = new Set();
+
+// Preprocess images to grayscale in the background to avoid race conditions
+function preprocessImageToGrayscale(imageUrl) {
+  if (!GRAYSCALE_IMAGES || !imageUrl || imageUrl === TEST_ICON_SVG) {
+    return Promise.resolve(imageUrl);
+  }
+  
+  if (grayscaleCache.has(imageUrl)) {
+    return Promise.resolve(grayscaleCache.get(imageUrl));
+  }
+  
+  // Start conversion in background, but don't wait for it
+  const conversionPromise = convertImageToGrayscale(imageUrl)
+    .then(grayscaleUrl => {
+      grayscaleCache.set(imageUrl, grayscaleUrl);
+      pendingConversions.delete(imageUrl);
+      return grayscaleUrl;
+    })
+    .catch(error => {
+      console.warn('Failed to convert image to grayscale:', error);
+      grayscaleCache.set(imageUrl, imageUrl); // Cache the original to avoid retrying
+      pendingConversions.delete(imageUrl);
+      return imageUrl;
+    });
+  
+  pendingConversions.add(imageUrl);
+  grayscaleCache.set(imageUrl, conversionPromise);
+  return conversionPromise;
+}
+
+// Check if there are pending conversions that might benefit from an update
+export function hasPendingGrayscaleConversions() {
+  return pendingConversions.size > 0;
+}
+
+// Update only image data for nodes that have completed grayscale conversion
+export function updateCompletedGrayscaleImages(cy, graph) {
+  if (!GRAYSCALE_IMAGES || pendingConversions.size === 0) return false;
+  
+  let updated = false;
+  const g = deserializeGraph(graph);
+  
+  g.nodes.forEach(n => {
+    const imageUrl = n.imageUrl;
+    if (imageUrl && imageUrl !== TEST_ICON_SVG && grayscaleCache.has(imageUrl)) {
+      const cached = grayscaleCache.get(imageUrl);
+      if (typeof cached === 'string' && !pendingConversions.has(imageUrl)) {
+        // Conversion completed, update the node
+        const cyNode = cy.getElementById(n.id);
+        if (cyNode.length > 0 && cyNode.data('imageUrl') !== cached) {
+          cyNode.data('imageUrl', cached);
+          updated = true;
+        }
+      }
+    }
+  });
+  
+  return updated;
+}
+
+// Convert domain graph -> Cytoscape elements (now synchronous with fallback)
 export function buildElementsFromDomain(graph, options = {}) {
   const { mode = 'editing' } = options;
   const g = deserializeGraph(graph);
 
-  const nodes = g.nodes.map(n => ({
-    group: "nodes",
-    data: {
-      id: n.id,
-      label: n.title ?? "",
-      color: n.color ?? "gray",
-      size: n.size ?? "regular",
-      imageUrl: n.imageUrl || TEST_ICON_SVG
-    },
-    position: { x: n.x, y: n.y },
-    selectable: true,
-    grabbable: mode === 'editing' // Only grabbable in editing mode
-  }));
+  // Process nodes - use cached grayscale images if available, original otherwise
+  const nodes = g.nodes.map(n => {
+    let imageUrl = n.imageUrl || TEST_ICON_SVG;
+    
+    // Use cached grayscale if available, otherwise use original and preprocess in background
+    if (GRAYSCALE_IMAGES && imageUrl && imageUrl !== TEST_ICON_SVG) {
+      const cached = grayscaleCache.get(imageUrl);
+      if (cached && typeof cached === 'string') {
+        // We have a processed grayscale URL
+        imageUrl = cached;
+      } else if (cached && cached instanceof Promise) {
+        // Conversion is in progress, use original for now and trigger update later
+        cached.then(() => {
+          // Trigger a gentle update when conversion completes
+          // This will be handled by the component's update cycle
+        });
+      } else {
+        // Start preprocessing in background
+        preprocessImageToGrayscale(imageUrl);
+      }
+    }
+    
+    return {
+      group: "nodes",
+      data: {
+        id: n.id,
+        label: n.title ?? "",
+        color: n.color ?? "gray",
+        size: n.size ?? "regular",
+        imageUrl: imageUrl
+      },
+      position: { x: n.x, y: n.y },
+      selectable: true,
+      grabbable: mode === 'editing' // Only grabbable in editing mode
+    };
+  });
+
+  // Process edges (unchanged)
 
   const edges = g.edges.map(e => ({
     group: "edges",
@@ -46,15 +136,68 @@ export function mountCy({ container, graph, styles = cytoscapeStyles, mode = 'ed
     elements,
     selectionType: mode === 'editing' ? "additive" : "single", // Dynamic selection based on mode
     wheelSensitivity: 0.2,
-    pixelRatio: 1
+    pixelRatio: 1,
+    layout: { name: 'preset' } // Use preset layout to preserve node positions
   });
   return cy;
 }
 
 // Replace elements with a fresh build from the domain state
 export function syncElements(cy, graph, options = {}) {
-  const elements = buildElementsFromDomain(graph, options);
-  cy.json({ elements }); // full resync (simple & predictable for now)
+  const newElements = buildElementsFromDomain(graph, options);
+  
+  // Save current camera state to restore later
+  const currentZoom = cy.zoom();
+  const currentPan = cy.pan();
+  
+  // Get current positions to preserve them
+  const currentPositions = {};
+  cy.nodes().forEach(node => {
+    currentPositions[node.id()] = node.position();
+  });
+  
+  // Check if we really need to update by comparing element counts and IDs
+  const currentNodes = cy.nodes().map(n => n.id()).sort();
+  const currentEdges = cy.edges().map(e => e.id()).sort();
+  const newNodes = newElements.filter(e => e.group === 'nodes').map(e => e.data.id).sort();
+  const newEdges = newElements.filter(e => e.group === 'edges').map(e => e.data.id).sort();
+  
+  const nodesChanged = JSON.stringify(currentNodes) !== JSON.stringify(newNodes);
+  const edgesChanged = JSON.stringify(currentEdges) !== JSON.stringify(newEdges);
+  
+  if (!nodesChanged && !edgesChanged) {
+    // Only update data properties without full resync if structure hasn't changed
+    newElements.forEach(newEl => {
+      if (newEl.group === 'nodes') {
+        const existingNode = cy.getElementById(newEl.data.id);
+        if (existingNode.length > 0) {
+          // Update node data without changing position
+          existingNode.data(newEl.data);
+        }
+      } else if (newEl.group === 'edges') {
+        const existingEdge = cy.getElementById(newEl.data.id);
+        if (existingEdge.length > 0) {
+          existingEdge.data(newEl.data);
+        }
+      }
+    });
+  } else {
+    // Full resync needed when structure changes
+    cy.json({ elements: newElements });
+    
+    // Restore positions after sync
+    cy.nodes().forEach(node => {
+      const savedPosition = currentPositions[node.id()];
+      if (savedPosition) {
+        node.position(savedPosition);
+      }
+    });
+    
+    // Restore camera state after full resync
+    cy.zoom(currentZoom);
+    cy.pan(currentPan);
+  }
+  
   return cy;
 }
 
