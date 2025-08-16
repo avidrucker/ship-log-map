@@ -24,7 +24,7 @@
 - [x] Fix bug where edges are not properly styled when they are selected
 - [x] Implement "double-edges" where each edge has a second edge below it with a thicker line and different color to mimic source material styling
 - [x] See if arrows can be moved to the center of edges instead of being at the end
-- [ ] Fix focused/active nodes to not have different border colors (they should match the node's color always)
+- [x] Fix focused/active nodes to not have different border colors (they should match the node's color always)
 - [x] Change cursor to pointer when hovering over nodes and edges
 - [ ] Implement re-ordering of notes in the Note Editor Modal
 - [ ] Implement "unlocking" of nodes in player mode where initially a question mark is shown on the node instead of its title and picture to indicate that a node exists, but is not yet accessible
@@ -43,3 +43,10 @@
 - [ ] Implement a button that clears the current image from the selected node (in the note editor modal), and resets the node's image to the default "unspecified" image
 - [ ] Implement rotate map feature that rotates the entire map by 45 degrees clockwise or counter-clockwise around its center point or the origin point (0,0)
 - [x] Apply zooming into a node/edge when it is selected in playing mode, so that the camera zooms in on the node/edge and centers it in the top half of the viewport
+- [ ] Fix bug where nodes are draggable in playing mode, they should not be draggable in playing mode
+- [ ] Investigate bug where images are not loaded correctly from the CDN, only showing 1 of the images for all the nodes
+- [ ] Implement overlay that adds a number above each node indicating the number of notes associated with that node
+- [x] Fix bug where edge double clicking doesn't cycle through edge directions properly, but it should cycle through forward, backward, bidirectional, and then back to forward
+- [ ] Fix animation bug when in playing mode and unzooming out of a node/edge, where the animation plays 3 times when it should only play once ONLY if the user clicks on the background to unzoom, but if the user clicks on the "x" button to close the note viewer modal, it correctly plays the animation only once
+- [ ] Remove undo button from playing mode, as it is not needed there
+- [x] Fix bug where double clicking a node in playing mode changes the node's size, but it should not change the size of the node in playing mode
