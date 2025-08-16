@@ -1,130 +1,14 @@
 {
   "nodes": [
     {
-      "id": "TornadoSimulation",
-      "title": "Tornado Simulation",
-      "size": "half",
-      "color": "green",
-      "x": 2699,
-      "y": -104,
-      "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSIxMCIgZmlsbD0iIzRBOTBFMiIgc3Ryb2tlPSIjMkM1MjgyIiBzdHJva2Utd2lkdGg9IjIiLz4KICA8Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSI0IiBmaWxsPSIjZmZmZmZmIi8+CiAgPHBhdGggZD0iTTEyIDggTDE2IDE2IEw4IDE2IFoiIGZpbGw9IiMyQzUyODIiLz4KPC9zdmc+"
-    },
-    {
-      "id": "BrambleIsland",
-      "title": "Bramble Island",
+      "id": "FrozenJellyfish",
+      "title": "Frozen Jellyfish",
       "size": "regular",
       "color": "green",
-      "x": 2710,
-      "y": 530,
-      "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSIxMCIgZmlsbD0iIzRBOTBFMiIgc3Ryb2tlPSIjMkM1MjgyIiBzdHJva2Utd2lkdGg9IjIiLz4KICA8Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSI0IiBmaWxsPSIjZmZmZmZmIi8+CiAgPHBhdGggZD0iTTEyIDggTDE2IDE2IEw4IDE2IFoiIGZpbGw9IiMyQzUyODIiLz4KPC9zdmc+"
-    },
-    {
-      "id": "OceanDepths",
-      "title": "Ocean Depths",
-      "size": "regular",
-      "color": "green",
-      "x": 2013,
-      "y": 523,
-      "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSIxMCIgZmlsbD0iIzRBOTBFMiIgc3Ryb2tlPSIjMkM1MjgyIiBzdHJva2Utd2lkdGg9IjIiLz4KICA8Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSI0IiBmaWxsPSIjZmZmZmZmIi8+CiAgPHBhdGggZD0iTTEyIDggTDE2IDE2IEw4IDE2IFoiIGZpbGw9IiMyQzUyODIiLz4KPC9zdmc+"
-    },
-    {
-      "id": "ConstructionYard",
-      "title": "Construction Yard",
-      "size": "regular",
-      "color": "green",
-      "x": 2472,
-      "y": 258,
-      "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSIxMCIgZmlsbD0iIzRBOTBFMiIgc3Ryb2tlPSIjMkM1MjgyIiBzdHJva2Utd2lkdGg9IjIiLz4KICA8Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSI0IiBmaWxsPSIjZmZmZmZmIi8+CiAgPHBhdGggZD0iTTEyIDggTDE2IDE2IEw4IDE2IFoiIGZpbGw9IiMyQzUyODIiLz4KPC9zdmc+"
-    },
-    {
-      "id": "alignment_angle_diagram",
-      "title": "Alignment Angle Diagram",
-      "size": "half",
-      "color": "orange",
-      "x": 453,
-      "y": 808,
-      "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSIxMCIgZmlsbD0iIzRBOTBFMiIgc3Ryb2tlPSIjMkM1MjgyIiBzdHJva2Utd2lkdGg9IjIiLz4KICA8Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSI0IiBmaWxsPSIjZmZmZmZmIi8+CiAgPHBhdGggZD0iTTEyIDggTDE2IDE2IEw4IDE2IFoiIGZpbGw9IiMyQzUyODIiLz4KPC9zdmc+"
-    },
-    {
-      "id": "ash_twin_tower_designs",
-      "title": "Ash Twin Tower Designs",
-      "size": "half",
-      "color": "orange",
-      "x": 492,
-      "y": 267,
-      "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSIxMCIgZmlsbD0iIzRBOTBFMiIgc3Ryb2tlPSIjMkM1MjgyIiBzdHJva2Utd2lkdGg9IjIiLz4KICA8Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSI0IiBmaWxsPSIjZmZmZmZmIi8+CiAgPHBhdGggZD0iTTEyIDggTDE2IDE2IEw4IDE2IFoiIGZpbGw9IiMyQzUyODIiLz4KPC9zdmc+"
-    },
-    {
-      "id": "volcanic_testing_site",
-      "title": "Volcanic Testing Site",
-      "size": "regular",
-      "color": "orange",
-      "x": 1188,
-      "y": 723,
-      "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSIxMCIgZmlsbD0iIzRBOTBFMiIgc3Ryb2tlPSIjMkM1MjgyIiBzdHJva2Utd2lkdGg9IjIiLz4KICA8Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSI0IiBmaWxsPSIjZmZmZmZmIi8+CiAgPHBhdGggZD0iTTEyIDggTDE2IDE2IEw4IDE2IFoiIGZpbGw9IiMyQzUyODIiLz4KPC9zdmc+"
-    },
-    {
-      "id": "high_energy_lab",
-      "title": "High Energy Lab",
-      "size": "regular",
-      "color": "orange",
-      "x": 557,
-      "y": 163,
-      "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSIxMCIgZmlsbD0iIzRBOTBFMiIgc3Ryb2tlPSIjMkM1MjgyIiBzdHJva2Utd2lkdGg9IjIiLz4KICA8Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSI0IiBmaWxsPSIjZmZmZmZmIi8+CiAgPHBhdGggZD0iTTEyIDggTDE2IDE2IEw4IDE2IFoiIGZpbGw9IiMyQzUyODIiLz4KPC9zdmc+"
-    },
-    {
-      "id": "black_hole_forge",
-      "title": "Black Hole Forge",
-      "size": "regular",
-      "color": "orange",
-      "x": 396,
-      "y": 713,
-      "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSIxMCIgZmlsbD0iIzRBOTBFMiIgc3Ryb2tlPSIjMkM1MjgyIiBzdHJva2Utd2lkdGg9IjIiLz4KICA8Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSI0IiBmaWxsPSIjZmZmZmZmIi8+CiAgPHBhdGggZD0iTTEyIDggTDE2IDE2IEw4IDE2IFoiIGZpbGw9IiMyQzUyODIiLz4KPC9zdmc+"
-    },
-    {
-      "id": "white_hole_station",
-      "title": "White Hole Station",
-      "size": "regular",
-      "color": "orange",
-      "x": 248,
-      "y": 162,
-      "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSIxMCIgZmlsbD0iIzRBOTBFMiIgc3Ryb2tlPSIjMkM1MjgyIiBzdHJva2Utd2lkdGg9IjIiLz4KICA8Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSI0IiBmaWxsPSIjZmZmZmZmIi8+CiAgPHBhdGggZD0iTTEyIDggTDE2IDE2IEw4IDE2IFoiIGZpbGw9IiMyQzUyODIiLz4KPC9zdmc+"
-    },
-    {
-      "id": "sun_station",
-      "title": "Sun Station",
-      "size": "regular",
-      "color": "orange",
-      "x": 113,
-      "y": 481,
-      "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSIxMCIgZmlsbD0iIzRBOTBFMiIgc3Ryb2tlPSIjMkM1MjgyIiBzdHJva2Utd2lkdGg9IjIiLz4KICA8Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSI0IiBmaWxsPSIjZmZmZmZmIi8+CiAgPHBhdGggZD0iTTEyIDggTDE2IDE2IEw4IDE2IFoiIGZpbGw9IiMyQzUyODIiLz4KPC9zdmc+"
-    },
-    {
-      "id": "ash_twin_project",
-      "title": "Ash Twin Project",
-      "size": "double",
-      "color": "orange",
-      "x": 729,
-      "y": 470,
-      "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSIxMCIgZmlsbD0iIzRBOTBFMiIgc3Ryb2tlPSIjMkM1MjgyIiBzdHJva2Utd2lkdGg9IjIiLz4KICA8Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSI0IiBmaWxsPSIjZmZmZmZmIi8+CiAgPHBhdGggZD0iTTEyIDggTDE2IDE2IEw4IDE2IFoiIGZpbGw9IiMyQzUyODIiLz4KPC9zdmc+"
-    },
-    {
-      "id": "SouthernObservatory",
-      "title": "Southern Observatory",
-      "size": "regular",
-      "color": "green",
-      "x": 2582,
-      "y": -183,
-      "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSIxMCIgZmlsbD0iIzRBOTBFMiIgc3Ryb2tlPSIjMkM1MjgyIiBzdHJva2Utd2lkdGg9IjIiLz4KICA8Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSI0IiBmaWxsPSIjZmZmZmZmIi8+CiAgPHBhdGggZD0iTTEyIDggTDE2IDE2IEw4IDE2IFoiIGZpbGw9IiMyQzUyODIiLz4KPC9zdmc+"
-    },
-    {
-      "id": "EyeSignalLocator",
-      "title": "Eye Signal Locator",
-      "size": "regular",
-      "color": "green",
-      "x": 2030,
-      "y": -325,
-      "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSIxMCIgZmlsbD0iIzRBOTBFMiIgc3Ryb2tlPSIjMkM1MjgyIiBzdHJva2Utd2lkdGg9IjIiLz4KICA8Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSI0IiBmaWxsPSIjZmZmZmZmIi8+CiAgPHBhdGggZD0iTTEyIDggTDE2IDE2IEw4IDE2IFoiIGZpbGw9IiMyQzUyODIiLz4KPC9zdmc+"
+      "x": 3133,
+      "y": 254,
+      "imageUrl": "unspecified",
+      "originalImageUrl": "unspecified"
     },
     {
       "id": "ash_twin_towers",
@@ -133,43 +17,98 @@
       "color": "orange",
       "x": 330,
       "y": 482,
-      "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSIxMCIgZmlsbD0iIzRBOTBFMiIgc3Ryb2tlPSIjMkM1MjgyIiBzdHJva2Utd2lkdGg9IjIiLz4KICA8Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSI0IiBmaWxsPSIjZmZmZmZmIi8+CiAgPHBhdGggZD0iTTEyIDggTDE2IDE2IEw4IDE2IFoiIGZpbGw9IiMyQzUyODIiLz4KPC9zdmc+"
+      "imageUrl": "unspecified",
+      "originalImageUrl": "unspecified"
     },
     {
-      "id": "LaunchModule",
-      "title": "Launch Module",
-      "size": "half",
+      "id": "EyeSignalLocator",
+      "title": "Eye Signal Locator",
+      "size": "regular",
       "color": "green",
-      "x": 2012,
-      "y": 302,
-      "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSIxMCIgZmlsbD0iIzRBOTBFMiIgc3Ryb2tlPSIjMkM1MjgyIiBzdHJva2Utd2lkdGg9IjIiLz4KICA8Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSI0IiBmaWxsPSIjZmZmZmZmIi8+CiAgPHBhdGggZD0iTTEyIDggTDE2IDE2IEw4IDE2IFoiIGZpbGw9IiMyQzUyODIiLz4KPC9zdmc+"
+      "x": 2030,
+      "y": -325,
+      "imageUrl": "unspecified",
+      "originalImageUrl": "unspecified"
     },
     {
-      "id": "OrbitalProbeCannon",
-      "title": "Orbital Probe Cannon",
-      "size": "double",
+      "id": "SouthernObservatory",
+      "title": "Southern Observatory",
+      "size": "regular",
       "color": "green",
-      "x": 2014,
-      "y": 122,
-      "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSIxMCIgZmlsbD0iIzRBOTBFMiIgc3Ryb2tlPSIjMkM1MjgyIiBzdHJva2Utd2lkdGg9IjIiLz4KICA8Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSI0IiBmaWxsPSIjZmZmZmZmIi8+CiAgPHBhdGggZD0iTTEyIDggTDE2IDE2IEw4IDE2IFoiIGZpbGw9IiMyQzUyODIiLz4KPC9zdmc+"
+      "x": 2582,
+      "y": -183,
+      "imageUrl": "unspecified",
+      "originalImageUrl": "unspecified"
     },
     {
-      "id": "ProbeTrackingModule",
-      "title": "Probe Tracking Module",
-      "size": "half",
-      "color": "green",
-      "x": 2121,
-      "y": 301,
-      "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSIxMCIgZmlsbD0iIzRBOTBFMiIgc3Ryb2tlPSIjMkM1MjgyIiBzdHJva2Utd2lkdGg9IjIiLz4KICA8Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSI0IiBmaWxsPSIjZmZmZmZmIi8+CiAgPHBhdGggZD0iTTEyIDggTDE2IDE2IEw4IDE2IFoiIGZpbGw9IiMyQzUyODIiLz4KPC9zdmc+"
-    },
-    {
-      "id": "statue_island",
-      "title": "Statue Island",
+      "id": "high_energy_lab",
+      "title": "High Energy Lab",
       "size": "regular",
       "color": "orange",
-      "x": 1033,
-      "y": 218,
-      "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSIxMCIgZmlsbD0iIzRBOTBFMiIgc3Ryb2tlPSIjMkM1MjgyIiBzdHJva2Utd2lkdGg9IjIiLz4KICA8Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSI0IiBmaWxsPSIjZmZmZmZmIi8+CiAgPHBhdGggZD0iTTEyIDggTDE2IDE2IEw4IDE2IFoiIGZpbGw9IiMyQzUyODIiLz4KPC9zdmc+"
+      "x": 557,
+      "y": 163,
+      "imageUrl": "unspecified",
+      "originalImageUrl": "unspecified"
+    },
+    {
+      "id": "volcanic_testing_site",
+      "title": "Volcanic Testing Site",
+      "size": "regular",
+      "color": "orange",
+      "x": 1188,
+      "y": 723,
+      "imageUrl": "unspecified",
+      "originalImageUrl": "unspecified"
+    },
+    {
+      "id": "ash_twin_tower_designs",
+      "title": "Ash Twin Tower Designs",
+      "size": "half",
+      "color": "orange",
+      "x": 492,
+      "y": 267,
+      "imageUrl": "unspecified",
+      "originalImageUrl": "unspecified"
+    },
+    {
+      "id": "OceanDepths",
+      "title": "Ocean Depths",
+      "size": "regular",
+      "color": "green",
+      "x": 2013,
+      "y": 523,
+      "imageUrl": "unspecified",
+      "originalImageUrl": "unspecified"
+    },
+    {
+      "id": "BrambleIsland",
+      "title": "Bramble Island",
+      "size": "regular",
+      "color": "green",
+      "x": 2710,
+      "y": 530,
+      "imageUrl": "unspecified",
+      "originalImageUrl": "unspecified"
+    },
+    {
+      "id": "ash_twin_project",
+      "title": "Ash Twin Project",
+      "size": "double",
+      "color": "orange",
+      "x": 729,
+      "y": 470,
+      "imageUrl": "unspecified",
+      "originalImageUrl": "unspecified"
+    },
+    {
+      "id": "sun_station",
+      "title": "Sun Station",
+      "size": "regular",
+      "color": "orange",
+      "x": 113,
+      "y": 481,
+      "imageUrl": "unspecified",
+      "originalImageUrl": "unspecified"
     },
     {
       "id": "ControlModule",
@@ -178,34 +117,18 @@
       "color": "green",
       "x": 1913,
       "y": 299,
-      "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSIxMCIgZmlsbD0iIzRBOTBFMiIgc3Ryb2tlPSIjMkM1MjgyIiBzdHJva2Utd2lkdGg9IjIiLz4KICA8Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSI0IiBmaWxsPSIjZmZmZmZmIi8+CiAgPHBhdGggZD0iTTEyIDggTDE2IDE2IEw4IDE2IFoiIGZpbGw9IiMyQzUyODIiLz4KPC9zdmc+"
+      "imageUrl": "unspecified",
+      "originalImageUrl": "unspecified"
     },
     {
-      "id": "FrozenJellyfish",
-      "title": "Frozen Jellyfish",
-      "size": "regular",
+      "id": "OrbitalProbeCannon",
+      "title": "Orbital Probe Cannon",
+      "size": "double",
       "color": "green",
-      "x": 3133,
-      "y": 254,
-      "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSIxMCIgZmlsbD0iIzRBOTBFMiIgc3Ryb2tlPSIjMkM1MjgyIiBzdHJva2Utd2lkdGg9IjIiLz4KICA8Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSI0IiBmaWxsPSIjZmZmZmZmIi8+CiAgPHBhdGggZD0iTTEyIDggTDE2IDE2IEw4IDE2IFoiIGZpbGw9IiMyQzUyODIiLz4KPC9zdmc+"
-    },
-    {
-      "id": "statue_workshop",
-      "title": "Statue Workshop",
-      "size": "half",
-      "color": "orange",
-      "x": 990,
-      "y": 302,
-      "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSIxMCIgZmlsbD0iIzRBOTBFMiIgc3Ryb2tlPSIjMkM1MjgyIiBzdHJva2Utd2lkdGg9IjIiLz4KICA8Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSI0IiBmaWxsPSIjZmZmZmZmIi8+CiAgPHBhdGggZD0iTTEyIDggTDE2IDE2IEw4IDE2IFoiIGZpbGw9IiMyQzUyODIiLz4KPC9zdmc+"
-    },
-    {
-      "id": "FeldsparsCamp",
-      "title": "Feldspar's Camp",
-      "size": "regular",
-      "color": "green",
-      "x": 2813,
-      "y": 138,
-      "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSIxMCIgZmlsbD0iIzRBOTBFMiIgc3Ryb2tlPSIjMkM1MjgyIiBzdHJva2Utd2lkdGg9IjIiLz4KICA8Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSI0IiBmaWxsPSIjZmZmZmZmIi8+CiAgPHBhdGggZD0iTTEyIDggTDE2IDE2IEw4IDE2IFoiIGZpbGw9IiMyQzUyODIiLz4KPC9zdmc+"
+      "x": 2014,
+      "y": 122,
+      "imageUrl": "unspecified",
+      "originalImageUrl": "unspecified"
     },
     {
       "id": "nomai_mines",
@@ -214,7 +137,108 @@
       "color": "orange",
       "x": 991,
       "y": 720,
-      "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSIxMCIgZmlsbD0iIzRBOTBFMiIgc3Ryb2tlPSIjMkM1MjgyIiBzdHJva2Utd2lkdGg9IjIiLz4KICA8Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSI0IiBmaWxsPSIjZmZmZmZmIi8+CiAgPHBhdGggZD0iTTEyIDggTDE2IDE2IEw4IDE2IFoiIGZpbGw9IiMyQzUyODIiLz4KPC9zdmc+"
+      "imageUrl": "unspecified",
+      "originalImageUrl": "unspecified"
+    },
+    {
+      "id": "ProbeTrackingModule",
+      "title": "Probe Tracking Module",
+      "size": "half",
+      "color": "green",
+      "x": 2121,
+      "y": 301,
+      "imageUrl": "unspecified",
+      "originalImageUrl": "unspecified"
+    },
+    {
+      "id": "black_hole_forge",
+      "title": "Black Hole Forge",
+      "size": "regular",
+      "color": "orange",
+      "x": 396,
+      "y": 713,
+      "imageUrl": "unspecified",
+      "originalImageUrl": "unspecified"
+    },
+    {
+      "id": "white_hole_station",
+      "title": "White Hole Station",
+      "size": "regular",
+      "color": "orange",
+      "x": 248,
+      "y": 162,
+      "imageUrl": "unspecified",
+      "originalImageUrl": "unspecified"
+    },
+    {
+      "id": "TornadoSimulation",
+      "title": "Tornado Simulation",
+      "size": "half",
+      "color": "green",
+      "x": 2699,
+      "y": -104,
+      "imageUrl": "unspecified",
+      "originalImageUrl": "unspecified"
+    },
+    {
+      "id": "alignment_angle_diagram",
+      "title": "Alignment Angle Diagram",
+      "size": "half",
+      "color": "orange",
+      "x": 453,
+      "y": 808,
+      "imageUrl": "unspecified",
+      "originalImageUrl": "unspecified"
+    },
+    {
+      "id": "statue_island",
+      "title": "Statue Island",
+      "size": "regular",
+      "color": "orange",
+      "x": 1033,
+      "y": 218,
+      "imageUrl": "unspecified",
+      "originalImageUrl": "unspecified"
+    },
+    {
+      "id": "LaunchModule",
+      "title": "Launch Module",
+      "size": "half",
+      "color": "green",
+      "x": 2012,
+      "y": 302,
+      "imageUrl": "unspecified",
+      "originalImageUrl": "unspecified"
+    },
+    {
+      "id": "ConstructionYard",
+      "title": "Construction Yard",
+      "size": "regular",
+      "color": "green",
+      "x": 2472,
+      "y": 258,
+      "imageUrl": "unspecified",
+      "originalImageUrl": "unspecified"
+    },
+    {
+      "id": "FeldsparsCamp",
+      "title": "Feldspar's Camp",
+      "size": "regular",
+      "color": "green",
+      "x": 2813,
+      "y": 138,
+      "imageUrl": "unspecified",
+      "originalImageUrl": "unspecified"
+    },
+    {
+      "id": "statue_workshop",
+      "title": "Statue Workshop",
+      "size": "half",
+      "color": "orange",
+      "x": 990,
+      "y": 302,
+      "imageUrl": "unspecified",
+      "originalImageUrl": "unspecified"
     }
   ],
   "edges": [
@@ -371,5 +395,6 @@
     ]
   },
   "mode": "editing",
-  "mapName": "Outer Wilds"
+  "mapName": "Outer Wilds",
+  "cdnBaseUrl": ""
 }
