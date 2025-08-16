@@ -74,6 +74,8 @@ function hydrateCoordsIfMissing(graph, defaultGraph) {
 
 function App() {
   const fileInputRef = useRef(null);
+  // Guard to prevent multiple simultaneous close operations (avoids multi animation)
+  const isClosingNoteViewRef = useRef(false);
 
   // Use the Cytoscape instance management hook
   const {
@@ -397,12 +399,24 @@ function App() {
   }, [fitToSelection]);
 
   const handleCloseNoteViewing = useCallback(() => {
-    // Restore original camera if feature is enabled and we have a saved camera state
-    if (ZOOM_TO_SELECTION && mode === 'playing' && hasOriginalCamera()) {
-      restoreOriginalCamera(true);
+    // Prevent duplicate execution (can be triggered via selection change + background click)
+    if (isClosingNoteViewRef.current) {
+      printDebug('🚫 [App] handleCloseNoteViewing skipped (already in progress)');
+      return;
     }
-    
-    dispatchAppState({ type: ACTION_TYPES.CLOSE_NOTE_VIEWING });
+    isClosingNoteViewRef.current = true;
+
+    try {
+      // Restore original camera if feature is enabled and we have a saved camera state
+      if (ZOOM_TO_SELECTION && mode === 'playing' && hasOriginalCamera()) {
+        printDebug('🎥 [App] Restoring original camera (note viewer close)');
+        restoreOriginalCamera(true);
+      }
+      dispatchAppState({ type: ACTION_TYPES.CLOSE_NOTE_VIEWING });
+    } finally {
+      // Release flag on next tick to allow future closes
+      setTimeout(() => { isClosingNoteViewRef.current = false; }, 0);
+    }
   }, [mode, restoreOriginalCamera, hasOriginalCamera]);
 
   // Debug modal handlers
@@ -887,21 +901,18 @@ function App() {
     // Clear all selections first
     dispatchAppState({ type: ACTION_TYPES.CLEAR_ALL_SELECTIONS });
     clearCytoscapeSelections();
-    
-    // In playing mode, restore camera when clicking background (after clearing selections)
-    if (mode === 'playing' && ZOOM_TO_SELECTION && hasOriginalCamera()) {
-      restoreOriginalCamera(true);
-    }
-    
+
+    // NOTE: Do NOT restore camera here directly. Closing the note viewer will handle it once.
+
     // Close note editing modal if open
     if (noteEditingTarget) {
       handleCloseNoteEditing();
     }
-    // Close note viewing modal if open
+    // Close note viewing modal if open (this will also restore camera once)
     if (noteViewingTarget) {
       handleCloseNoteViewing();
     }
-  }, [mode, noteEditingTarget, noteViewingTarget, handleCloseNoteEditing, handleCloseNoteViewing, clearCytoscapeSelections, hasOriginalCamera, restoreOriginalCamera]);
+  }, [noteEditingTarget, noteViewingTarget, handleCloseNoteEditing, handleCloseNoteViewing, clearCytoscapeSelections]);
 
   const areNodesConnected = useCallback((sourceId, targetId) => {
     return graphData.edges.some(e =>
