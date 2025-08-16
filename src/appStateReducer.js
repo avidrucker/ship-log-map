@@ -47,6 +47,9 @@ export const ACTION_TYPES = {
   
   // Map name actions
   SET_MAP_NAME: 'SET_MAP_NAME',
+  
+  // CDN base URL actions
+  SET_CDN_BASE_URL: 'SET_CDN_BASE_URL',
 };
 
 // Initial state
@@ -80,6 +83,7 @@ export const initialAppState = {
   },
   mode: 'editing', // 'editing' or 'playing'
   mapName: 'default_map', // Editable map name
+  cdnBaseUrl: '', // CDN base URL for image loading
   ui: {
     shouldFitOnNextRender: false,
     loadError: null
@@ -241,6 +245,12 @@ export function appStateReducer(state, action) {
         mapName: action.payload.mapName
       };
       
+    case ACTION_TYPES.SET_CDN_BASE_URL:
+      return {
+        ...state,
+        cdnBaseUrl: action.payload.cdnBaseUrl
+      };
+      
     case ACTION_TYPES.SET_ZOOM:
       return {
         ...state,
@@ -377,6 +387,11 @@ export const actions = {
   setMapName: (mapName) => ({
     type: ACTION_TYPES.SET_MAP_NAME,
     payload: { mapName }
+  }),
+  
+  setCdnBaseUrl: (cdnBaseUrl) => ({
+    type: ACTION_TYPES.SET_CDN_BASE_URL,
+    payload: { cdnBaseUrl }
   }),
   
   setLoadError: (error) => ({

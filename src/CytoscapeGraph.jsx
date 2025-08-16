@@ -1,12 +1,15 @@
 // src/CytoscapeGraph.jsx
 import React, { useEffect, useRef } from "react";
 import { mountCy, syncElements, wireEvents, hasPendingGrayscaleConversions, updateCompletedGrayscaleImages } from "./graph/cyAdapter.js";
+import { printDebug, printError, printWarn } from "./utils/debug.js";
 
 // Keep the same props your App already passes in
 function CytoscapeGraph({
   nodes = [],
   edges = [],
   mode = 'editing',
+  mapName = 'default_map',
+  cdnBaseUrl = '',
 
   // Selection state for synchronization
   selectedNodeIds = [],
@@ -50,43 +53,81 @@ function CytoscapeGraph({
   useEffect(() => {
     if (!containerRef.current) return;
 
-    try {
-      const cy = mountCy({
-        container: containerRef.current,
-        graph: { nodes, edges },
-        mode
-      });
+    const mountCytoscape = async () => {
+      try {
+        const cy = await mountCy({
+          container: containerRef.current,
+          graph: { nodes, edges, mapName, cdnBaseUrl },
+          mode
+        });
 
-      cyRef.current = cy;
+        cyRef.current = cy;
 
-      // Initial viewport
-      if (typeof initialZoom === "number") {
-        cy.zoom(initialZoom);
+        // Initial viewport
+        if (typeof initialZoom === "number") {
+          cy.zoom(initialZoom);
+        }
+        if (initialCameraPosition && typeof initialCameraPosition.x === "number" && typeof initialCameraPosition.y === "number") {
+          cy.pan(initialCameraPosition);
+        }
+
+        // Wire events immediately after Cytoscape is ready
+        printDebug(`🔌 [CytoscapeGraph] Wiring events after mount`);
+        const off = wireEvents(cy, {
+          onNodeSelectionChange,
+          onEdgeSelectionChange,
+          onNodeClick,
+          onEdgeClick,
+          onNodeDoubleClick,
+          onEdgeDoubleClick,
+          onBackgroundClick,
+          onNodeMove,
+          onZoomChange,
+          onCameraMove
+        }, mode);
+
+        // Store the cleanup function for later use
+        cyRef.current._eventCleanup = off;
+
+        if (onCytoscapeInstanceReady) onCytoscapeInstanceReady(cy);
+      } catch (error) {
+        printError('Failed to initialize Cytoscape:', error);
       }
-      if (initialCameraPosition && typeof initialCameraPosition.x === "number" && typeof initialCameraPosition.y === "number") {
-        cy.pan(initialCameraPosition);
-      }
+    };
 
-      if (onCytoscapeInstanceReady) onCytoscapeInstanceReady(cy);
-    } catch (error) {
-      console.error('Failed to initialize Cytoscape:', error);
-    }
+    mountCytoscape();
 
     return () => {
       try {
+        // Clean up events first
+        if (cyRef.current?._eventCleanup) {
+          printDebug(`🧹 [CytoscapeGraph] Cleaning up events on unmount`);
+          cyRef.current._eventCleanup();
+        }
         cyRef.current?.destroy();
       } catch {
-        console.warn("Failed to destroy Cytoscape instance");
+        printWarn("Failed to destroy Cytoscape instance");
       }
       cyRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // mount once
 
-  // Wire events when handlers change
+  // Re-wire events when handlers change (but only if cytoscape is ready)
   useEffect(() => {
-    if (!cyRef.current) return;
+    printDebug(`🔌 [CytoscapeGraph] Event handlers changed, re-wiring events`);
+    if (!cyRef.current) {
+      printDebug(`⚠️ [CytoscapeGraph] cyRef.current is null, skipping event re-wiring`);
+      return;
+    }
 
+    // Clean up existing events
+    if (cyRef.current._eventCleanup) {
+      printDebug(`🧹 [CytoscapeGraph] Cleaning up existing events`);
+      cyRef.current._eventCleanup();
+    }
+
+    printDebug(`🔌 [CytoscapeGraph] Re-wiring events for mode: ${mode}`);
     const off = wireEvents(cyRef.current, {
       onNodeSelectionChange,
       onEdgeSelectionChange,
@@ -100,16 +141,122 @@ function CytoscapeGraph({
       onCameraMove
     }, mode);
 
-    return () => {
-      off?.();
-    };
+    // Store the new cleanup function
+    cyRef.current._eventCleanup = off;
+
+    // No cleanup needed here since we handle it in the next effect run or on unmount
   }, [onNodeSelectionChange, onEdgeSelectionChange, onNodeClick, onEdgeClick, onNodeDoubleClick, onEdgeDoubleClick, onBackgroundClick, onNodeMove, onZoomChange, onCameraMove, mode]);
 
   // Sync when domain elements change
   useEffect(() => {
     if (!cyRef.current) return;
-    syncElements(cyRef.current, { nodes, edges }, { mode });
-  }, [nodes, edges, mode]);
+    
+    const cy = cyRef.current;
+    printDebug(`🔄 [CytoscapeGraph] Sync effect triggered - checking if sync needed`);
+    printDebug(`🔍 [CytoscapeGraph] Current nodes in cytoscape: ${cy.nodes().length}, incoming nodes: ${nodes.length}`);
+    printDebug(`🔍 [CytoscapeGraph] Current edges in cytoscape: ${cy.edges().length}, incoming edges: ${edges.length}`);
+    
+    // Check if only positions have changed to avoid unnecessary syncs
+    const currentNodes = cy.nodes().map(n => ({
+      id: n.id(),
+      data: n.data(),
+      position: n.position()
+    }));
+    
+    // Helper function to normalize imageUrl for comparison
+    const normalizeImageUrl = (imageUrl) => {
+      // Treat "unspecified", empty values, and SVG placeholders as equivalent
+      if (!imageUrl || 
+          imageUrl === "unspecified" || 
+          imageUrl.startsWith('data:image/svg+xml')) {
+        return "placeholder";
+      }
+      // For data URLs that are not SVG, extract a consistent representation
+      if (imageUrl.startsWith('data:image/')) {
+        // For non-SVG data URLs, we can't easily extract the original filename
+        // but we can use a consistent hash or representation
+        return "data-url-image";
+      }
+      // Return the filename as-is
+      return imageUrl;
+    };
+
+    // Compare with incoming nodes to see if only positions changed
+    const structuralChanges = nodes.some(newNode => {
+      const currentNode = currentNodes.find(cn => cn.id === newNode.id);
+      if (!currentNode) return true; // New node
+      
+      // Check if non-position data changed by comparing relevant properties
+      // newNode has: {id, title, x, y, size, color, imageUrl}
+      // currentNode.data has: {id, label, size, color, imageUrl, originalImageUrl} + position separate
+      
+      const newNodeNonPosition = {
+        id: newNode.id,
+        title: newNode.title,
+        size: newNode.size,
+        color: newNode.color,
+        // Use originalImageUrl for comparison if available, fallback to imageUrl
+        imageUrl: normalizeImageUrl(newNode.originalImageUrl || newNode.imageUrl)
+      };
+      
+      const currentNodeNonPosition = {
+        id: currentNode.data.id,
+        title: currentNode.data.label, // Note: cytoscape uses 'label' for display
+        size: currentNode.data.size,
+        color: currentNode.data.color,
+        // Use originalImageUrl for comparison if available, fallback to imageUrl
+        imageUrl: normalizeImageUrl(currentNode.data.originalImageUrl || currentNode.data.imageUrl)
+      };
+      
+      const isDifferent = JSON.stringify(newNodeNonPosition) !== JSON.stringify(currentNodeNonPosition);
+      if (isDifferent) {
+        printDebug(`🔍 [CytoscapeGraph] Structural change detected for node ${newNode.id}:`, {
+          new: newNodeNonPosition,
+          current: currentNodeNonPosition,
+          originalNew: {
+            ...newNodeNonPosition,
+            imageUrl: newNode.imageUrl,
+            originalImageUrl: newNode.originalImageUrl
+          },
+          originalCurrent: {
+            ...currentNodeNonPosition,
+            imageUrl: currentNode.data.imageUrl,
+            originalImageUrl: currentNode.data.originalImageUrl
+          },
+          // Field-by-field comparison
+          idMatch: newNodeNonPosition.id === currentNodeNonPosition.id,
+          titleMatch: newNodeNonPosition.title === currentNodeNonPosition.title,
+          sizeMatch: newNodeNonPosition.size === currentNodeNonPosition.size,
+          colorMatch: newNodeNonPosition.color === currentNodeNonPosition.color,
+          imageUrlMatch: newNodeNonPosition.imageUrl === currentNodeNonPosition.imageUrl
+        });
+      }
+      return isDifferent;
+    });
+    
+    const nodeCountChanged = nodes.length !== currentNodes.length;
+    const edgeCountChanged = edges.length !== cy.edges().length;
+    
+    if (structuralChanges || nodeCountChanged || edgeCountChanged) {
+      printDebug(`🔄 [CytoscapeGraph] Structural changes detected, performing full sync`);
+      syncElements(cyRef.current, { nodes, edges, mapName, cdnBaseUrl }, { mode });
+    } else {
+      printDebug(`🔄 [CytoscapeGraph] Only positions changed, updating positions without sync`);
+      // Only update positions without triggering full sync
+      let updatedCount = 0;
+      nodes.forEach(node => {
+        const cyNode = cy.getElementById(node.id);
+        if (cyNode.length > 0) {
+          const currentPos = cyNode.position();
+          if (currentPos.x !== node.x || currentPos.y !== node.y) {
+            cyNode.position({ x: node.x, y: node.y });
+            updatedCount++;
+          }
+        }
+      });
+      printDebug(`📍 [CytoscapeGraph] Updated positions for ${updatedCount} nodes`);
+    }
+  }, [nodes, edges, mode, mapName, cdnBaseUrl]);
 
   // Sync selections when app state changes
   useEffect(() => {
@@ -160,7 +307,7 @@ function CytoscapeGraph({
         cy.fit(cy.nodes(), 50);
         onFitCompleted && onFitCompleted();
       } catch {
-        console.warn("Failed to fit Cytoscape instance");
+        printWarn("Failed to fit Cytoscape instance");
       }
     }, 50);
     return () => clearTimeout(id);
@@ -172,7 +319,7 @@ function CytoscapeGraph({
     
     const interval = setInterval(() => {
       if (hasPendingGrayscaleConversions()) {
-        const updated = updateCompletedGrayscaleImages(cyRef.current, { nodes, edges });
+        const updated = updateCompletedGrayscaleImages(cyRef.current, { nodes, edges, mapName, cdnBaseUrl });
         if (updated) {
           // Force a redraw without changing layout or camera
           cyRef.current.forceRender();
@@ -181,7 +328,7 @@ function CytoscapeGraph({
     }, 500); // Check every 500ms
     
     return () => clearInterval(interval);
-  }, [nodes, edges]);
+  }, [nodes, edges, mapName, cdnBaseUrl]);
 
   return (
     <div

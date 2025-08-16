@@ -150,21 +150,28 @@ function blobToDataUrl(blob) {
  */
 export async function saveImageFiles(nodeId, processedImage, mapName = null, directoryHandle = null) {
   try {
-    // Convert blobs to data URLs for immediate use
-    const thumbnailDataUrl = await blobToDataUrl(processedImage.thumbnailBlob);
+    const actualMapName = getCurrentMapName(mapName);
+    
+    // Generate logical filename for the image
+    const imageFilename = generateImageFilename(nodeId, processedImage.fileHash, processedImage.extension, 'full');
+    
+    // Convert blobs to data URLs and cache them using the imageLoader
     const fullSizeDataUrl = await blobToDataUrl(processedImage.fullSizeBlob);
+    
+    // Cache the image data URL with the logical filename as key
+    const { imageCache } = await import('./imageLoader.js');
+    const cacheKey = `${actualMapName}:${imageFilename}`;
+    imageCache.set(cacheKey, fullSizeDataUrl);
 
-    // For development, we'll use the data URL directly
-    // This avoids the complexity of serving files from the filesystem during development
+    // Return the logical filename (not the data URL) to store in JSON
     const result = {
-      thumbnailPath: thumbnailDataUrl,
-      fullSizePath: fullSizeDataUrl,
+      imagePath: imageFilename, // This will be stored in the JSON
       success: true
     };
 
     // Optionally, still save to filesystem for reference (but don't block on it)
     try {
-      await saveToFileSystem(nodeId, processedImage, mapName, directoryHandle);
+      await saveToFileSystem(nodeId, processedImage, actualMapName, directoryHandle);
     } catch (fsError) {
       console.warn('Could not save to filesystem (this is optional for development):', fsError.message);
     }

@@ -17,12 +17,8 @@ import { ZOOM_TO_SELECTION, DEBUG_LOGGING, MODE_TOGGLE, DEV_MODE, GRAYSCALE_IMAG
 // 🚀 New imports: centralized persistence + edge id helper
 import { saveToLocal, loadFromLocal, saveModeToLocal, loadModeFromLocal, saveUndoStateToLocal, loadUndoStateFromLocal, saveMapNameToLocal, loadMapNameFromLocal } from "./persistence/index.js";
 import { edgeId, renameNode } from "./graph/ops.js";
-
-// Debug flag - controlled by feature config
-const DEBUG = DEBUG_LOGGING;
-const printDebug = (...args) => {
-  if (DEBUG) console.log(...args);
-};
+import { setCdnBaseUrl, getCdnBaseUrl } from "./utils/imageLoader.js";
+import { printDebug } from "./utils/debug.js";
 
 /** ---------- helpers & migration ---------- **/
 
@@ -33,16 +29,22 @@ function normalizeGraphData(data) {
   const notes = data?.notes && typeof data.notes === "object" ? data.notes : {};
   const mode = typeof data?.mode === "string" ? data.mode : "editing";
   const mapName = typeof data?.mapName === "string" ? data.mapName : "default_map";
+  const cdnBaseUrl = typeof data?.cdnBaseUrl === "string" ? data.cdnBaseUrl : "";
 
-  const normNodes = nodes.map(n => ({
-    id: n.id,
-    title: n.title ?? n.label ?? "",
-    size: n.size ?? "regular",
-    color: n.color ?? "gray",
-    x: typeof n.x === "number" ? n.x : 0,
-    y: typeof n.y === "number" ? n.y : 0,
-    imageUrl: n.imageUrl || TEST_ICON_SVG
-  }));
+  const normNodes = nodes.map(n => {
+    const imageUrl = n.imageUrl || "unspecified";
+    return {
+      id: n.id,
+      title: n.title ?? n.label ?? "",
+      size: n.size ?? "regular",
+      color: n.color ?? "gray",
+      x: typeof n.x === "number" ? n.x : 0,
+      y: typeof n.y === "number" ? n.y : 0,
+      imageUrl: imageUrl,
+      // Preserve originalImageUrl for comparison consistency
+      originalImageUrl: n.originalImageUrl || imageUrl
+    };
+  });
 
   const normEdges = edges.map(e => ({
     id: e.id || edgeId(e.source, e.target),
@@ -51,7 +53,7 @@ function normalizeGraphData(data) {
     direction: e.direction ?? "forward"
   }));
 
-  return { nodes: normNodes, edges: normEdges, notes, mode, mapName };
+  return { nodes: normNodes, edges: normEdges, notes, mode, mapName, cdnBaseUrl };
 }
 
 // if any node lacks coords, hydrate from default by id
@@ -132,13 +134,22 @@ function App() {
       }
       return loadMapNameFromLocal();
     })(),
+    cdnBaseUrl: (() => {
+      // Try to get CDN base URL from loaded graph data first, then from imageLoader
+      const saved = loadFromLocal();
+      if (saved && saved.cdnBaseUrl) {
+        return saved.cdnBaseUrl;
+      }
+      // Get from imageLoader localStorage
+      return getCdnBaseUrl();
+    })(),
     undo: {
       lastGraphState: loadUndoStateFromLocal()
     }
   });
 
   // Extract frequently used state for easier access
-  const { selections, camera, ui, mode, mapName, undo } = appState;
+  const { selections, camera, ui, mode, mapName, cdnBaseUrl, undo } = appState;
   const selectedNodeIds = selections.nodes.ids;
   const nodeSelectionOrder = selections.nodes.order;
   const selectedEdgeIds = selections.edges.ids;
@@ -159,10 +170,15 @@ function App() {
 
   // ---------- persistence ----------
   useEffect(() => {
-    // persist graph (nodes/edges/notes), mode, and map name
-    const dataWithModeAndName = { ...graphData, mode, mapName };
+    // persist graph (nodes/edges/notes), mode, map name, and CDN base URL
+    const dataWithModeAndName = { ...graphData, mode, mapName, cdnBaseUrl };
     saveToLocal(dataWithModeAndName);
-  }, [graphData, mode, mapName]);
+  }, [graphData, mode, mapName, cdnBaseUrl]);
+
+  // Save CDN base URL to imageLoader storage
+  useEffect(() => {
+    setCdnBaseUrl(cdnBaseUrl);
+  }, [cdnBaseUrl]);
 
   // Save camera state to localStorage (kept as-is)
   useEffect(() => {
@@ -269,6 +285,11 @@ function App() {
         // Set map name if it's included in the imported data
         if (g1.mapName) {
           dispatchAppState({ type: ACTION_TYPES.SET_MAP_NAME, payload: { mapName: g1.mapName } });
+        }
+
+        // Set CDN base URL if it's included in the imported data
+        if (g1.cdnBaseUrl) {
+          dispatchAppState({ type: ACTION_TYPES.SET_CDN_BASE_URL, payload: { cdnBaseUrl: g1.cdnBaseUrl } });
         }
 
         // Reset camera + fit
@@ -583,7 +604,7 @@ function App() {
       color: "gray",
       x: Math.round(centerX),
       y: Math.round(centerY),
-      imageUrl: TEST_ICON_SVG // Use the test icon SVG as the default image
+      imageUrl: "unspecified" // Use "unspecified" for nodes without custom images
     };
 
     // Save undo state before creating node
@@ -605,7 +626,8 @@ function App() {
       ...graphData,
       nodes: updatedNodes,
       mode, // Include current mode in export
-      mapName // Include current map name in export
+      mapName, // Include current map name in export
+      cdnBaseUrl // Include current CDN base URL in export
     };
 
     // Generate filename from map name: lowercase, spaces to underscores
@@ -627,7 +649,7 @@ function App() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-  }, [graphData, exportNodePositions, mode, mapName]);
+  }, [graphData, exportNodePositions, mode, mapName, cdnBaseUrl]);
 
   const handleNodeColorChange = useCallback((nodeIds, newColor) => {
     printDebug('🏠 App: Change color:', nodeIds, '->', newColor);
@@ -645,15 +667,22 @@ function App() {
   // camera
   // camera
   const setZoomLevel = useCallback((zoom) => {
+    printDebug(`🏠 App: setZoomLevel called with: ${zoom}`);
     dispatchAppState({ type: ACTION_TYPES.SET_ZOOM, payload: { zoom } });
   }, []);
   const setCameraPosition = useCallback((position) => {
+    printDebug(`🏠 App: setCameraPosition called with: (${Math.round(position.x)}, ${Math.round(position.y)})`);
     dispatchAppState({ type: ACTION_TYPES.SET_CAMERA_POSITION, payload: { position } });
   }, []);
 
   // map name
   const setMapName = useCallback((newMapName) => {
     dispatchAppState({ type: ACTION_TYPES.SET_MAP_NAME, payload: { mapName: newMapName } });
+  }, []);
+
+  // CDN base URL
+  const setCdnBaseUrlHandler = useCallback((newCdnBaseUrl) => {
+    dispatchAppState({ type: ACTION_TYPES.SET_CDN_BASE_URL, payload: { cdnBaseUrl: newCdnBaseUrl } });
   }, []);
 
   // notes — now stored in graphData.notes
@@ -991,6 +1020,8 @@ function App() {
         mode={mode}
         mapName={mapName}
         onMapNameChange={setMapName}
+        cdnBaseUrl={cdnBaseUrl}
+        onCdnBaseUrlChange={setCdnBaseUrlHandler}
       />
 
       <ErrorDisplay error={loadError} onClearError={clearError} />
@@ -1000,6 +1031,8 @@ function App() {
         nodes={graphData.nodes}
         edges={graphData.edges}
         mode={mode}
+        mapName={mapName}
+        cdnBaseUrl={cdnBaseUrl}
 
         // Selection state for synchronization
         selectedNodeIds={selectedNodeIds}

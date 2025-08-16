@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect } from "react";
 import { processImageFile, saveImageFiles } from "./utils/imageUtils.js";
+import { printDebug, printError, printWarn } from "./utils/debug.js";
 
 function NoteEditorModal({
   targetId,
@@ -139,7 +140,7 @@ function NoteEditorModal({
           });
         }
       } catch (dirError) {
-        console.warn('Directory access not granted, will use data URLs only:', dirError.message);
+        printWarn('Directory access not granted, will use data URLs only:', dirError.message);
       }
       
       // Create file input programmatically
@@ -160,17 +161,17 @@ function NoteEditorModal({
           // Process the image (validate square, create thumbnails)
           const processedImage = await processImageFile(file);
           
-          // Save to public directory and get data URL
+          // Save to cache and get logical filename
           const result = await saveImageFiles(targetId, processedImage, mapName, directoryHandle);
           
           if (result.success) {
-            // Update the node's image URL with the data URL
-            onUpdateImage(targetId, result.fullSizePath);
+            // Update the node's image URL with the logical filename (not data URL)
+            onUpdateImage(targetId, result.imagePath);
             setImageImportError(null);
-            console.log('Image imported successfully for node:', targetId);
+            printDebug('Image imported successfully for node:', targetId);
           }
         } catch (error) {
-          console.error('Image import error:', error);
+          printError('Image import error:', error);
           setImageImportError(error.message);
         } finally {
           setIsImportingImage(false);
@@ -194,7 +195,7 @@ function NoteEditorModal({
       fileInput.click();
       
     } catch (error) {
-      console.error('Image import setup error:', error);
+      printError('Image import setup error:', error);
       setImageImportError(error.message);
       setIsImportingImage(false);
     }

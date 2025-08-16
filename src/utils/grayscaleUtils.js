@@ -1,10 +1,13 @@
 // src/utils/grayscaleUtils.js
+import { printDebug } from "./debug.js";
 
 /**
  * Converts an image to grayscale using canvas manipulation
  * Returns a data URL of the grayscale image
  */
 export function convertImageToGrayscale(imageUrl) {
+  printDebug(`🎨 [GrayscaleUtils] Starting conversion for: "${imageUrl?.substring(0, 50)}..."`);
+  
   return new Promise((resolve, reject) => {
     // Create a new image element
     const img = new Image();
@@ -13,6 +16,7 @@ export function convertImageToGrayscale(imageUrl) {
     img.crossOrigin = 'anonymous';
     
     img.onload = () => {
+      printDebug(`✅ [GrayscaleUtils] Image loaded successfully, dimensions: ${img.width}x${img.height}`);
       try {
         // Create a canvas element
         const canvas = document.createElement('canvas');
@@ -43,16 +47,20 @@ export function convertImageToGrayscale(imageUrl) {
         
         // Convert canvas to data URL
         const grayscaleDataUrl = canvas.toDataURL('image/png');
+        printDebug(`✅ [GrayscaleUtils] Conversion successful, result size: ${grayscaleDataUrl.length} chars`);
         resolve(grayscaleDataUrl);
       } catch (error) {
+        console.error(`❌ [GrayscaleUtils] Canvas processing failed:`, error);
         reject(error);
       }
     };
     
     img.onerror = () => {
+      console.error(`❌ [GrayscaleUtils] Failed to load image for grayscale conversion: "${imageUrl?.substring(0, 50)}..."`);
       reject(new Error('Failed to load image'));
     };
     
+    printDebug(`🔄 [GrayscaleUtils] Setting img.src...`);
     // Load the image
     img.src = imageUrl;
   });

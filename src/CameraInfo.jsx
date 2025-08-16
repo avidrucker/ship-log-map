@@ -1,8 +1,10 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 
-function CameraInfo({ zoom, pan, selectedNodeIds, selectedEdgeIds, mode, mapName, onMapNameChange }) {
+function CameraInfo({ zoom, pan, selectedNodeIds, selectedEdgeIds, mode, mapName, onMapNameChange, cdnBaseUrl, onCdnBaseUrlChange }) {
   const [isEditingMapName, setIsEditingMapName] = useState(false);
   const [tempMapName, setTempMapName] = useState(mapName);
+  const [isEditingCdnUrl, setIsEditingCdnUrl] = useState(false);
+  const [tempCdnUrl, setTempCdnUrl] = useState(cdnBaseUrl);
 
   const handleStartEditMapName = useCallback(() => {
     setTempMapName(mapName);
@@ -29,6 +31,38 @@ function CameraInfo({ zoom, pan, selectedNodeIds, selectedEdgeIds, mode, mapName
       handleCancelEditMapName();
     }
   }, [handleSaveMapName, handleCancelEditMapName]);
+
+  // CDN URL editing handlers
+  const handleStartEditCdnUrl = useCallback(() => {
+    setTempCdnUrl(cdnBaseUrl);
+    setIsEditingCdnUrl(true);
+  }, [cdnBaseUrl]);
+
+  const handleSaveCdnUrl = useCallback(() => {
+    const cleanUrl = tempCdnUrl.trim();
+    if (cleanUrl !== cdnBaseUrl) {
+      onCdnBaseUrlChange(cleanUrl);
+    }
+    setIsEditingCdnUrl(false);
+  }, [tempCdnUrl, cdnBaseUrl, onCdnBaseUrlChange]);
+
+  const handleCancelEditCdnUrl = useCallback(() => {
+    setTempCdnUrl(cdnBaseUrl);
+    setIsEditingCdnUrl(false);
+  }, [cdnBaseUrl]);
+
+  const handleCdnKeyDown = useCallback((e) => {
+    if (e.key === 'Enter') {
+      handleSaveCdnUrl();
+    } else if (e.key === 'Escape') {
+      handleCancelEditCdnUrl();
+    }
+  }, [handleSaveCdnUrl, handleCancelEditCdnUrl]);
+
+  // Update temp CDN URL when prop changes
+  useEffect(() => {
+    setTempCdnUrl(cdnBaseUrl);
+  }, [cdnBaseUrl]);
   return (
     <div style={{
       position: "absolute",
@@ -115,6 +149,76 @@ function CameraInfo({ zoom, pan, selectedNodeIds, selectedEdgeIds, mode, mapName
             title="Click to edit map name"
           >
             {mapName}
+          </div>
+        )}
+      </div>
+      
+      {/* CDN Base URL Field */}
+      <div style={{ marginBottom: "8px" }}>
+        <div style={{ color: "#888", fontSize: "10px", marginBottom: "2px" }}>Image CDN URL:</div>
+        {isEditingCdnUrl ? (
+          <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+            <input
+              type="text"
+              value={tempCdnUrl}
+              onChange={(e) => setTempCdnUrl(e.target.value)}
+              onKeyDown={handleCdnKeyDown}
+              placeholder="https://example.com/images"
+              style={{
+                background: "#333",
+                color: "#fff",
+                border: "1px solid #ff9800",
+                padding: "2px 4px",
+                borderRadius: "2px",
+                fontSize: "11px",
+                fontFamily: "monospace",
+                width: "140px"
+              }}
+              autoFocus
+            />
+            <button
+              onClick={handleSaveCdnUrl}
+              style={{
+                background: "#ff9800",
+                color: "#fff",
+                border: "none",
+                borderRadius: "2px",
+                padding: "2px 4px",
+                cursor: "pointer",
+                fontSize: "10px"
+              }}
+            >
+              ✓
+            </button>
+            <button
+              onClick={handleCancelEditCdnUrl}
+              style={{
+                background: "#666",
+                color: "#fff",
+                border: "none",
+                borderRadius: "2px",
+                padding: "2px 4px",
+                cursor: "pointer",
+                fontSize: "10px"
+              }}
+            >
+              ✕
+            </button>
+          </div>
+        ) : (
+          <div 
+            onClick={handleStartEditCdnUrl}
+            style={{
+              cursor: "pointer",
+              textDecoration: "underline dotted",
+              color: "#ff9800",
+              fontSize: "11px",
+              wordBreak: "break-all",
+              maxWidth: "200px"
+            }}
+            title="Click to edit CDN base URL"
+          >
+            {cdnBaseUrl || 'No CDN URL set'}
           </div>
         )}
       </div>

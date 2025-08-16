@@ -1,11 +1,38 @@
 import React, { useState } from "react";
+import { GRAYSCALE_IMAGES } from "./config/features.js";
+import { clearAllImageCaches, getImageCacheStats } from "./utils/imageLoader.js";
 
 function DebugModal({ isOpen, onClose, debugData }) {
   const [copySuccess, setCopySuccess] = useState(false);
+  const [cacheClearSuccess, setCacheClearSuccess] = useState(false);
+  const [allCacheClearSuccess, setAllCacheClearSuccess] = useState(false);
 
   if (!isOpen) return null;
 
   const formattedData = JSON.stringify(debugData, null, 2);
+
+  const handleClearGrayscaleCache = async () => {
+    try {
+      const { clearGrayscaleCache } = await import('./graph/cyAdapter.js');
+      clearGrayscaleCache();
+      setCacheClearSuccess(true);
+      setTimeout(() => setCacheClearSuccess(false), 2000);
+    } catch (err) {
+      console.error("Failed to clear grayscale cache:", err);
+    }
+  };
+
+  const handleClearAllImageCaches = async () => {
+    try {
+      clearAllImageCaches();
+      setAllCacheClearSuccess(true);
+      setTimeout(() => setAllCacheClearSuccess(false), 2000);
+    } catch (err) {
+      console.error("Failed to clear all image caches:", err);
+    }
+  };
+
+  const cacheStats = getImageCacheStats();
 
   const handleCopyToClipboard = async () => {
     try {
@@ -109,8 +136,8 @@ function DebugModal({ isOpen, onClose, debugData }) {
           </button>
         </div>
 
-        {/* Copy button */}
-        <div style={{ marginBottom: "10px" }}>
+        {/* Copy button and cache management */}
+        <div style={{ marginBottom: "10px", display: "flex", gap: "10px", flexWrap: "wrap" }}>
           <button
             onClick={handleCopyToClipboard}
             style={{
@@ -125,6 +152,47 @@ function DebugModal({ isOpen, onClose, debugData }) {
           >
             {copySuccess ? "✓ Copied!" : "📋 Copy to Clipboard"}
           </button>
+          
+          {/* Grayscale cache management */}
+          {GRAYSCALE_IMAGES && (
+            <button
+              onClick={handleClearGrayscaleCache}
+              style={{
+                padding: "8px 16px",
+                backgroundColor: cacheClearSuccess ? "#4caf50" : "#ff9800",
+                color: "#fff",
+                border: "none",
+                borderRadius: "4px",
+                cursor: "pointer",
+                fontSize: "14px"
+              }}
+            >
+              {cacheClearSuccess ? "✓ Grayscale Cache Cleared!" : "Clear Grayscale Cache"}
+            </button>
+          )}
+          
+          {/* All image caches management */}
+          <button
+            onClick={handleClearAllImageCaches}
+            style={{
+              padding: "8px 16px",
+              backgroundColor: allCacheClearSuccess ? "#4caf50" : "#f44336",
+              color: "#fff",
+              border: "none",
+              borderRadius: "4px",
+              cursor: "pointer",
+              fontSize: "14px"
+            }}
+          >
+            {allCacheClearSuccess ? "✓ All Caches Cleared!" : "Clear All Image Caches"}
+          </button>
+        </div>
+
+        {/* Cache statistics */}
+        <div style={{ marginBottom: "10px", fontSize: "12px", color: "#ccc" }}>
+          <div>Image Cache: {cacheStats.totalImages} images cached</div>
+          <div>CDN URL: {cacheStats.cdnBaseUrl || 'Not set'}</div>
+          <div>Cache size: ~{Math.round(cacheStats.cacheSize / 1024)}KB</div>
         </div>
 
         {/* JSON content */}

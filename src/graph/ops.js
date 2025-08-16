@@ -1,18 +1,21 @@
 // src/graph/ops.js
 import { TEST_ICON_SVG } from "../constants/testAssets.js";
+import { printDebug } from "../utils/debug.js";
 
 // Utility: create a stable edge id from endpoints
 export function edgeId(source, target) {
   return `${source}__${target}`;
 }
 
-// Normalize graph to { nodes, edges, notes, mode }
+// Normalize graph to { nodes, edges, notes, mode, mapName, cdnBaseUrl }
 export function normalizeGraph(graph) {
   const nodes = Array.isArray(graph?.nodes) ? graph.nodes : [];
   const edges = Array.isArray(graph?.edges) ? graph.edges : [];
   const notes = graph?.notes && typeof graph.notes === "object" ? graph.notes : {};
   const mode = typeof graph?.mode === "string" ? graph.mode : "editing";
-  return { nodes, edges, notes, mode };
+  const mapName = typeof graph?.mapName === "string" ? graph.mapName : "default_map";
+  const cdnBaseUrl = typeof graph?.cdnBaseUrl === "string" ? graph.cdnBaseUrl : "";
+  return { nodes, edges, notes, mode, mapName, cdnBaseUrl };
 }
 
 // Add node
@@ -86,18 +89,18 @@ export function renameNode(graph, nodeId, newTitle) {
   const baseNewId = generateIdFromTitle(newTitle);
   const newId = findUniqueId(g, baseNewId, nodeId);
   
-  console.log(`renameNode: Renaming node "${nodeId}" to title "${newTitle}", new ID: "${newId}"`);
+  printDebug(`renameNode: Renaming node "${nodeId}" to title "${newTitle}", new ID: "${newId}"`);
   
   // If the ID doesn't change, just update the title
   if (newId === nodeId) {
-    console.log(`renameNode: ID unchanged, only updating title`);
+    printDebug(`renameNode: ID unchanged, only updating title`);
     return {
       ...g,
       nodes: g.nodes.map(n => (n.id === nodeId ? { ...n, title: newTitle } : n))
     };
   }
   
-  console.log(`renameNode: ID changed from "${nodeId}" to "${newId}", updating all references`);
+  printDebug(`renameNode: ID changed from "${nodeId}" to "${newId}", updating all references`);
   
   // Update node with new ID and title
   const updatedNodes = g.nodes.map(n => 
@@ -111,20 +114,20 @@ export function renameNode(graph, nodeId, newTitle) {
     // Update source references
     if (e.source === nodeId) {
       newEdge.source = newId;
-      console.log(`renameNode: Updated edge source from "${nodeId}" to "${newId}" for edge "${e.id}"`);
+      printDebug(`renameNode: Updated edge source from "${nodeId}" to "${newId}" for edge "${e.id}"`);
     }
     
     // Update target references
     if (e.target === nodeId) {
       newEdge.target = newId;
-      console.log(`renameNode: Updated edge target from "${nodeId}" to "${newId}" for edge "${e.id}"`);
+      printDebug(`renameNode: Updated edge target from "${nodeId}" to "${newId}" for edge "${e.id}"`);
     }
     
     // Regenerate edge ID if it was affected
     if (e.source === nodeId || e.target === nodeId) {
       const oldEdgeId = newEdge.id;
       newEdge.id = edgeId(newEdge.source, newEdge.target);
-      console.log(`renameNode: Updated edge ID from "${oldEdgeId}" to "${newEdge.id}"`);
+      printDebug(`renameNode: Updated edge ID from "${oldEdgeId}" to "${newEdge.id}"`);
     }
     
     return newEdge;
@@ -135,7 +138,7 @@ export function renameNode(graph, nodeId, newTitle) {
   if (updatedNotes[nodeId]) {
     updatedNotes[newId] = updatedNotes[nodeId];
     delete updatedNotes[nodeId];
-    console.log(`renameNode: Moved notes from "${nodeId}" to "${newId}"`);
+    printDebug(`renameNode: Moved notes from "${nodeId}" to "${newId}"`);
   }
   
   return {
@@ -204,7 +207,14 @@ export function setEdgeMeta(graph, idOrPair, patch) {
 export function serializeGraph(graph) {
   const g = normalizeGraph(graph);
   // keep clean shape
-  return JSON.stringify({ nodes: g.nodes, edges: g.edges, notes: g.notes, mode: g.mode }, null, 2);
+  return JSON.stringify({ 
+    nodes: g.nodes, 
+    edges: g.edges, 
+    notes: g.notes, 
+    mode: g.mode, 
+    mapName: g.mapName, 
+    cdnBaseUrl: g.cdnBaseUrl 
+  }, null, 2);
 }
 
 // Accepts an object (already parsed) or a string
@@ -232,6 +242,8 @@ export function deserializeGraph(input) {
 
   const notes = g.notes;
   const mode = g.mode;
+  const mapName = g.mapName;
+  const cdnBaseUrl = g.cdnBaseUrl;
 
-  return { nodes, edges, notes, mode };
+  return { nodes, edges, notes, mode, mapName, cdnBaseUrl };
 }
