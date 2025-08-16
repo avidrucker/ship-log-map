@@ -12,7 +12,7 @@ export const FEATURES = {
   ZOOM_TO_SELECTION: true,
   
   // Debug logging for all app operations
-  DEBUG_LOGGING: true,
+  DEBUG_LOGGING: false,
   
   // Enable editing/playing mode toggle
   // When enabled, users can switch between editing mode (full functionality) and playing mode (view-only)
