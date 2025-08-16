@@ -123,7 +123,7 @@ function App() {
     mode: (() => {
       // Try to get mode from loaded graph data first, then from localStorage
       const saved = loadFromLocal();
-      if (saved && saved.mode) {
+      if (saved && typeof saved.mode === 'string') {
         return saved.mode;
       }
       return loadModeFromLocal();
@@ -131,7 +131,7 @@ function App() {
     mapName: (() => {
       // Try to get map name from loaded graph data first, then from localStorage
       const saved = loadFromLocal();
-      if (saved && saved.mapName) {
+      if (saved && typeof saved.mapName === 'string') {
         return saved.mapName;
       }
       return loadMapNameFromLocal();
@@ -139,7 +139,7 @@ function App() {
     cdnBaseUrl: (() => {
       // Try to get CDN base URL from loaded graph data first, then from imageLoader
       const saved = loadFromLocal();
-      if (saved && saved.cdnBaseUrl) {
+      if (saved && typeof saved.cdnBaseUrl === 'string') {
         return saved.cdnBaseUrl;
       }
       // Get from imageLoader localStorage
@@ -281,17 +281,17 @@ function App() {
         setGraphData(g2);
 
         // Set mode if it's included in the imported data
-        if (g1.mode) {
+        if (typeof g1.mode === 'string') {
           dispatchAppState({ type: ACTION_TYPES.SET_MODE, payload: { mode: g1.mode } });
         }
 
         // Set map name if it's included in the imported data
-        if (g1.mapName) {
+        if (typeof g1.mapName === 'string') {
           dispatchAppState({ type: ACTION_TYPES.SET_MAP_NAME, payload: { mapName: g1.mapName } });
         }
 
-        // Set CDN base URL if it's included in the imported data
-        if (g1.cdnBaseUrl) {
+        // Set CDN base URL if it's included in the imported data (even if empty string)
+        if (typeof g1.cdnBaseUrl === 'string') {
           dispatchAppState({ type: ACTION_TYPES.SET_CDN_BASE_URL, payload: { cdnBaseUrl: g1.cdnBaseUrl } });
         }
 
@@ -323,7 +323,19 @@ function App() {
     }
 
     // Reset to project defaults, normalized
-    setGraphData(normalizeGraphData(defaultShipLogData));
+    const normalizedDefault = normalizeGraphData(defaultShipLogData);
+    setGraphData(normalizedDefault);
+
+    // Reset mode, map name, and CDN URL to default values
+    if (typeof normalizedDefault.mode === 'string') {
+      dispatchAppState({ type: ACTION_TYPES.SET_MODE, payload: { mode: normalizedDefault.mode } });
+    }
+    if (typeof normalizedDefault.mapName === 'string') {
+      dispatchAppState({ type: ACTION_TYPES.SET_MAP_NAME, payload: { mapName: normalizedDefault.mapName } });
+    }
+    if (typeof normalizedDefault.cdnBaseUrl === 'string') {
+      dispatchAppState({ type: ACTION_TYPES.SET_CDN_BASE_URL, payload: { cdnBaseUrl: normalizedDefault.cdnBaseUrl } });
+    }
 
     // Camera reset
     dispatchAppState({ type: ACTION_TYPES.SET_ZOOM, payload: { zoom: 1 } });
@@ -354,6 +366,10 @@ function App() {
       notes: {},
       mode: mode // preserve current mode
     });
+
+    // Reset map name and CDN URL for new map
+    dispatchAppState({ type: ACTION_TYPES.SET_MAP_NAME, payload: { mapName: 'default_map' } });
+    dispatchAppState({ type: ACTION_TYPES.SET_CDN_BASE_URL, payload: { cdnBaseUrl: '' } });
 
     // Camera reset - update both app state and Cytoscape instance
     dispatchAppState({ type: ACTION_TYPES.SET_ZOOM, payload: { zoom: 1 } });

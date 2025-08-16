@@ -106,6 +106,16 @@ export function loadFromLocal(key = STORAGE_KEY) {
       graph.mode = parsed.mode;
     }
     
+    // Include mapName if present in the saved data
+    if (parsed.mapName) {
+      graph.mapName = parsed.mapName;
+    }
+    
+    // Include cdnBaseUrl if present in the saved data (even if empty string)
+    if (typeof parsed.cdnBaseUrl === 'string') {
+      graph.cdnBaseUrl = parsed.cdnBaseUrl;
+    }
+    
     return graph;
   } catch (e) {
     console.error("loadFromLocal failed:", e);
@@ -126,6 +136,16 @@ export function loadFromFile(file) {
         // Include mode if present in the imported data, otherwise default to editing
         if (parsed.mode) {
           graph.mode = parsed.mode;
+        }
+        
+        // Include mapName if present in the imported data
+        if (parsed.mapName) {
+          graph.mapName = parsed.mapName;
+        }
+        
+        // Include cdnBaseUrl if present in the imported data (even if empty string)
+        if (typeof parsed.cdnBaseUrl === 'string') {
+          graph.cdnBaseUrl = parsed.cdnBaseUrl;
         }
         
         resolve(graph);
