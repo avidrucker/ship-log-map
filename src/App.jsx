@@ -377,16 +377,32 @@ function App() {
   }, []);
 
   // Note viewing handlers - defined early to avoid circular dependencies
-  const handleStartNoteViewing = useCallback((targetId) => {
+  const handleStartNoteViewing = useCallback((targetId, targetType) => {
+    // Zoom to selection if feature is enabled and we're in playing mode
+    if (ZOOM_TO_SELECTION && targetId) {
+      fitToSelection([targetId], {
+        animate: true,
+        padding: 80,
+        targetHalf: 'top',
+        saveCamera: true,
+        zoomLevel: 'close' // Zoom in close for viewing
+      });
+    }
+    
     dispatchAppState({
       type: ACTION_TYPES.START_NOTE_VIEWING,
-      payload: { targetId }
+      payload: { targetId, targetType }
     });
-  }, []);
+  }, [fitToSelection]);
 
   const handleCloseNoteViewing = useCallback(() => {
+    // Restore original camera if feature is enabled and we have a saved camera state
+    if (ZOOM_TO_SELECTION && mode === 'playing' && hasOriginalCamera()) {
+      restoreOriginalCamera(true);
+    }
+    
     dispatchAppState({ type: ACTION_TYPES.CLOSE_NOTE_VIEWING });
-  }, []);
+  }, [mode, restoreOriginalCamera, hasOriginalCamera]);
 
   // Debug modal handlers
   const handleOpenDebugModal = useCallback(() => {
@@ -849,7 +865,7 @@ function App() {
   const handleNodeClick = useCallback((nodeId) => {
     if (mode === 'playing') {
       // In playing mode, clicking a node opens the note viewer
-      handleStartNoteViewing(nodeId);
+      handleStartNoteViewing(nodeId, "node");
     }
     // In editing mode, clicking does nothing (selection is handled by Cytoscape)
   }, [mode, handleStartNoteViewing]);
@@ -857,7 +873,7 @@ function App() {
   const handleEdgeClick = useCallback((edgeId) => {
     if (mode === 'playing') {
       // In playing mode, clicking an edge opens the note viewer
-      handleStartNoteViewing(edgeId);
+      handleStartNoteViewing(edgeId, "edge");
     }
     // In editing mode, clicking does nothing (selection is handled by Cytoscape)
   }, [mode, handleStartNoteViewing]);
@@ -867,6 +883,11 @@ function App() {
     dispatchAppState({ type: ACTION_TYPES.CLEAR_ALL_SELECTIONS });
     clearCytoscapeSelections();
     
+    // In playing mode, restore camera when clicking background (after clearing selections)
+    if (mode === 'playing' && ZOOM_TO_SELECTION && hasOriginalCamera()) {
+      restoreOriginalCamera(true);
+    }
+    
     // Close note editing modal if open
     if (noteEditingTarget) {
       handleCloseNoteEditing();
@@ -875,7 +896,7 @@ function App() {
     if (noteViewingTarget) {
       handleCloseNoteViewing();
     }
-  }, [noteEditingTarget, noteViewingTarget, handleCloseNoteEditing, handleCloseNoteViewing, clearCytoscapeSelections]);
+  }, [mode, noteEditingTarget, noteViewingTarget, handleCloseNoteEditing, handleCloseNoteViewing, clearCytoscapeSelections, hasOriginalCamera, restoreOriginalCamera]);
 
   const areNodesConnected = useCallback((sourceId, targetId) => {
     return graphData.edges.some(e =>
