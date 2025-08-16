@@ -36,7 +36,7 @@
 - [x] Implement "last graph state" and undo button so that accidental deletions can be undone
 - ~~Implement z-depth order where changing anything about a node (it's location, size, color, etc.) will move it to the top of the z-order so that it is always on top of other nodes and edges~~
 - [x] Make smaller nodes have a higher z-depth so that they are not hidden behind larger nodes
-- [ ] Implement "tags" that enable overlays so that way nodes can be grouped by tags and the user can toggle visibility of nodes based on their tags
+- [ ] Implement "tags" that enable overlays so that way nodes can be grouped by tags and the user can toggle visibility of nodes based on their tags (e.g. "play", "sleep/beds", "eat/food", "poop", "shower", "Internet/Ethernet/Wi-Fi", "filtered water", "unfiltered water", "upper water system", "lower water system", "first day", "first week", etc.)
 - [ ] Implement a "search" feature that allows users to search for nodes by title
 - [ ] Implement a "filter" feature that allows users to filter nodes by tags, size, color, etc.
 - [x] Implement a "Are you sure you want to delete the current map?" confirmation popup upon clicking the reset button so that way users don't accidentally reset their graph
@@ -51,3 +51,8 @@
 - [ ] Remove undo button from playing mode, as it is not needed there
 - [x] Fix bug where double clicking a node in playing mode changes the node's size, but it should not change the size of the node in playing mode
 - [x] Fix bug where loading from a JSON file does not update the CDN link, but it should
+- [ ] Implementing a "map name" feature that allows users to set a name for the current map, which is saved with the graph state and can be displayed in the UI
+
+Notes for Future Features
+- Listing out "layers" which show things such as electrical lines, water lines, Internet, etc. that can be toggled on and off
+- Orientation layer/mode which shows the relevant info for orienting newcomers to the map, similar to a park map, and showing icons that will quickly orient the user to thing such as the entrance, exits, restrooms, kitchens, showers, etc.
