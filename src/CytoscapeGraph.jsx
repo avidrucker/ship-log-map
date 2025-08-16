@@ -182,7 +182,7 @@ function CytoscapeGraph({
     };
 
     // Compare with incoming nodes to see if only positions changed
-    const structuralChanges = nodes.some(newNode => {
+    const nodeStructuralChanges = nodes.some(newNode => {
       const currentNode = currentNodes.find(cn => cn.id === newNode.id);
       if (!currentNode) return true; // New node
       
@@ -234,11 +234,52 @@ function CytoscapeGraph({
       return isDifferent;
     });
     
+    // Check for edge structural changes (properties other than position)
+    const currentEdges = cy.edges().map(e => ({
+      id: e.id(),
+      data: e.data()
+    }));
+    
+    const edgeStructuralChanges = edges.some(newEdge => {
+      const currentEdge = currentEdges.find(ce => ce.id === newEdge.id);
+      if (!currentEdge) return true; // New edge
+      
+      // Compare edge properties
+      const newEdgeData = {
+        id: newEdge.id,
+        source: newEdge.source,
+        target: newEdge.target,
+        direction: newEdge.direction ?? "forward"
+      };
+      
+      const currentEdgeData = {
+        id: currentEdge.data.id,
+        source: currentEdge.data.source,
+        target: currentEdge.data.target,
+        direction: currentEdge.data.direction ?? "forward"
+      };
+      
+      const isDifferent = JSON.stringify(newEdgeData) !== JSON.stringify(currentEdgeData);
+      if (isDifferent) {
+        printDebug(`🔍 [CytoscapeGraph] Edge structural change detected for edge ${newEdge.id}:`, {
+          new: newEdgeData,
+          current: currentEdgeData
+        });
+      }
+      return isDifferent;
+    });
+    
     const nodeCountChanged = nodes.length !== currentNodes.length;
     const edgeCountChanged = edges.length !== cy.edges().length;
     
-    if (structuralChanges || nodeCountChanged || edgeCountChanged) {
-      printDebug(`🔄 [CytoscapeGraph] Structural changes detected, performing full sync`);
+    if (nodeStructuralChanges || edgeStructuralChanges || nodeCountChanged || edgeCountChanged) {
+      printDebug(`🔄 [CytoscapeGraph] Structural changes detected:`, {
+        nodeStructural: nodeStructuralChanges,
+        edgeStructural: edgeStructuralChanges,
+        nodeCount: nodeCountChanged,
+        edgeCount: edgeCountChanged
+      });
+      printDebug(`🔄 [CytoscapeGraph] Performing full sync`);
       syncElements(cyRef.current, { nodes, edges, mapName, cdnBaseUrl }, { mode });
     } else {
       printDebug(`🔄 [CytoscapeGraph] Only positions changed, updating positions without sync`);

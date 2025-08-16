@@ -576,7 +576,10 @@ export function wireEvents(cy, handlers = {}, mode = 'editing') {
   });
 
   cy.on("dbltap", "node", (evt) => { if (onNodeDoubleClick) onNodeDoubleClick(evt.target.id()); });
-  cy.on("dbltap", "edge", (evt) => { if (onEdgeDoubleClick) onEdgeDoubleClick(evt.target.id()); });
+  cy.on("dbltap", "edge", (evt) => { 
+    printDebug(`🖱️ [cyAdapter] Edge double-tap detected: ${evt.target.id()}`);
+    if (onEdgeDoubleClick) onEdgeDoubleClick(evt.target.id()); 
+  });
   cy.on("dragfree", "node", (evt) => { if (onNodeMove) { const n = evt.target; const { x, y } = n.position(); onNodeMove(n.id(), { x, y }); } });
   
   // Add debugging for viewport events
