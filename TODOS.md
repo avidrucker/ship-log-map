@@ -50,3 +50,4 @@
 - [ ] Fix animation bug when in playing mode and unzooming out of a node/edge, where the animation plays 3 times when it should only play once ONLY if the user clicks on the background to unzoom, but if the user clicks on the "x" button to close the note viewer modal, it correctly plays the animation only once
 - [ ] Remove undo button from playing mode, as it is not needed there
 - [x] Fix bug where double clicking a node in playing mode changes the node's size, but it should not change the size of the node in playing mode
+- [x] Fix bug where loading from a JSON file does not update the CDN link, but it should
