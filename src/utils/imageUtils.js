@@ -12,24 +12,59 @@ async function generateFileHash(buffer) {
 }
 
 /**
- * Validates that an image is square (1:1 aspect ratio)
+ * Validates that an image has valid dimensions (not 0x0)
  */
-function validateSquareImage(img) {
-  return img.width === img.height;
+function validateImageDimensions(img) {
+  return img.width > 0 && img.height > 0;
 }
 
 /**
- * Creates a canvas and resizes an image to specified dimensions
+ * Crops an image to a square by taking the center portion
+ * If the image is wider than tall, crops horizontally
+ * If the image is taller than wide, crops vertically
  */
-function resizeImage(img, width, height) {
+function cropToSquare(img) {
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  
+  // Determine the size of the square (smallest dimension)
+  const squareSize = Math.min(img.width, img.height);
+  
+  // Calculate crop positions to center the crop
+  const cropX = (img.width - squareSize) / 2;
+  const cropY = (img.height - squareSize) / 2;
+  
+  console.log(`✂️ Cropping: taking ${squareSize}x${squareSize} square from center (offset: ${cropX}, ${cropY})`);
+  
+  // Set canvas to square dimensions
+  canvas.width = squareSize;
+  canvas.height = squareSize;
+  
+  // Draw the cropped image onto the canvas
+  // drawImage(source, sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight)
+  ctx.drawImage(
+    img,                    // source image
+    cropX, cropY,           // source x, y (crop start position)
+    squareSize, squareSize, // source width, height (crop size)
+    0, 0,                   // destination x, y
+    squareSize, squareSize  // destination width, height
+  );
+  
+  return canvas;
+}
+
+/**
+ * Creates a canvas and resizes an image or canvas to specified dimensions
+ */
+function resizeImage(source, width, height) {
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
   
   canvas.width = width;
   canvas.height = height;
   
-  // Draw the image scaled to fit the canvas
-  ctx.drawImage(img, 0, 0, width, height);
+  // Draw the source (could be an image or canvas) scaled to fit the canvas
+  ctx.drawImage(source, 0, 0, width, height);
   
   return canvas;
 }
@@ -44,7 +79,11 @@ function canvasToBlob(canvas, format = 'image/webp', quality = 0.85) {
 }
 
 /**
- * Processes an image file: validates it's square, creates thumbnail and full-size versions
+ * Processes an image file: crops to square (center crop), creates thumbnail and full-size versions
+ * - For wide images: crops horizontally to take the center square
+ * - For tall images: crops vertically to take the center square
+ * - For square images: no cropping needed
+ * - Only errors if image is corrupted or has 0x0 dimensions
  */
 export async function processImageFile(file) {
   return new Promise((resolve, reject) => {
@@ -52,10 +91,21 @@ export async function processImageFile(file) {
     
     img.onload = async () => {
       try {
-        // Validate square aspect ratio
-        if (!validateSquareImage(img)) {
-          reject(new Error('Sorry, only 1:1 square orientation images are permitted.'));
+        // Validate image has valid dimensions (not 0x0)
+        if (!validateImageDimensions(img)) {
+          reject(new Error('Invalid image: Image has zero width or height.'));
           return;
+        }
+
+        console.log(`📐 Processing image: ${img.width}x${img.height} pixels`);
+
+        // Determine crop strategy
+        if (img.width === img.height) {
+          console.log(`✅ Image is already square, no cropping needed`);
+        } else if (img.width > img.height) {
+          console.log(`📏 Image is wider than tall (${img.width}x${img.height}), will crop horizontally to ${img.height}x${img.height}`);
+        } else {
+          console.log(`📏 Image is taller than wide (${img.width}x${img.height}), will crop vertically to ${img.width}x${img.width}`);
         }
 
         // Read file as array buffer to generate hash
@@ -68,13 +118,19 @@ export async function processImageFile(file) {
         if (originalFormat === 'image/png') extension = 'png';
         if (originalFormat === 'image/jpeg') extension = 'jpeg';
         
-        // Create thumbnail (100x100)
-        const thumbnailCanvas = resizeImage(img, 100, 100);
+        // Crop image to square (center crop)
+        const squareCanvas = cropToSquare(img);
+        const squareSize = squareCanvas.width; // Now it's square, so width === height
+        
+        console.log(`✂️ Cropped to square: ${squareSize}x${squareSize} pixels`);
+        
+        // Create thumbnail (100x100) from the cropped square
+        const thumbnailCanvas = resizeImage(squareCanvas, 100, 100);
         const thumbnailBlob = await canvasToBlob(thumbnailCanvas, file.type);
         
-        // Create full-size (max 500x500, but maintain square)
-        const maxSize = Math.min(img.width, 500);
-        const fullSizeCanvas = resizeImage(img, maxSize, maxSize);
+        // Create full-size (max 500x500, but maintain square) from the cropped square
+        const maxSize = Math.min(squareSize, 500);
+        const fullSizeCanvas = resizeImage(squareCanvas, maxSize, maxSize);
         const fullSizeBlob = await canvasToBlob(fullSizeCanvas, file.type);
         
         resolve({
@@ -82,7 +138,8 @@ export async function processImageFile(file) {
           extension,
           thumbnailBlob,
           fullSizeBlob,
-          originalDimensions: { width: img.width, height: img.height }
+          originalDimensions: { width: img.width, height: img.height },
+          croppedDimensions: { width: squareSize, height: squareSize }
         });
       } catch (error) {
         reject(error);
@@ -90,7 +147,7 @@ export async function processImageFile(file) {
     };
     
     img.onerror = () => {
-      reject(new Error('Failed to load image file.'));
+      reject(new Error('Failed to load image file. The file may be corrupted or not a valid image format.'));
     };
     
     img.src = URL.createObjectURL(file);
