@@ -166,7 +166,8 @@ function NoteEditorModal({
           
           if (result.success) {
             // Update the node's image URL with the logical filename (not data URL)
-            onUpdateImage(targetId, result.imagePath);
+            // But also pass the immediate full-size image for instant display
+            onUpdateImage(targetId, result.imagePath, result.immediateImageUrl);
             setImageImportError(null);
             printDebug('Image imported successfully for node:', targetId);
           }

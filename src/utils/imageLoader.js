@@ -87,8 +87,32 @@ class ImageCache {
 
   set(key, value) {
     //// printDebug(`💾 [ImageCache] Setting cache entry: "${key}" (value length: ${value?.length || 0})`);
+    
+    // Check if this would exceed a reasonable size limit before saving
+    const estimatedSize = JSON.stringify({[key]: value}).length;
+    const currentUsage = getLocalStorageUsage();
+    
+    // If adding this entry would use more than 4MB total, clear some old entries
+    if (currentUsage + estimatedSize > 4 * 1024 * 1024) {
+      printDebug(`⚠️ [ImageCache] Cache getting large (${Math.round(currentUsage/1024)}KB), clearing older entries`);
+      this.clearOldEntries();
+    }
+    
     this.cache.set(key, value);
     this.saveCache();
+  }
+
+  clearOldEntries() {
+    // Clear the oldest half of entries to make room
+    const entries = Array.from(this.cache.entries());
+    const keepCount = Math.floor(entries.length / 2);
+    
+    printDebug(`🧹 [ImageCache] Clearing ${entries.length - keepCount} old entries, keeping ${keepCount}`);
+    
+    this.cache.clear();
+    entries.slice(-keepCount).forEach(([key, value]) => {
+      this.cache.set(key, value);
+    });
   }
 
   has(key) {

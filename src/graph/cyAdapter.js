@@ -28,9 +28,15 @@ function loadGrayscaleCacheFromStorage() {
     const cached = localStorage.getItem(GRAYSCALE_CACHE_KEY);
     if (cached) {
       const parsedCache = JSON.parse(cached);
+      const entryCount = Object.keys(parsedCache).length;
+      printDebug(`💾 [cyAdapter] Loading grayscale cache from localStorage with ${entryCount} entries`);
       Object.entries(parsedCache).forEach(([key, value]) => {
         grayscaleCache.set(key, value);
+        printDebug(`💾 [cyAdapter] Loaded grayscale cache entry: "${key.substring(0, 50)}..." -> value length: ${value?.length || 0}`);
       });
+      printDebug(`✅ [cyAdapter] Grayscale cache loaded successfully with ${grayscaleCache.size} entries`);
+    } else {
+      printDebug(`💾 [cyAdapter] No grayscale cache found in localStorage`);
     }
   } catch (error) {
     console.warn('Failed to load grayscale cache from localStorage:', error);
@@ -41,13 +47,17 @@ function loadGrayscaleCacheFromStorage() {
 function saveGrayscaleCacheToStorage() {
   try {
     const cacheObject = {};
+    let savedCount = 0;
     grayscaleCache.forEach((value, key) => {
       // Only save completed conversions (strings), not promises
       if (typeof value === 'string') {
         cacheObject[key] = value;
+        savedCount++;
       }
     });
+    printDebug(`💾 [cyAdapter] Saving grayscale cache to localStorage: ${savedCount} entries out of ${grayscaleCache.size} total`);
     localStorage.setItem(GRAYSCALE_CACHE_KEY, JSON.stringify(cacheObject));
+    printDebug(`✅ [cyAdapter] Grayscale cache saved successfully`);
   } catch (error) {
     console.warn('Failed to save grayscale cache to localStorage:', error);
   }
@@ -57,8 +67,8 @@ function saveGrayscaleCacheToStorage() {
 loadGrayscaleCacheFromStorage();
 
 // Preprocess images to grayscale in the background to avoid race conditions
-function preprocessImageToGrayscale(imageUrl) {
-  printDebug(`🎨 [cyAdapter] preprocessImageToGrayscale called with: "${imageUrl?.substring(0, 50)}..."`);
+function preprocessImageToGrayscale(imageUrl, originalImagePath = null) {
+  printDebug(`🎨 [cyAdapter] preprocessImageToGrayscale called with: "${imageUrl?.substring(0, 50)}..." (originalPath: ${originalImagePath || 'none'})`);
   
   if (!GRAYSCALE_IMAGES || !imageUrl) {
     printDebug(`⚠️ [cyAdapter] Skipping grayscale: feature disabled or no image`);
@@ -77,9 +87,12 @@ function preprocessImageToGrayscale(imageUrl) {
     return Promise.resolve(imageUrl);
   }
   
-  if (grayscaleCache.has(imageUrl)) {
-    const cached = grayscaleCache.get(imageUrl);
-    printDebug(`💾 [cyAdapter] Found cached grayscale result`);
+  // Use original image path as cache key if available, otherwise fall back to image URL
+  const cacheKey = originalImagePath || imageUrl;
+  
+  if (grayscaleCache.has(cacheKey)) {
+    const cached = grayscaleCache.get(cacheKey);
+    printDebug(`💾 [cyAdapter] Found cached grayscale result for key: "${originalImagePath ? 'path-based' : 'url-based'}"`);
     // If it's a string (completed conversion), return it
     if (typeof cached === 'string') {
       return Promise.resolve(cached);
@@ -88,11 +101,11 @@ function preprocessImageToGrayscale(imageUrl) {
     return cached;
   }
   
-  printDebug(`🔄 [cyAdapter] Starting new grayscale conversion`);
+  printDebug(`🔄 [cyAdapter] Starting new grayscale conversion with cache key: "${cacheKey?.substring(0, 50)}..."`);
   // Start conversion in background, but don't wait for it
   const conversionPromise = convertImageToGrayscale(imageUrl)
     .then(grayscaleUrl => {
-      grayscaleCache.set(imageUrl, grayscaleUrl);
+      grayscaleCache.set(cacheKey, grayscaleUrl);
       pendingConversions.delete(imageUrl);
       // Save to localStorage when conversion completes
       saveGrayscaleCacheToStorage();
@@ -100,7 +113,7 @@ function preprocessImageToGrayscale(imageUrl) {
     })
     .catch(error => {
       console.warn('Failed to convert image to grayscale:', error);
-      grayscaleCache.set(imageUrl, imageUrl); // Cache the original to avoid retrying
+      grayscaleCache.set(cacheKey, imageUrl); // Cache the original to avoid retrying
       pendingConversions.delete(imageUrl);
       // Save to localStorage even on failure to avoid retrying
       saveGrayscaleCacheToStorage();
@@ -108,7 +121,7 @@ function preprocessImageToGrayscale(imageUrl) {
     });
   
   pendingConversions.add(imageUrl);
-  grayscaleCache.set(imageUrl, conversionPromise);
+  grayscaleCache.set(cacheKey, conversionPromise);
   return conversionPromise;
 }
 
@@ -200,7 +213,7 @@ export function buildElementsFromDomain(graph, options = {}) {
                    loadedImageUrl.startsWith('data:image/jpg;') || 
                    loadedImageUrl.startsWith('data:image/webp;'))) {
                 printDebug(`🎨 [cyAdapter] Starting grayscale (post-display) for: ${imageUrl}`);
-                preprocessImageToGrayscale(loadedImageUrl).then(grayscaleUrl => {
+                preprocessImageToGrayscale(loadedImageUrl, imageUrl).then(grayscaleUrl => {
                   printDebug(`✅ [cyAdapter] Grayscale conversion complete for: ${imageUrl}`);
                   if (onImageLoaded) {
                     onImageLoaded(n.id, grayscaleUrl);
@@ -236,13 +249,20 @@ export function buildElementsFromDomain(graph, options = {}) {
          imageUrl.startsWith('data:image/jpg;') || 
          imageUrl.startsWith('data:image/webp;')) && 
         imageUrl !== TEST_ICON_SVG) {
-      const cached = grayscaleCache.get(imageUrl);
+      
+      // Try to find grayscale version using original path first, then data URL
+      const originalPath = n.imageUrl; // The original filename
+      let cached = grayscaleCache.get(originalPath);
+      if (!cached || typeof cached !== 'string') {
+        cached = grayscaleCache.get(imageUrl); // Fallback to data URL key
+      }
+      
       if (cached && typeof cached === 'string') {
-        printDebug(`✅ [cyAdapter] Using cached grayscale for data URL`);
+        printDebug(`✅ [cyAdapter] Using cached grayscale for data URL (key: ${originalPath ? 'path-based' : 'url-based'})`);
         imageUrl = cached; // already grayscale
-      } else if (!cached) {
+      } else {
         printDebug(`🔄 [cyAdapter] Queueing grayscale conversion (will update later) for cached data URL`);
-        preprocessImageToGrayscale(imageUrl); // background; node shows color first
+        preprocessImageToGrayscale(imageUrl, originalPath); // background; node shows color first
       }
     }
     
@@ -592,7 +612,66 @@ export function wireEvents(cy, handlers = {}, mode = 'editing') {
 }
 
 export function clearGrayscaleCache() {
+  const entriesBeforeClear = grayscaleCache.size;
+  const pendingBeforeClear = pendingConversions.size;
+  
   grayscaleCache.clear();
   pendingConversions.clear();
-  try { localStorage.removeItem(GRAYSCALE_CACHE_KEY); } catch (e) { console.warn('Failed to clear grayscale cache from localStorage:', e); }
+  
+  printDebug(`🧹 [cyAdapter] Cleared grayscale cache: ${entriesBeforeClear} entries, ${pendingBeforeClear} pending conversions`);
+  
+  try { 
+    localStorage.removeItem(GRAYSCALE_CACHE_KEY);
+    printDebug(`✅ [cyAdapter] Removed grayscale cache from localStorage`);
+  } catch (e) { 
+    console.warn('Failed to clear grayscale cache from localStorage:', e); 
+  }
+}
+
+// Force immediate image update for a specific node
+// This is used when an image is imported and we want to see it immediately
+export async function forceNodeImageUpdate(nodeId, imagePath, mapName, cdnBaseUrl, immediateImageUrl = null) {
+  printDebug(`🔄 [cyAdapter] Forcing image update for node ${nodeId} with path: ${imagePath}`);
+  
+  if (!currentActiveCy || currentActiveCy.destroyed()) {
+    printDebug(`⚠️ [cyAdapter] No active Cytoscape instance, cannot update node image`);
+    return false;
+  }
+
+  const node = currentActiveCy.getElementById(nodeId);
+  if (!node || node.length === 0) {
+    printDebug(`⚠️ [cyAdapter] Node ${nodeId} not found in active Cytoscape instance`);
+    return false;
+  }
+
+  try {
+    let imageUrl;
+    
+    // If we have an immediate image URL (e.g., from fresh import), use it
+    if (immediateImageUrl) {
+      printDebug(`⚡ [cyAdapter] Using immediate image URL for node ${nodeId}`);
+      imageUrl = immediateImageUrl;
+    } else {
+      // Otherwise, load from cache/CDN as usual
+      imageUrl = await loadImageWithFallback(imagePath, mapName, cdnBaseUrl);
+      printDebug(`✅ [cyAdapter] Loaded image for immediate update: ${imageUrl.substring(0, 50)}...`);
+    }
+    
+    // Apply grayscale if enabled (but not for SVG placeholders)
+    let finalImageUrl = imageUrl;
+    if (GRAYSCALE_IMAGES && !imageUrl.includes('data:image/svg+xml')) {
+      finalImageUrl = await preprocessImageToGrayscale(imageUrl, imagePath);
+      printDebug(`🎨 [cyAdapter] Applied grayscale for immediate update`);
+    }
+    
+    // Update the node immediately
+    node.data('imageUrl', finalImageUrl);
+    currentActiveCy.style().update();
+    printDebug(`✅ [cyAdapter] Successfully updated node ${nodeId} image immediately`);
+    
+    return true;
+  } catch (error) {
+    printDebug(`❌ [cyAdapter] Failed to force update node ${nodeId} image:`, error);
+    return false;
+  }
 }

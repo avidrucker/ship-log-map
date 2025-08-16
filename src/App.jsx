@@ -815,10 +815,11 @@ function App() {
     }
   }, [selectedNodeIds, nodeSelectionOrder, noteEditingTarget, noteViewingTarget, saveUndoState, getCytoscapeInstance]);
 
-  const handleUpdateImage = useCallback((nodeId, imagePath) => {
+  const handleUpdateImage = useCallback((nodeId, imagePath, immediateImageUrl = null) => {
     // Save undo state before updating image
     saveUndoState();
     
+    // Update graph data
     setGraphData(prev => ({
       ...prev,
       nodes: prev.nodes.map(n => 
@@ -827,7 +828,23 @@ function App() {
           : n
       )
     }));
-  }, [saveUndoState]);
+
+    // Force immediate visual update in Cytoscape
+    // Import the function dynamically to avoid circular imports
+    import('./graph/cyAdapter.js').then(({ forceNodeImageUpdate }) => {
+      forceNodeImageUpdate(nodeId, imagePath, mapName, cdnBaseUrl, immediateImageUrl)
+        .then(success => {
+          if (success) {
+            printDebug(`✅ [App] Successfully forced image update for node ${nodeId}`);
+          } else {
+            printDebug(`⚠️ [App] Failed to force image update for node ${nodeId}, will update on next sync`);
+          }
+        })
+        .catch(error => {
+          printDebug(`❌ [App] Error forcing image update for node ${nodeId}:`, error);
+        });
+    });
+  }, [saveUndoState, mapName, cdnBaseUrl]);
 
   const handleNodeClick = useCallback((nodeId) => {
     if (mode === 'playing') {

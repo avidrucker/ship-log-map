@@ -212,18 +212,27 @@ export async function saveImageFiles(nodeId, processedImage, mapName = null, dir
     // Generate logical filename for the image
     const imageFilename = generateImageFilename(nodeId, processedImage.fileHash, processedImage.extension, 'full');
     
-    // Convert blobs to data URLs and cache them using the imageLoader
+    // Convert blobs to data URLs - but only cache the thumbnail to save localStorage space
+    const thumbnailDataUrl = await blobToDataUrl(processedImage.thumbnailBlob);
     const fullSizeDataUrl = await blobToDataUrl(processedImage.fullSizeBlob);
     
-    // Cache the image data URL with the logical filename as key
+    console.log(`📊 Image sizes - Thumbnail: ${thumbnailDataUrl.length} chars, Full: ${fullSizeDataUrl.length} chars`);
+    
+    // Cache only the THUMBNAIL (100x100) to conserve localStorage space
+    // The full-size image will be generated on-demand or loaded from CDN
     const { imageCache } = await import('./imageLoader.js');
     const cacheKey = `${actualMapName}:${imageFilename}`;
-    imageCache.set(cacheKey, fullSizeDataUrl);
+    
+    // For immediate display, we'll use the full-size but only cache the thumbnail
+    imageCache.set(cacheKey, thumbnailDataUrl);
+    console.log(`💾 Cached thumbnail for: ${cacheKey} (${thumbnailDataUrl.length} chars)`);
 
     // Return the logical filename (not the data URL) to store in JSON
     const result = {
       imagePath: imageFilename, // This will be stored in the JSON
-      success: true
+      success: true,
+      // Include the full-size data URL for immediate use (but don't cache it)
+      immediateImageUrl: fullSizeDataUrl
     };
 
     // Optionally, still save to filesystem for reference (but don't block on it)
