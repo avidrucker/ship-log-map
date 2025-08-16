@@ -40,3 +40,4 @@
 - [ ] Implement a "search" feature that allows users to search for nodes by title
 - [ ] Implement a "filter" feature that allows users to filter nodes by tags, size, color, etc.
 - [x] Implement a "Are you sure you want to delete the current map?" confirmation popup upon clicking the reset button so that way users don't accidentally reset their graph
+- [ ] Implement a button that clears the current image from the selected node (in the note editor modal), and resets the node's image to the default "unspecified" image
