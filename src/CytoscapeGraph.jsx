@@ -148,13 +148,22 @@ function CytoscapeGraph({
   }, [onNodeSelectionChange, onEdgeSelectionChange, onNodeClick, onEdgeClick, onNodeDoubleClick, onEdgeDoubleClick, onBackgroundClick, onNodeMove, onZoomChange, onCameraMove, mode]);
 
   // Sync when domain elements change
+  // Note: mode is included as dependency because it affects grabbable property in buildElements
   useEffect(() => {
     if (!cyRef.current) return;
     
     const cy = cyRef.current;
-    printDebug(`🔄 [CytoscapeGraph] Sync effect triggered - checking if sync needed`);
+    printDebug(`🔄 [CytoscapeGraph] Domain sync effect triggered - checking if sync needed (mode: ${mode})`);
     printDebug(`🔍 [CytoscapeGraph] Current nodes in cytoscape: ${cy.nodes().length}, incoming nodes: ${nodes.length}`);
     printDebug(`🔍 [CytoscapeGraph] Current edges in cytoscape: ${cy.edges().length}, incoming edges: ${edges.length}`);
+    
+    // Check if mode changed by comparing current node grabbable state with expected
+    const expectedGrabbable = mode === 'editing';
+    const modeChanged = cy.nodes().length > 0 && cy.nodes()[0].grabbable() !== expectedGrabbable;
+    
+    if (modeChanged) {
+      printDebug(`🎯 [CytoscapeGraph] Mode change detected - current grabbable: ${cy.nodes()[0].grabbable()}, expected: ${expectedGrabbable}`);
+    }
     
     // Check if only positions have changed to avoid unnecessary syncs
     const currentNodes = cy.nodes().map(n => ({
@@ -272,8 +281,10 @@ function CytoscapeGraph({
     const nodeCountChanged = nodes.length !== currentNodes.length;
     const edgeCountChanged = edges.length !== cy.edges().length;
     
-    if (nodeStructuralChanges || edgeStructuralChanges || nodeCountChanged || edgeCountChanged) {
-      printDebug(`🔄 [CytoscapeGraph] Structural changes detected:`, {
+    // Force full sync if mode changed or if there are structural changes
+    if (modeChanged || nodeStructuralChanges || edgeStructuralChanges || nodeCountChanged || edgeCountChanged) {
+      printDebug(`🔄 [CytoscapeGraph] Sync required:`, {
+        modeChanged,
         nodeStructural: nodeStructuralChanges,
         edgeStructural: edgeStructuralChanges,
         nodeCount: nodeCountChanged,
@@ -370,6 +381,24 @@ function CytoscapeGraph({
     
     return () => clearInterval(interval);
   }, [nodes, edges, mapName, cdnBaseUrl]);
+
+  // Immediate grabbable toggle on mode change (belt & suspenders)
+  useEffect(() => {
+    if (!cyRef.current) return;
+    const cy = cyRef.current;
+    const expected = mode === 'editing';
+    let changed = 0;
+    cy.nodes().forEach(n => {
+      const isGrab = n.grabbable();
+      if (expected && !isGrab) { n.grabify(); changed++; }
+      if (!expected && isGrab) { n.ungrabify(); changed++; }
+    });
+    if (changed) {
+      printDebug(`⚙️ [CytoscapeGraph] Mode='${mode}' enforced ${expected ? 'grabify' : 'ungrabify'} on ${changed} nodes (immediate effect)`);
+    } else {
+      printDebug(`⚙️ [CytoscapeGraph] Mode='${mode}' grabbable states already correct (immediate effect)`);
+    }
+  }, [mode]);
 
   return (
     <div

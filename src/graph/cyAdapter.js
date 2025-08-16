@@ -432,6 +432,7 @@ export function syncElements(cy, graph, options = {}) {
     }
   };
   
+  const { mode = 'editing' } = options; // extract mode for grabbable enforcement
   // Build elements WITHOUT forcing image load (sync path) but pass override to allow mid-session CDN changes
   const newElements = buildElementsFromDomain(graph, { ...options, onImageLoaded, forceImageLoad: false, cdnBaseUrlOverride: graph.cdnBaseUrl });
   printDebug(`🔄 [cyAdapter] Syncing elements without forcing image loads`);
@@ -486,6 +487,26 @@ export function syncElements(cy, graph, options = {}) {
     cy.zoom(currentZoom);
     cy.pan(currentPan);
   }
+  
+  // --- Enforce grabbable state explicitly (Cytoscape may not update via data-only changes) ---
+  const expectedGrabbable = mode === 'editing';
+  let changedCount = 0;
+  cy.nodes().forEach(n => {
+    const current = n.grabbable();
+    if (expectedGrabbable && !current) {
+      n.grabify();
+      changedCount++;
+    } else if (!expectedGrabbable && current) {
+      n.ungrabify();
+      changedCount++;
+    }
+  });
+  if (changedCount > 0) {
+    printDebug(`🛡️ [cyAdapter] Applied ${expectedGrabbable ? 'grabify' : 'ungrabify'} to ${changedCount} nodes (mode='${mode}')`);
+  } else {
+    printDebug(`🛡️ [cyAdapter] Grabbable states already correct for mode='${mode}'`);
+  }
+  // ---------------------------------------------------------------------------
   
   return cy;
 }
@@ -575,12 +596,34 @@ export function wireEvents(cy, handlers = {}, mode = 'editing') {
     }
   });
 
-  cy.on("dbltap", "node", (evt) => { if (onNodeDoubleClick) onNodeDoubleClick(evt.target.id()); });
+  cy.on("dbltap", "node", (evt) => { 
+    // Only allow node double-click size cycling in editing mode
+    printDebug(`🖱️ [cyAdapter] Node double-tap detected: ${evt.target.id()}`);
+    if (mode !== 'editing') { 
+      printDebug(`🛑 [cyAdapter] Ignoring node double-tap in mode='${mode}' for node ${evt.target.id()}`); 
+      return; 
+    }
+    if (onNodeDoubleClick) onNodeDoubleClick(evt.target.id()); 
+  });
   cy.on("dbltap", "edge", (evt) => { 
+    // Only allow edge double-click direction cycling in editing mode
     printDebug(`🖱️ [cyAdapter] Edge double-tap detected: ${evt.target.id()}`);
+    if (mode !== 'editing') { 
+      printDebug(`🛑 [cyAdapter] Ignoring edge double-tap in mode='${mode}' for edge ${evt.target.id()}`); 
+      return; 
+    }
     if (onEdgeDoubleClick) onEdgeDoubleClick(evt.target.id()); 
   });
-  cy.on("dragfree", "node", (evt) => { if (onNodeMove) { const n = evt.target; const { x, y } = n.position(); onNodeMove(n.id(), { x, y }); } });
+  
+  // Simple dragfree handler for node position updates (grabbable property controls dragging ability)
+  cy.on("dragfree", "node", (evt) => { 
+    if (onNodeMove) { 
+      const n = evt.target; 
+      const { x, y } = n.position(); 
+      printDebug(`📍 [cyAdapter] Node moved: ${n.id()} to (${Math.round(x)}, ${Math.round(y)})`);
+      onNodeMove(n.id(), { x, y }); 
+    } 
+  });
   
   // Add debugging for viewport events
   cy.on("viewport", () => { 

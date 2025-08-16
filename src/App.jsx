@@ -167,6 +167,7 @@ function App() {
   useEffect(() => { printDebug('🏠 App: zoomLevel changed to:', zoomLevel); }, [zoomLevel]);
   useEffect(() => { printDebug('🏠 App: cameraPosition changed to:', cameraPosition); }, [cameraPosition]);
   useEffect(() => { printDebug('🏠 App: shouldFitOnNextRender changed to:', shouldFitOnNextRender); }, [shouldFitOnNextRender]);
+  useEffect(() => { printDebug('🎮 App: mode changed to:', mode); }, [mode]);
 
   // ---------- persistence ----------
   useEffect(() => {
@@ -740,6 +741,8 @@ function App() {
 
   const handleModeToggle = useCallback(() => {
     const newMode = mode === 'editing' ? 'playing' : 'editing';
+    printDebug(`🎮 [App] Mode toggle initiated: ${mode} -> ${newMode}`);
+    
     dispatchAppState({
       type: ACTION_TYPES.SET_MODE,
       payload: { mode: newMode }
@@ -756,6 +759,8 @@ function App() {
     if (noteViewingTarget) {
       handleCloseNoteViewing();
     }
+    
+    printDebug(`✅ [App] Mode toggle completed: now in ${newMode} mode`);
   }, [mode, noteEditingTarget, noteViewingTarget, clearCytoscapeSelections, handleCloseNoteEditing, handleCloseNoteViewing]);
 
   const handleUpdateNotes = useCallback((targetId, newNotes) => {
