@@ -23,7 +23,6 @@ export const FEATURES = {
   DEV_MODE: true,
   
   // Render all node images in black and white (grayscale)
-  // When enabled, overlays a gray square image on top of node background images using multiply blend mode
   // This creates a grayscale effect for images only, without affecting node colors or text
   GRAYSCALE_IMAGES: true,
   

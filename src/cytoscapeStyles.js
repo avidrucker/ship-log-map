@@ -1,7 +1,20 @@
 // src/cytoscapeStyles.js
 import { COLORS, NODE_SIZES, BORDER } from "./styles/tokens.js";
 
-const baseNode = {
+// Parent container (holder) – invisible, grabbable, carries the domain ID.
+const entryParentBase = {
+  'background-opacity': 0,
+  'border-width': 0,
+  'shape': 'rectangle',
+  'width': NODE_SIZES.regular.width,
+  'height': NODE_SIZES.regular.height,
+  'padding': 0,
+  'label': '',
+  'z-index-compare': 'manual',
+  'z-index': 1,
+};
+
+const entryNodeBase = {
   "background-color": COLORS.gray.base,
   "border-color": COLORS.gray.base,
   "border-width": BORDER.width,
@@ -19,14 +32,42 @@ const baseNode = {
   "line-height": 1.1,
   "font-family": "monospace",
 
+  // Enable manual z-index so note-count nodes (also manual) can layer above
+  "z-index-compare": "manual",
+  "z-index": 10,
+
   // Images: keep square aspect, centered horizontally, bottom aligned.
   "background-image": "data(imageUrl)",
   "background-repeat": "no-repeat"
 };
 
+// Text-only note count node (no background / image).
+const noteCountBase = {
+  'label': 'data(label)',
+  'shape': 'rectangle',
+  'padding': 4,
+  'background-opacity': 0.85,
+  'background-color': 'rgba(255,0,0,0.7)', // Make it bright red for debugging visibility
+  'border-width': 1,
+  'border-color': '#ffffff',
+  'color': '#ffffff',
+  'font-size': 16,
+  'font-weight': 'bold',
+  'text-wrap': 'none',
+  'text-halign': 'center',
+  'text-valign': 'center',
+  'text-outline-width': 2,
+  'text-outline-color': 'rgba(0,0,0,0.9)',
+  'z-index-compare': 'manual',
+  'z-index': 9999,  // Much higher to stay above dragged nodes
+  'events': 'no',
+  'width': 30,
+  'height': 20
+};
+
 const sizeRules = [
   {
-    selector: 'node[size="regular"]',
+    selector: 'node.entry[size="regular"]',
     style: {
       "width": NODE_SIZES.regular.width,
       "height": NODE_SIZES.regular.height,
@@ -36,11 +77,11 @@ const sizeRules = [
       "text-margin-y": NODE_SIZES.regular["text-margin-y"],
       "text-max-width": NODE_SIZES.regular["text-max-width"],
       "font-size": NODE_SIZES.regular["font-size"],
-      "z-index": 2 // Regular nodes in middle layer
+      "z-index": 12 // Regular nodes middle layer
     }
   },
   {
-    selector: 'node[size="double"]',
+    selector: 'node.entry[size="double"]',
     style: {
       "width": NODE_SIZES.double.width,
       "height": NODE_SIZES.double.height,
@@ -50,11 +91,11 @@ const sizeRules = [
       "text-margin-y": NODE_SIZES.double["text-margin-y"],
       "text-max-width": NODE_SIZES.double["text-max-width"],
       "font-size": NODE_SIZES.double["font-size"],
-      "z-index": 1 // Double nodes on bottom (rendered first, appear behind)
+      "z-index": 11 // Bottom layer (behind others)
     }
   },
   {
-    selector: 'node[size="half"]',
+    selector: 'node.entry[size="half"]',
     style: {
       "width": NODE_SIZES.small.width,
       "height": NODE_SIZES.small.height,
@@ -64,92 +105,38 @@ const sizeRules = [
       "text-margin-y": NODE_SIZES.small["text-margin-y"],
       "text-max-width": NODE_SIZES.small["text-max-width"],
       "font-size": NODE_SIZES.small["font-size"],
-      "z-index": 3 // Half nodes on top (rendered last, appear in front)
+      "z-index": 13 // Top among entry nodes
     }
   }
 ];
 
 const colorRules = [
-  {
-    selector: 'node[color="gray"]',
-    style: { "background-color": COLORS.gray.base, "border-color": COLORS.gray.base }
-  },
-  {
-    selector: 'node[color="green"]',
-    style: { "background-color": COLORS.green.base, "border-color": COLORS.green.base }
-  },
-  {
-    selector: 'node[color="orange"]',
-    style: { "background-color": COLORS.orange.base, "border-color": COLORS.orange.base }
-  },
-  {
-    selector: 'node[color="purple"]',
-    style: { "background-color": COLORS.purple.base, "border-color": COLORS.purple.base }
-  },
-  {
-    selector: 'node[color="red"]',
-    style: { "background-color": COLORS.red.base, "border-color": COLORS.red.base }
-  },
-  {
-    selector: 'node[color="blue"]',
-    style: { "background-color": COLORS.blue.base, "border-color": COLORS.blue.base }
-  }
+  { selector: 'node.entry[color="gray"]', style: { "background-color": COLORS.gray.base, "border-color": COLORS.gray.base } },
+  { selector: 'node.entry[color="green"]', style: { "background-color": COLORS.green.base, "border-color": COLORS.green.base } },
+  { selector: 'node.entry[color="orange"]', style: { "background-color": COLORS.orange.base, "border-color": COLORS.orange.base } },
+  { selector: 'node.entry[color="purple"]', style: { "background-color": COLORS.purple.base, "border-color": COLORS.purple.base } },
+  { selector: 'node.entry[color="red"]', style: { "background-color": COLORS.red.base, "border-color": COLORS.red.base } },
+  { selector: 'node.entry[color="blue"]', style: { "background-color": COLORS.blue.base, "border-color": COLORS.blue.base } }
 ];
 
 // Selected border uses the bright variant of the node’s color.
 const selectedRules = [
-  { selector: 'node:selected[color="gray"]',   
-    style: {  "border-color": COLORS.gray.bright,   
-              "border-width": BORDER.selectedWidth,
-              "background-color": COLORS.gray.bright } },
-  { selector: 'node:selected[color="green"]',  
-    style: { "border-color": COLORS.green.bright,  
-      "border-width": BORDER.selectedWidth, 
-      "background-color": COLORS.green.bright } },
-  { selector: 'node:selected[color="orange"]', 
-    style: { "border-color": COLORS.orange.bright, 
-      "border-width": BORDER.selectedWidth, 
-      "background-color": COLORS.orange.bright } },
-  { selector: 'node:selected[color="purple"]', 
-    style: { "border-color": COLORS.purple.bright, 
-      "border-width": BORDER.selectedWidth, 
-      "background-color": COLORS.purple.bright } },
-  { selector: 'node:selected[color="red"]',    
-    style: { "border-color": COLORS.red.bright,    
-      "border-width": BORDER.selectedWidth, 
-      "background-color": COLORS.red.bright } },
-  { selector: 'node:selected[color="blue"]',   
-    style: { "border-color": COLORS.blue.bright,   
-      "border-width": BORDER.selectedWidth, 
-      "background-color": COLORS.blue.bright } }
+  { selector: 'node.entry:selected[color="gray"]', style: { "border-color": COLORS.gray.bright, "border-width": BORDER.selectedWidth, "background-color": COLORS.gray.bright } },
+  { selector: 'node.entry:selected[color="green"]', style: { "border-color": COLORS.green.bright, "border-width": BORDER.selectedWidth, "background-color": COLORS.green.bright } },
+  { selector: 'node.entry:selected[color="orange"]', style: { "border-color": COLORS.orange.bright, "border-width": BORDER.selectedWidth, "background-color": COLORS.orange.bright } },
+  { selector: 'node.entry:selected[color="purple"]', style: { "border-color": COLORS.purple.bright, "border-width": BORDER.selectedWidth, "background-color": COLORS.purple.bright } },
+  { selector: 'node.entry:selected[color="red"]', style: { "border-color": COLORS.red.bright, "border-width": BORDER.selectedWidth, "background-color": COLORS.red.bright } },
+  { selector: 'node.entry:selected[color="blue"]', style: { "border-color": COLORS.blue.bright, "border-width": BORDER.selectedWidth, "background-color": COLORS.blue.bright } }
 ];
 
 const activeRules = [
-  { selector: 'node:active[color="gray"]',   
-    style: {  "border-color": COLORS.gray.bright,   
-              "border-width": BORDER.selectedWidth,
-              "background-color": COLORS.gray.bright } },
-  { selector: 'node:active[color="green"]',  
-    style: { "border-color": COLORS.green.bright,  
-      "border-width": BORDER.selectedWidth, 
-      "background-color": COLORS.green.bright } },
-  { selector: 'node:active[color="orange"]', 
-    style: { "border-color": COLORS.orange.bright, 
-      "border-width": BORDER.selectedWidth, 
-      "background-color": COLORS.orange.bright } },
-  { selector: 'node:active[color="purple"]', 
-    style: { "border-color": COLORS.purple.bright, 
-      "border-width": BORDER.selectedWidth, 
-      "background-color": COLORS.purple.bright } },
-  { selector: 'node:active[color="red"]',    
-    style: { "border-color": COLORS.red.bright,    
-      "border-width": BORDER.selectedWidth, 
-      "background-color": COLORS.red.bright } },
-  { selector: 'node:active[color="blue"]',   
-    style: { "border-color": COLORS.blue.bright,   
-      "border-width": BORDER.selectedWidth, 
-      "background-color": COLORS.blue.bright } }
-]
+  { selector: 'node.entry:active[color="gray"]', style: { "border-color": COLORS.gray.bright, "border-width": BORDER.selectedWidth, "background-color": COLORS.gray.bright } },
+  { selector: 'node.entry:active[color="green"]', style: { "border-color": COLORS.green.bright, "border-width": BORDER.selectedWidth, "background-color": COLORS.green.bright } },
+  { selector: 'node.entry:active[color="orange"]', style: { "border-color": COLORS.orange.bright, "border-width": BORDER.selectedWidth, "background-color": COLORS.orange.bright } },
+  { selector: 'node.entry:active[color="purple"]', style: { "border-color": COLORS.purple.bright, "border-width": BORDER.selectedWidth, "background-color": COLORS.purple.bright } },
+  { selector: 'node.entry:active[color="red"]', style: { "border-color": COLORS.red.bright, "border-width": BORDER.selectedWidth, "background-color": COLORS.red.bright } },
+  { selector: 'node.entry:active[color="blue"]', style: { "border-color": COLORS.blue.bright, "border-width": BORDER.selectedWidth, "background-color": COLORS.blue.bright } }
+];
 
 const edgeBase = [
   {
@@ -159,7 +146,7 @@ const edgeBase = [
       "width": 5,
       "line-color": COLORS.edge,
       "curve-style": "bezier",
-      "arrow-scale": 1.5,
+      "arrow-scale": 2.5,
       // 👇 this is the "second, thicker line" underneath
       'underlay-color': 'gray',    // your “border” color
       'underlay-opacity': 1,
@@ -195,7 +182,7 @@ const edgeBase = [
       "line-color": "lightgray",
       "mid-target-arrow-color": "lightgray",
       "mid-source-arrow-color": "lightgray",
-      "arrow-scale": 1.5
+      "arrow-scale": 3
     }
   },
   {
@@ -204,18 +191,74 @@ const edgeBase = [
       "line-color": "lightgray",
       "mid-target-arrow-color": "lightgray",
       "mid-source-arrow-color": "lightgray",
-      "arrow-scale": 2
+      "arrow-scale": 3
     }
   }
 ];
 
+// --- Note count overlay styles ---
+const noteCountRules = [
+  { selector: 'node.note-count', style: noteCountBase },
+  { selector: 'node.note-count.hidden', style: { 'display': 'none' } }
+];
+
+// --- Drag state styles to ensure proper z-ordering ---
+const dragStateRules = [
+  // Keep entry nodes at lower z-index even when being dragged
+  { 
+    selector: 'node.entry:grabbed', 
+    style: { 
+      'z-index': -1,  // Higher than normal but much lower than note-count nodes
+      'background-color': 'blue', // Slight highlight for visibility
+      'opacity': 0.5, // this demonstrates that the child node is being dragged simultaneously underneath
+      // 'z-compound-depth': 'bottom'
+    } 
+  },
+  // Ensure note-count nodes always stay on top, even during parent drag
+  { 
+    selector: 'node.note-count', 
+    style: { 
+      'z-index': 9999,
+      // 'z-index-compare': 'manual',
+      // 'z-compound-depth': 'top'
+    } 
+  }
+];
+
+// Inject parent specific size rules mirroring original entry sizes so the parent bbox matches child
+const parentSizeRules = [
+  {
+    selector: 'node.entry-parent[size="regular"]',
+    style: { 'width': NODE_SIZES.regular.width, 'height': NODE_SIZES.regular.height }
+  },
+  {
+    selector: 'node.entry-parent[size="double"]',
+    style: { 'width': NODE_SIZES.double.width, 'height': NODE_SIZES.double.height }
+  },
+  {
+    selector: 'node.entry-parent[size="half"]',
+    style: { 'width': NODE_SIZES.small.width, 'height': NODE_SIZES.small.height }
+  }
+];
+
+// Ensure entry child nodes ignore pointer events so dragging/selecting hits the parent container
+const entryChildInteractionRule = {
+  selector: 'node.entry',
+  style: { 'events': 'no' }
+};
+
 const cytoscapeStyles = [
-  { selector: 'node', style: baseNode },
+  { selector: 'node.entry-parent', style: entryParentBase },
+  { selector: 'node.entry', style: entryNodeBase },
   ...sizeRules,
   ...colorRules,
   ...selectedRules,
   ...activeRules,
-  ...edgeBase
+  ...edgeBase,
+  ...noteCountRules,
+  ...dragStateRules,
+  ...parentSizeRules,
+  entryChildInteractionRule
 ];
 
 export default cytoscapeStyles;

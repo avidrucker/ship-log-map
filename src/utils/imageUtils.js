@@ -1,4 +1,5 @@
 // src/utils/imageUtils.js
+import { printDebug } from '../utils/debug.js';
 
 /**
  * Generates a simple hash from a file buffer using browser APIs
@@ -34,7 +35,7 @@ function cropToSquare(img) {
   const cropX = (img.width - squareSize) / 2;
   const cropY = (img.height - squareSize) / 2;
   
-  console.log(`✂️ Cropping: taking ${squareSize}x${squareSize} square from center (offset: ${cropX}, ${cropY})`);
+  printDebug(`✂️ Cropping: taking ${squareSize}x${squareSize} square from center (offset: ${cropX}, ${cropY})`);
   
   // Set canvas to square dimensions
   canvas.width = squareSize;
@@ -97,15 +98,15 @@ export async function processImageFile(file) {
           return;
         }
 
-        console.log(`📐 Processing image: ${img.width}x${img.height} pixels`);
+        printDebug(`📐 Processing image: ${img.width}x${img.height} pixels`);
 
         // Determine crop strategy
         if (img.width === img.height) {
-          console.log(`✅ Image is already square, no cropping needed`);
+          printDebug(`✅ Image is already square, no cropping needed`);
         } else if (img.width > img.height) {
-          console.log(`📏 Image is wider than tall (${img.width}x${img.height}), will crop horizontally to ${img.height}x${img.height}`);
+          printDebug(`📏 Image is wider than tall (${img.width}x${img.height}), will crop horizontally to ${img.height}x${img.height}`);
         } else {
-          console.log(`📏 Image is taller than wide (${img.width}x${img.height}), will crop vertically to ${img.width}x${img.width}`);
+          printDebug(`📏 Image is taller than wide (${img.width}x${img.height}), will crop vertically to ${img.width}x${img.width}`);
         }
 
         // Read file as array buffer to generate hash
@@ -122,7 +123,7 @@ export async function processImageFile(file) {
         const squareCanvas = cropToSquare(img);
         const squareSize = squareCanvas.width; // Now it's square, so width === height
         
-        console.log(`✂️ Cropped to square: ${squareSize}x${squareSize} pixels`);
+        printDebug(`✂️ Cropped to square: ${squareSize}x${squareSize} pixels`);
         
         // Create thumbnail (100x100) from the cropped square
         const thumbnailCanvas = resizeImage(squareCanvas, 100, 100);
@@ -216,7 +217,7 @@ export async function saveImageFiles(nodeId, processedImage, mapName = null, dir
     const thumbnailDataUrl = await blobToDataUrl(processedImage.thumbnailBlob);
     const fullSizeDataUrl = await blobToDataUrl(processedImage.fullSizeBlob);
     
-    console.log(`📊 Image sizes - Thumbnail: ${thumbnailDataUrl.length} chars, Full: ${fullSizeDataUrl.length} chars`);
+    printDebug(`📊 Image sizes - Thumbnail: ${thumbnailDataUrl.length} chars, Full: ${fullSizeDataUrl.length} chars`);
     
     // Cache only the THUMBNAIL (100x100) to conserve localStorage space
     // The full-size image will be generated on-demand or loaded from CDN
@@ -225,7 +226,7 @@ export async function saveImageFiles(nodeId, processedImage, mapName = null, dir
     
     // For immediate display, we'll use the full-size but only cache the thumbnail
     imageCache.set(cacheKey, thumbnailDataUrl);
-    console.log(`💾 Cached thumbnail for: ${cacheKey} (${thumbnailDataUrl.length} chars)`);
+    printDebug(`💾 Cached thumbnail for: ${cacheKey} (${thumbnailDataUrl.length} chars)`);
 
     // Return the logical filename (not the data URL) to store in JSON
     const result = {

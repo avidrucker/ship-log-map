@@ -22,7 +22,9 @@ function GraphControls({
   onModeToggle,
   onOpenDebugModal,
   onUndo,
-  canUndo
+  canUndo,
+  showNoteCountOverlay,
+  onToggleNoteCountOverlay
 }) {
   const canConnect = selectedNodes.length === 2 && !areNodesConnected(selectedNodes[0], selectedNodes[1]);
 
@@ -84,6 +86,23 @@ function GraphControls({
         title="Fit Map to Viewport"
       >
         Fit
+      </button>
+      
+      <button
+        style={{
+          padding: "8px 12px",
+          background: showNoteCountOverlay ? "#4caf50" : "#666",
+          color: "#fff",
+          border: `1px solid ${showNoteCountOverlay ? "#388e3c" : "#555"}`,
+          cursor: "pointer"
+        }}
+        onClick={() => {
+          console.log('🔥 [BUTTON] Notes button clicked! Current state:', showNoteCountOverlay);
+          onToggleNoteCountOverlay();
+        }}
+        title={`${showNoteCountOverlay ? 'Hide' : 'Show'} Note Count Overlay`}
+      >
+        Notes ({showNoteCountOverlay ? 'ON' : 'OFF'})
       </button>
       
       <button

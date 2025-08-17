@@ -172,6 +172,7 @@ export function buildElementsFromDomain(graph, options = {}) {
 
   // Process nodes - use cache/CDN/fallback system, then apply grayscale if enabled
   const nodes = g.nodes.map(n => {
+    // existing image logic preserved
     let imageUrl = n.imageUrl;
     
     // Handle "unspecified" or missing image URLs
@@ -273,25 +274,27 @@ export function buildElementsFromDomain(graph, options = {}) {
       }
     }
     
-    const nodeData = {
-      group: "nodes",
-      data: {
-        id: n.id,
-        label: n.title ?? "",
-        color: n.color ?? "gray",
-        size: n.size ?? "regular",
-        imageUrl: imageUrl,
-        originalImageUrl: n.imageUrl // Store original filename for comparison
+    const parentId = n.id; // domain id becomes parent container id
+    const entryChildId = `${parentId}__entry`; // child visual node
+    return [
+      {
+        group: 'nodes',
+        data: { id: parentId, size: n.size ?? 'regular', color: n.color ?? 'gray', label: '', isContainer: true },
+        position: { x: n.x, y: n.y },
+        selectable: true,
+        grabbable: mode === 'editing',
+        classes: 'entry-parent'
       },
-      position: { x: n.x, y: n.y },
-      selectable: true,
-      grabbable: mode === 'editing' // Only grabbable in editing mode
-    };
-    
-    //// printDebug(`🎯 [cyAdapter] Creating node "${n.id}" with imageUrl: ${imageUrl ? imageUrl.substring(0, 50) + '...' : 'null/undefined'}`);
-    
-    return nodeData;
-  });
+      {
+        group: 'nodes',
+        data: { id: entryChildId, parent: parentId, label: n.title ?? '', color: n.color ?? 'gray', size: n.size ?? 'regular', imageUrl, originalImageUrl: n.imageUrl },
+        position: { x: n.x, y: n.y },
+        selectable: false,
+        grabbable: false,
+        classes: 'entry'
+      }
+    ];
+  }).flat();
 
   // Process edges (unchanged)
 
@@ -431,40 +434,29 @@ export async function mountCy({ container, graph, styles = cytoscapeStyles, mode
 
 // Replace elements with a fresh build from the domain state
 export function syncElements(cy, graph, options = {}) {
-  // Create image update callback
   const onImageLoaded = (nodeId, imageUrl) => {
     if (cy && cy.getElementById(nodeId).length > 0) {
       cy.getElementById(nodeId).data('imageUrl', imageUrl);
       cy.style().update();
     }
   };
-  
-  const { mode = 'editing' } = options; // extract mode for grabbable enforcement
-  // Build elements WITHOUT forcing image load (sync path) but pass override to allow mid-session CDN changes
+  const { mode = 'editing' } = options;
   const newElements = buildElementsFromDomain(graph, { ...options, onImageLoaded, forceImageLoad: false, cdnBaseUrlOverride: graph.cdnBaseUrl });
-  printDebug(`🔄 [cyAdapter] Syncing elements without forcing image loads`);
-  
-  // Save current camera state to restore later
+  printDebug(`🔄 [cyAdapter] Syncing elements`);
+
   const currentZoom = cy.zoom();
   const currentPan = cy.pan();
-  
-  // Get current positions to preserve them
   const currentPositions = {};
-  cy.nodes().forEach(node => {
-    currentPositions[node.id()] = node.position();
-  });
-  
-  // Check if we really need to update by comparing element counts and IDs
-  const currentNodes = cy.nodes().map(n => n.id()).sort();
+  cy.nodes().forEach(node => { currentPositions[node.id()] = node.position(); });
+
+  const currentNodes = cy.nodes().filter(n => !n.hasClass('note-count')).map(n => n.id()).sort();
   const currentEdges = cy.edges().map(e => e.id()).sort();
   const newNodes = newElements.filter(e => e.group === 'nodes').map(e => e.data.id).sort();
   const newEdges = newElements.filter(e => e.group === 'edges').map(e => e.data.id).sort();
-  
   const nodesChanged = JSON.stringify(currentNodes) !== JSON.stringify(newNodes);
   const edgesChanged = JSON.stringify(currentEdges) !== JSON.stringify(newEdges);
-  
+
   if (!nodesChanged && !edgesChanged) {
-    // Only update data properties without full resync if structure hasn't changed
     newElements.forEach(newEl => {
       if (newEl.group === 'nodes') {
         const existingNode = cy.getElementById(newEl.data.id);
@@ -473,195 +465,126 @@ export function syncElements(cy, graph, options = {}) {
         }
       } else if (newEl.group === 'edges') {
         const existingEdge = cy.getElementById(newEl.data.id);
-        if (existingEdge.length > 0) {
-          existingEdge.data(newEl.data);
-        }
+        if (existingEdge.length > 0) existingEdge.data(newEl.data);
       }
     });
   } else {
-    // Full resync needed when structure changes
     cy.json({ elements: newElements });
-    
-    // Restore positions after sync
     cy.nodes().forEach(node => {
       const savedPosition = currentPositions[node.id()];
-      if (savedPosition) {
-        node.position(savedPosition);
-      }
+      if (savedPosition) node.position(savedPosition);
     });
-    
-    // Restore camera state after full resync
-    cy.zoom(currentZoom);
-    cy.pan(currentPan);
+    cy.zoom(currentZoom); cy.pan(currentPan);
   }
-  
-  // --- Enforce grabbable state explicitly (Cytoscape may not update via data-only changes) ---
-  const expectedGrabbable = mode === 'editing';
-  let changedCount = 0;
+
+  // Enforce grabbable only on parents; children always ungrabbable
+  const expectedParentGrabbable = mode === 'editing';
   cy.nodes().forEach(n => {
-    const current = n.grabbable();
-    if (expectedGrabbable && !current) {
-      n.grabify();
-      changedCount++;
-    } else if (!expectedGrabbable && current) {
+    if (n.hasClass('entry-parent')) {
+      if (expectedParentGrabbable) n.grabify(); else n.ungrabify();
+    } else {
       n.ungrabify();
-      changedCount++;
     }
   });
-  if (changedCount > 0) {
-    printDebug(`🛡️ [cyAdapter] Applied ${expectedGrabbable ? 'grabify' : 'ungrabify'} to ${changedCount} nodes (mode='${mode}')`);
-  } else {
-    printDebug(`🛡️ [cyAdapter] Grabbable states already correct for mode='${mode}'`);
-  }
-  // ---------------------------------------------------------------------------
-  
+
+  // Ensure each parent has an entry child
+  cy.nodes('.entry-parent').forEach(parent => {
+    const parentId = parent.id();
+    const entryChildId = `${parentId}__entry`;
+    if (cy.getElementById(entryChildId).empty()) {
+      cy.add({ group: 'nodes', data: { id: entryChildId, parent: parentId, label: parent.data('label') || '', size: parent.data('size') || 'regular', color: parent.data('color') || 'gray' }, position: parent.position(), selectable: false, grabbable: false, classes: 'entry' });
+    }
+  });
   return cy;
 }
 
-// Wire common events; handlers are optional (restored)
 export function wireEvents(cy, handlers = {}, mode = 'editing') {
-  printDebug(`🔌 [cyAdapter] Wiring events in mode: ${mode}`);
-  
-  const {
-    onNodeSelectionChange,
-    onEdgeSelectionChange,
-    onNodeClick,
-    onEdgeClick,
-    onNodeDoubleClick,
-    onEdgeDoubleClick,
-    onBackgroundClick,
-    onNodeMove,
-    onZoomChange,
-    onCameraMove
-  } = handlers;
+  printDebug(`🔌 [cyAdapter] Wiring events (parent-only) mode=${mode}`);
+  const { onNodeSelectionChange, onEdgeSelectionChange, onNodeClick, onEdgeClick, onNodeDoubleClick, onEdgeDoubleClick, onBackgroundClick, onNodeMove, onZoomChange, onCameraMove } = handlers;
 
-  printDebug(`🔌 [cyAdapter] Available handlers: ${Object.keys(handlers).join(', ')}`);
-
-  cy.on("select unselect", "node", () => {
+  // Selection events (parents only)
+  cy.on('select unselect', 'node.entry-parent', () => {
     if (onNodeSelectionChange) {
-      const ids = cy.$("node:selected").map(n => n.id());
+      const ids = cy.$('node.entry-parent:selected').map(n => n.id());
       onNodeSelectionChange(ids);
     }
   });
-
-  cy.on("select unselect", "edge", () => {
-    if (onEdgeSelectionChange) {
-      const ids = cy.$("edge:selected").map(e => e.id());
-      onEdgeSelectionChange(ids);
-    }
+  cy.on('select unselect', 'edge', () => {
+    if (onEdgeSelectionChange) onEdgeSelectionChange(cy.$('edge:selected').map(e => e.id()));
   });
 
   if (mode === 'playing') {
     cy.on('select', (evt) => {
       if (evt.target.isNode() || evt.target.isEdge()) {
-        const selectedElement = evt.target;
-        setTimeout(() => {
-          cy.elements().not(selectedElement).unselect();
-        }, 0);
+        const selected = evt.target; setTimeout(() => { cy.elements().not(selected).unselect(); }, 0);
       }
     });
   }
 
-  cy.on("tap", "node", (evt) => {
+  cy.on('tap', 'node.entry-parent', (evt) => {
     if (mode === 'playing') {
-      const clickedNode = evt.target;
-      const wasSelected = clickedNode.selected();
-      setTimeout(() => {
-        if (wasSelected) {
-          clickedNode.unselect();
-          return;
-        } else {
-          if (onNodeClick) onNodeClick(evt.target.id(), "node");
-        }
-      }, 0);
-      return;
+      const n = evt.target; const was = n.selected();
+      setTimeout(() => { if (was) n.unselect(); else if (onNodeClick) onNodeClick(n.id(), 'node'); }, 0); return;
     }
-    if (onNodeClick) onNodeClick(evt.target.id(), "node");
+    if (onNodeClick) onNodeClick(evt.target.id(), 'node');
   });
-
-  cy.on("tap", "edge", (evt) => {
+  cy.on('tap', 'edge', (evt) => {
     if (mode === 'playing') {
-      const clickedEdge = evt.target;
-      const wasSelected = clickedEdge.selected();
-      setTimeout(() => {
-        if (wasSelected) {
-          clickedEdge.unselect();
-          return;
-        } else {
-          if (onEdgeClick) onEdgeClick(evt.target.id(), "edge");
-        }
-      }, 0);
-      return;
+      const e = evt.target; const was = e.selected();
+      setTimeout(() => { if (was) e.unselect(); else if (onEdgeClick) onEdgeClick(e.id(), 'edge'); }, 0); return;
     }
-    if (onEdgeClick) onEdgeClick(evt.target.id(), "edge");
+    if (onEdgeClick) onEdgeClick(evt.target.id(), 'edge');
+  });
+  cy.on('tap', (evt) => { if (evt.target === cy) { cy.elements().unselect(); if (onBackgroundClick) onBackgroundClick(); } });
+
+  cy.on('dbltap', 'node.entry-parent', (evt) => { if (mode !== 'editing') return; if (onNodeDoubleClick) onNodeDoubleClick(evt.target.id()); });
+  cy.on('dbltap', 'edge', (evt) => { if (mode !== 'editing') return; if (onEdgeDoubleClick) onEdgeDoubleClick(evt.target.id()); });
+
+  // Drag end updates position (only parents are draggable)
+  cy.on('dragfree', 'node.entry-parent', (evt) => {
+    if (onNodeMove) { const { x, y } = evt.target.position(); onNodeMove(evt.target.id(), { x, y }); }
   });
 
-  cy.on("tap", (evt) => {
-    if (evt.target === cy) {
-      cy.elements().unselect();
-      if (onBackgroundClick) onBackgroundClick();
-    }
+  // Viewport
+  cy.on('viewport', () => {
+    const zoom = cy.zoom(); const pan = cy.pan();
+    if (onZoomChange) onZoomChange(zoom);
+    if (onCameraMove) onCameraMove({ x: pan.x, y: pan.y });
   });
 
-  cy.on("dbltap", "node", (evt) => { 
-    // Only allow node double-click size cycling in editing mode
-    printDebug(`🖱️ [cyAdapter] Node double-tap detected: ${evt.target.id()}`);
-    if (mode !== 'editing') { 
-      printDebug(`🛑 [cyAdapter] Ignoring node double-tap in mode='${mode}' for node ${evt.target.id()}`); 
-      return; 
-    }
-    if (onNodeDoubleClick) onNodeDoubleClick(evt.target.id()); 
-  });
-  cy.on("dbltap", "edge", (evt) => { 
-    // Only allow edge double-click direction cycling in editing mode
-    printDebug(`🖱️ [cyAdapter] Edge double-tap detected: ${evt.target.id()}`);
-    if (mode !== 'editing') { 
-      printDebug(`🛑 [cyAdapter] Ignoring edge double-tap in mode='${mode}' for edge ${evt.target.id()}`); 
-      return; 
-    }
-    if (onEdgeDoubleClick) onEdgeDoubleClick(evt.target.id()); 
-  });
-  
-  // Simple dragfree handler for node position updates (grabbable property controls dragging ability)
-  cy.on("dragfree", "node", (evt) => { 
-    if (onNodeMove) { 
-      const n = evt.target; 
-      const { x, y } = n.position(); 
-      printDebug(`📍 [cyAdapter] Node moved: ${n.id()} to (${Math.round(x)}, ${Math.round(y)})`);
-      onNodeMove(n.id(), { x, y }); 
-    } 
-  });
-  
-  // Add debugging for viewport events
-  cy.on("viewport", () => { 
-    const zoom = cy.zoom();
-    const pan = cy.pan();
-    printDebug(`🎥 [cyAdapter] Viewport event - zoom: ${zoom.toFixed(2)}, pan: (${Math.round(pan.x)}, ${Math.round(pan.y)})`);
-    
-    if (onZoomChange) {
-      printDebug(`🎥 [cyAdapter] Calling onZoomChange with: ${zoom}`);
-      onZoomChange(zoom);
-    }
-    
-    if (onCameraMove) {
-      printDebug(`🎥 [cyAdapter] Calling onCameraMove with: (${Math.round(pan.x)}, ${Math.round(pan.y)})`);
-      onCameraMove({ x: pan.x, y: pan.y });
-    }
-  });
-  cy.on("mouseover", "node, edge", (evt) => { evt.cy.container().style.cursor = "pointer"; });
-  cy.on("mouseout", "node, edge", (evt) => { evt.cy.container().style.cursor = "default"; });
+  cy.on('mouseover', 'node.entry-parent, edge', (evt) => { evt.cy.container().style.cursor = 'pointer'; });
+  cy.on('mouseout', 'node.entry-parent, edge', (evt) => { evt.cy.container().style.cursor = 'default'; });
 
   return () => {
-    printDebug("🧹 [cyAdapter] Removing event listeners");
-    cy.off("select");
-    cy.off("unselect");
-    cy.off("tap");
-    cy.off("dbltap");
-    cy.off("dragfree");
-    cy.off("viewport");
-    cy.off("mouseover");
-    cy.off("mouseout");
+    printDebug('🧹 [cyAdapter] Removing event listeners');
+    cy.removeListener('*');
   };
+}
+
+export function ensureNoteCountNodes(cy, notes, visible) {
+  if (!cy) return; if (cy._noteCountUpdating) return; cy._noteCountUpdating = true;
+  try {
+    cy.nodes('.entry-parent').forEach(parent => {
+      const id = parent.id();
+      const count = Array.isArray(notes[id]) ? notes[id].length : 0;
+      const noteId = `${id}__noteCount`;
+      let noteNode = cy.getElementById(noteId);
+      if (noteNode.empty()) {
+        noteNode = cy.add({ group: 'nodes', data: { id: noteId, parent: id, label: String(count) }, position: parent.position(), selectable: false, grabbable: false, classes: 'note-count' });
+      } else {
+        noteNode.data('label', String(count));
+      }
+      if (visible && count > 0) noteNode.removeClass('hidden'); else noteNode.addClass('hidden');
+    });
+    cy.nodes('.note-count').forEach(n => { if (!n.parent() || !n.parent().hasClass('entry-parent')) cy.remove(n); });
+  } finally { cy._noteCountUpdating = false; }
+}
+
+export function updateNoteCounts(cy, notes) {
+  if (!cy) return;
+  cy.nodes('.note-count').forEach(n => {
+    const parent = n.parent(); if (!parent.empty()) { const id = parent.id(); const count = Array.isArray(notes[id]) ? notes[id].length : 0; n.data('label', String(count)); }
+  });
 }
 
 export function clearGrayscaleCache() {

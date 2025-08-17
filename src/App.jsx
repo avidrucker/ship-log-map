@@ -165,6 +165,12 @@ function App() {
   const loadError = ui.loadError;
   const lastUndoState = undo.lastGraphState;
 
+  // Note count overlay state (persisted to localStorage, not JSON export)
+  const [showNoteCountOverlay, setShowNoteCountOverlay] = useState(() => {
+    const saved = localStorage.getItem("shipLogNoteCountOverlay");
+    return saved ? JSON.parse(saved) : false;
+  });
+
   // ---------- debug taps ----------
   useEffect(() => { printDebug('🏠 App: zoomLevel changed to:', zoomLevel); }, [zoomLevel]);
   useEffect(() => { printDebug('🏠 App: cameraPosition changed to:', cameraPosition); }, [cameraPosition]);
@@ -205,6 +211,11 @@ function App() {
   useEffect(() => {
     saveUndoStateToLocal(lastUndoState);
   }, [lastUndoState]);
+
+  // Save note count overlay state to localStorage
+  useEffect(() => {
+    localStorage.setItem("shipLogNoteCountOverlay", JSON.stringify(showNoteCountOverlay));
+  }, [showNoteCountOverlay]);
 
   // Manage grayscale cache based on feature flag
   useEffect(() => {
@@ -732,6 +743,22 @@ function App() {
     dispatchAppState({ type: ACTION_TYPES.SET_CDN_BASE_URL, payload: { cdnBaseUrl: newCdnBaseUrl } });
   }, []);
 
+  // Note count overlay toggle
+  const handleToggleNoteCountOverlay = useCallback(() => {
+    const newState = !showNoteCountOverlay;
+    printDebug('🔥 [APP] handleToggleNoteCountOverlay called!');
+    printDebug('🔥 [APP] Current showNoteCountOverlay:', showNoteCountOverlay);
+    printDebug('🔥 [APP] New state will be:', newState);
+    printDebug('🔥 [APP] Current graphData.notes:', graphData.notes);
+    printDebug('🔥 [APP] Available notes:', Object.keys(graphData.notes).map(key => `${key}: ${graphData.notes[key]?.length || 0}`));
+    
+    setShowNoteCountOverlay(newState);
+    printDebug(`🏷️ [App] Note count overlay toggled: ${newState}`);
+    printDebug(`🏷️ [App] Available notes:`, Object.keys(graphData.notes).map(key => `${key}: ${graphData.notes[key]?.length || 0}`));
+    
+    printDebug('🔥 [APP] setShowNoteCountOverlay called with:', newState);
+  }, [showNoteCountOverlay, graphData.notes]);
+
   // notes — now stored in graphData.notes
   const handleStartNoteEditing = useCallback((targetId, targetType) => {
     // Zoom to selection if feature is enabled
@@ -1049,6 +1076,8 @@ function App() {
         onOpenDebugModal={DEV_MODE ? handleOpenDebugModal : undefined}
         onUndo={handleUndo}
         canUndo={!!lastUndoState}
+        showNoteCountOverlay={showNoteCountOverlay}
+        onToggleNoteCountOverlay={handleToggleNoteCountOverlay}
       />
 
       <NoteEditorModal
@@ -1079,6 +1108,7 @@ function App() {
           isOpen={debugModalOpen}
           onClose={handleCloseDebugModal}
           debugData={getDebugData()}
+          getCytoscapeInstance={getCytoscapeInstance}
         />
       )}
 
@@ -1131,6 +1161,10 @@ function App() {
         onBackgroundClick={handleBackgroundClick}
 
         onCytoscapeInstanceReady={setCytoscapeInstance}
+
+        // Note count overlay
+        showNoteCountOverlay={showNoteCountOverlay}
+        notes={graphData.notes}
       />
     </div>
   );

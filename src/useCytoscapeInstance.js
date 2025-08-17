@@ -289,8 +289,8 @@ export function useCytoscapeInstance() {
   const exportNodePositions = useCallback(() => {
     const cy = cytoscapeRef.current;
     if (!cy) return [];
-    
-    return cy.nodes().map(node => ({
+    // Only export positions for domain nodes (parent containers)
+    return cy.nodes('.entry-parent').map(node => ({
       id: node.id(),
       x: node.position('x'),
       y: node.position('y')

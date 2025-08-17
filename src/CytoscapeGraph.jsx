@@ -1,6 +1,6 @@
 // src/CytoscapeGraph.jsx
 import React, { useEffect, useRef } from "react";
-import { mountCy, syncElements, wireEvents, hasPendingGrayscaleConversions, updateCompletedGrayscaleImages } from "./graph/cyAdapter.js";
+import { mountCy, syncElements, wireEvents, hasPendingGrayscaleConversions, updateCompletedGrayscaleImages, ensureNoteCountNodes, updateNoteCounts } from "./graph/cyAdapter.js";
 import { printDebug, printError, printWarn } from "./utils/debug.js";
 
 // Keep the same props your App already passes in
@@ -42,6 +42,10 @@ function CytoscapeGraph({
 
   // Node move
   onNodeMove,
+
+  // Note count overlay
+  showNoteCountOverlay = false,
+  notes = {},
 
   // Give parent access to cy instance
   onCytoscapeInstanceReady
@@ -90,6 +94,11 @@ function CytoscapeGraph({
         cyRef.current._eventCleanup = off;
 
         if (onCytoscapeInstanceReady) onCytoscapeInstanceReady(cy);
+        // Initial note-count overlay creation if enabled
+        if (showNoteCountOverlay) {
+          ensureNoteCountNodes(cy, notes, showNoteCountOverlay);
+          updateNoteCounts(cy, notes);
+        }
       } catch (error) {
         printError('Failed to initialize Cytoscape:', error);
       }
@@ -151,7 +160,6 @@ function CytoscapeGraph({
   // Note: mode is included as dependency because it affects grabbable property in buildElements
   useEffect(() => {
     if (!cyRef.current) return;
-    
     const cy = cyRef.current;
     printDebug(`🔄 [CytoscapeGraph] Domain sync effect triggered - checking if sync needed (mode: ${mode})`);
     printDebug(`🔍 [CytoscapeGraph] Current nodes in cytoscape: ${cy.nodes().length}, incoming nodes: ${nodes.length}`);
@@ -308,7 +316,7 @@ function CytoscapeGraph({
       });
       printDebug(`📍 [CytoscapeGraph] Updated positions for ${updatedCount} nodes`);
     }
-  }, [nodes, edges, mode, mapName, cdnBaseUrl]);
+  }, [nodes, edges, mode, mapName, cdnBaseUrl, showNoteCountOverlay, notes]);
 
   // Sync selections when app state changes
   useEffect(() => {
@@ -399,6 +407,15 @@ function CytoscapeGraph({
       printDebug(`⚙️ [CytoscapeGraph] Mode='${mode}' grabbable states already correct (immediate effect)`);
     }
   }, [mode]);
+
+  // Note count overlay management (Cytoscape child nodes instead of HTML overlays)
+  useEffect(() => {
+    if (!cyRef.current) return; const cy = cyRef.current;
+    ensureNoteCountNodes(cy, notes, showNoteCountOverlay);
+    updateNoteCounts(cy, notes);
+    cy.on('add remove', () => { ensureNoteCountNodes(cy, notes, showNoteCountOverlay); });
+    return () => { cy.off('add remove'); };
+  }, [showNoteCountOverlay, notes]);
 
   return (
     <div

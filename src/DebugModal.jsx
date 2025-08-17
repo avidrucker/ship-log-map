@@ -1,11 +1,13 @@
 import React, { useState } from "react";
 import { GRAYSCALE_IMAGES } from "./config/features.js";
+import { printDebug } from "./utils/debug.js";
 import { clearAllImageCaches, getImageCacheStats } from "./utils/imageLoader.js";
 
-function DebugModal({ isOpen, onClose, debugData }) {
+function DebugModal({ isOpen, onClose, debugData, getCytoscapeInstance }) {
   const [copySuccess, setCopySuccess] = useState(false);
   const [cacheClearSuccess, setCacheClearSuccess] = useState(false);
   const [allCacheClearSuccess, setAllCacheClearSuccess] = useState(false);
+  const [debugGraphSuccess, setDebugGraphSuccess] = useState(false);
 
   if (!isOpen) return null;
 
@@ -29,6 +31,23 @@ function DebugModal({ isOpen, onClose, debugData }) {
       setTimeout(() => setAllCacheClearSuccess(false), 2000);
     } catch (err) {
       console.error("Failed to clear all image caches:", err);
+    }
+  };
+
+  const handleDebugPrintGraph = async () => {
+    try {
+      if (!getCytoscapeInstance) {
+        printDebug('🔍 [DEBUG] No getCytoscapeInstance function provided');
+        return;
+      }
+      
+      const cy = getCytoscapeInstance();
+      const { debugPrintEntireGraph } = await import('./graph/cyAdapter.js');
+      debugPrintEntireGraph(cy);
+      setDebugGraphSuccess(true);
+      setTimeout(() => setDebugGraphSuccess(false), 2000);
+    } catch (err) {
+      console.error("Failed to debug print graph:", err);
     }
   };
 
@@ -185,6 +204,22 @@ function DebugModal({ isOpen, onClose, debugData }) {
             }}
           >
             {allCacheClearSuccess ? "✓ All Caches Cleared!" : "Clear All Image Caches"}
+          </button>
+          
+          {/* Debug graph print */}
+          <button
+            onClick={handleDebugPrintGraph}
+            style={{
+              padding: "8px 16px",
+              backgroundColor: debugGraphSuccess ? "#4caf50" : "#9c27b0",
+              color: "#fff",
+              border: "none",
+              borderRadius: "4px",
+              cursor: "pointer",
+              fontSize: "14px"
+            }}
+          >
+            {debugGraphSuccess ? "✓ Graph Logged to Console!" : "🔍 Debug Print Graph"}
           </button>
         </div>
 
