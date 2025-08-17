@@ -40,18 +40,18 @@
 - [ ] Implement a "search" feature that allows users to search for nodes by title
 - [ ] Implement a "filter" feature that allows users to filter nodes by tags, size, color, etc.
 - [x] Implement a "Are you sure you want to delete the current map?" confirmation popup upon clicking the reset button so that way users don't accidentally reset their graph
-- [ ] Implement a button that clears the current image from the selected node (in the note editor modal), and resets the node's image to the default "unspecified" image
+- [ ] Implement a button in the note editor modal that clears the current image from the selected node (in the note editor modal), and resets the node's image to the default "unspecified" image
 - [ ] Implement rotate map feature that rotates the entire map by 45 degrees clockwise or counter-clockwise around its center point or the origin point (0,0)
 - [x] Apply zooming into a node/edge when it is selected in playing mode, so that the camera zooms in on the node/edge and centers it in the top half of the viewport
-- [ ] Fix bug where nodes are draggable in playing mode, they should not be draggable in playing mode
-- [ ] Investigate bug where images are not loaded correctly from the CDN, only showing 1 of the images for all the nodes
-- [ ] Implement overlay that adds a number above each node indicating the number of notes associated with that node
+- [x] Fix bug where nodes are draggable in playing mode, they should not be draggable in playing mode
+- [x] Investigate bug where images are not loaded correctly from the CDN, only showing 1 of the images for all the nodes
+- [ ] Implement toggle-able overlay via a button in the UI that, when toggled, shows/hides a number above each node indicating the number of notes associated with that node
 - [x] Fix bug where edge double clicking doesn't cycle through edge directions properly, but it should cycle through forward, backward, bidirectional, and then back to forward
-- [ ] Fix animation bug when in playing mode and unzooming out of a node/edge, where the animation plays 3 times when it should only play once ONLY if the user clicks on the background to unzoom, but if the user clicks on the "x" button to close the note viewer modal, it correctly plays the animation only once
+- [x] Fix animation bug when in playing mode and unzooming out of a node/edge, where the animation plays 3 times when it should only play once ONLY if the user clicks on the background to unzoom, but if the user clicks on the "x" button to close the note viewer modal, it correctly plays the animation only once
 - [ ] Remove undo button from playing mode, as it is not needed there
 - [x] Fix bug where double clicking a node in playing mode changes the node's size, but it should not change the size of the node in playing mode
 - [x] Fix bug where loading from a JSON file does not update the CDN link, but it should
-- [ ] Implementing a "map name" feature that allows users to set a name for the current map, which is saved with the graph state and can be displayed in the UI
+- [x] Implementing a "map name" feature that allows users to set a name for the current map, which is saved with the graph state and can be displayed in the UI
 
 Notes for Future Features
 - Listing out "layers" which show things such as electrical lines, water lines, Internet, etc. that can be toggled on and off
