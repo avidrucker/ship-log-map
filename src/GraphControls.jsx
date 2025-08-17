@@ -1,5 +1,6 @@
 import React from "react";
 import NodeColorPicker from "./NodeColorPicker";
+import { printDebug } from "./utils/debug.js";
 import { DEV_MODE } from "./config/features";
 
 function GraphControls({
@@ -97,7 +98,7 @@ function GraphControls({
           cursor: "pointer"
         }}
         onClick={() => {
-          console.log('🔥 [BUTTON] Notes button clicked! Current state:', showNoteCountOverlay);
+          printDebug('🔥 [BUTTON] Notes button clicked! Current state:', showNoteCountOverlay);
           onToggleNoteCountOverlay();
         }}
         title={`${showNoteCountOverlay ? 'Hide' : 'Show'} Note Count Overlay`}

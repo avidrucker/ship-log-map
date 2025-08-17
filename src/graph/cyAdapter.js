@@ -502,8 +502,22 @@ export function wireEvents(cy, handlers = {}, mode = 'editing') {
   printDebug(`🔌 [cyAdapter] Wiring events (parent-only) mode=${mode}`);
   const { onNodeSelectionChange, onEdgeSelectionChange, onNodeClick, onEdgeClick, onNodeDoubleClick, onEdgeDoubleClick, onBackgroundClick, onNodeMove, onZoomChange, onCameraMove } = handlers;
 
+  // Helper to sync selection/active classes from parent to entry child
+  const syncParentStateToChild = (parent) => {
+    const parentId = parent.id();
+    const entryChildId = `${parentId}__entry`;
+    const child = cy.getElementById(entryChildId);
+    if (child.empty()) return;
+    if (parent.selected()) child.addClass('parent-selected'); else child.removeClass('parent-selected');
+    if (parent.grabbed() || parent.active()) child.addClass('parent-active'); else child.removeClass('parent-active');
+  };
+
+  // Initial pass
+  cy.nodes('.entry-parent').forEach(syncParentStateToChild);
+
   // Selection events (parents only)
-  cy.on('select unselect', 'node.entry-parent', () => {
+  cy.on('select unselect', 'node.entry-parent', (evt) => {
+    const parent = evt.target; syncParentStateToChild(parent);
     if (onNodeSelectionChange) {
       const ids = cy.$('node.entry-parent:selected').map(n => n.id());
       onNodeSelectionChange(ids);
@@ -511,6 +525,11 @@ export function wireEvents(cy, handlers = {}, mode = 'editing') {
   });
   cy.on('select unselect', 'edge', () => {
     if (onEdgeSelectionChange) onEdgeSelectionChange(cy.$('edge:selected').map(e => e.id()));
+  });
+
+  // Grab/drag state -> active styling
+  cy.on('grab free drag', 'node.entry-parent', (evt) => {
+    syncParentStateToChild(evt.target);
   });
 
   if (mode === 'playing') {
@@ -542,6 +561,7 @@ export function wireEvents(cy, handlers = {}, mode = 'editing') {
 
   // Drag end updates position (only parents are draggable)
   cy.on('dragfree', 'node.entry-parent', (evt) => {
+    syncParentStateToChild(evt.target);
     if (onNodeMove) { const { x, y } = evt.target.position(); onNodeMove(evt.target.id(), { x, y }); }
   });
 

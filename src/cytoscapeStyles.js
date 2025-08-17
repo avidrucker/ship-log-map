@@ -119,23 +119,21 @@ const colorRules = [
   { selector: 'node.entry[color="blue"]', style: { "background-color": COLORS.blue.base, "border-color": COLORS.blue.base } }
 ];
 
-// Selected border uses the bright variant of the node’s color.
-const selectedRules = [
-  { selector: 'node.entry:selected[color="gray"]', style: { "border-color": COLORS.gray.bright, "border-width": BORDER.selectedWidth, "background-color": COLORS.gray.bright } },
-  { selector: 'node.entry:selected[color="green"]', style: { "border-color": COLORS.green.bright, "border-width": BORDER.selectedWidth, "background-color": COLORS.green.bright } },
-  { selector: 'node.entry:selected[color="orange"]', style: { "border-color": COLORS.orange.bright, "border-width": BORDER.selectedWidth, "background-color": COLORS.orange.bright } },
-  { selector: 'node.entry:selected[color="purple"]', style: { "border-color": COLORS.purple.bright, "border-width": BORDER.selectedWidth, "background-color": COLORS.purple.bright } },
-  { selector: 'node.entry:selected[color="red"]', style: { "border-color": COLORS.red.bright, "border-width": BORDER.selectedWidth, "background-color": COLORS.red.bright } },
-  { selector: 'node.entry:selected[color="blue"]', style: { "border-color": COLORS.blue.bright, "border-width": BORDER.selectedWidth, "background-color": COLORS.blue.bright } }
-];
-
-const activeRules = [
-  { selector: 'node.entry:active[color="gray"]', style: { "border-color": COLORS.gray.bright, "border-width": BORDER.selectedWidth, "background-color": COLORS.gray.bright } },
-  { selector: 'node.entry:active[color="green"]', style: { "border-color": COLORS.green.bright, "border-width": BORDER.selectedWidth, "background-color": COLORS.green.bright } },
-  { selector: 'node.entry:active[color="orange"]', style: { "border-color": COLORS.orange.bright, "border-width": BORDER.selectedWidth, "background-color": COLORS.orange.bright } },
-  { selector: 'node.entry:active[color="purple"]', style: { "border-color": COLORS.purple.bright, "border-width": BORDER.selectedWidth, "background-color": COLORS.purple.bright } },
-  { selector: 'node.entry:active[color="red"]', style: { "border-color": COLORS.red.bright, "border-width": BORDER.selectedWidth, "background-color": COLORS.red.bright } },
-  { selector: 'node.entry:active[color="blue"]', style: { "border-color": COLORS.blue.bright, "border-width": BORDER.selectedWidth, "background-color": COLORS.blue.bright } }
+// Selected/active state is applied via classes added to the entry child when its parent is selected or grabbed.
+const parentSelectionRules = [
+  { selector: 'node.entry.parent-selected[color="gray"]', style: { "border-color": COLORS.gray.bright, "border-width": BORDER.selectedWidth, "background-color": COLORS.gray.bright } },
+  { selector: 'node.entry.parent-selected[color="green"]', style: { "border-color": COLORS.green.bright, "border-width": BORDER.selectedWidth, "background-color": COLORS.green.bright } },
+  { selector: 'node.entry.parent-selected[color="orange"]', style: { "border-color": COLORS.orange.bright, "border-width": BORDER.selectedWidth, "background-color": COLORS.orange.bright } },
+  { selector: 'node.entry.parent-selected[color="purple"]', style: { "border-color": COLORS.purple.bright, "border-width": BORDER.selectedWidth, "background-color": COLORS.purple.bright } },
+  { selector: 'node.entry.parent-selected[color="red"]', style: { "border-color": COLORS.red.bright, "border-width": BORDER.selectedWidth, "background-color": COLORS.red.bright } },
+  { selector: 'node.entry.parent-selected[color="blue"]', style: { "border-color": COLORS.blue.bright, "border-width": BORDER.selectedWidth, "background-color": COLORS.blue.bright } },
+  // Active / dragging highlight (slightly different opacity to differentiate if needed)
+  { selector: 'node.entry.parent-active[color="gray"]', style: { "border-color": COLORS.gray.bright, "border-width": BORDER.selectedWidth, "background-color": COLORS.gray.bright } },
+  { selector: 'node.entry.parent-active[color="green"]', style: { "border-color": COLORS.green.bright, "border-width": BORDER.selectedWidth, "background-color": COLORS.green.bright } },
+  { selector: 'node.entry.parent-active[color="orange"]', style: { "border-color": COLORS.orange.bright, "border-width": BORDER.selectedWidth, "background-color": COLORS.orange.bright } },
+  { selector: 'node.entry.parent-active[color="purple"]', style: { "border-color": COLORS.purple.bright, "border-width": BORDER.selectedWidth, "background-color": COLORS.purple.bright } },
+  { selector: 'node.entry.parent-active[color="red"]', style: { "border-color": COLORS.red.bright, "border-width": BORDER.selectedWidth, "background-color": COLORS.red.bright } },
+  { selector: 'node.entry.parent-active[color="blue"]', style: { "border-color": COLORS.blue.bright, "border-width": BORDER.selectedWidth, "background-color": COLORS.blue.bright } }
 ];
 
 const edgeBase = [
@@ -252,8 +250,7 @@ const cytoscapeStyles = [
   { selector: 'node.entry', style: entryNodeBase },
   ...sizeRules,
   ...colorRules,
-  ...selectedRules,
-  ...activeRules,
+  ...parentSelectionRules,
   ...edgeBase,
   ...noteCountRules,
   ...dragStateRules,
