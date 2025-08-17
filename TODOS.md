@@ -52,6 +52,7 @@
 - [x] Fix bug where double clicking a node in playing mode changes the node's size, but it should not change the size of the node in playing mode
 - [x] Fix bug where loading from a JSON file does not update the CDN link, but it should
 - [x] Implementing a "map name" feature that allows users to set a name for the current map, which is saved with the graph state and can be displayed in the UI
+- [x] Increase the size of the edge arrow chevrons to make them more visible and more closely match the original source material
 
 Notes for Future Features
 - Listing out "layers" which show things such as electrical lines, water lines, Internet, etc. that can be toggled on and off
