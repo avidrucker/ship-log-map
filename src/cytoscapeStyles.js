@@ -41,28 +41,23 @@ const entryNodeBase = {
   "background-repeat": "no-repeat"
 };
 
-// Text-only note count node (no background / image).
+// Text-only note count node (now fully transparent background & size variants handled below).
 const noteCountBase = {
   'label': 'data(label)',
   'shape': 'rectangle',
-  'padding': 4,
-  'background-opacity': 0.85,
-  'background-color': 'rgba(255,0,0,0.7)', // Make it bright red for debugging visibility
-  'border-width': 1,
-  'border-color': '#ffffff',
+  'padding': 0,
+  'background-opacity': 0,
+  'background-color': 'rgba(0,0,0,0)',
+  'border-width': 0,
   'color': '#ffffff',
-  'font-size': 16,
   'font-weight': 'bold',
   'text-wrap': 'none',
   'text-halign': 'center',
   'text-valign': 'center',
-  'text-outline-width': 2,
   'text-outline-color': 'rgba(0,0,0,0.9)',
   'z-index-compare': 'manual',
-  'z-index': 9999,  // Much higher to stay above dragged nodes
-  'events': 'no',
-  'width': 30,
-  'height': 20
+  'z-index': 9999,
+  'events': 'no'
 };
 
 const sizeRules = [
@@ -197,7 +192,30 @@ const edgeBase = [
 // --- Note count overlay styles ---
 const noteCountRules = [
   { selector: 'node.note-count', style: noteCountBase },
-  { selector: 'node.note-count.hidden', style: { 'display': 'none' } }
+  // Size variants (inherit base, override size + font + outline width)
+  { selector: 'node.note-count[size="double"]', 
+    style: { 'width': NODE_SIZES.double.width, 
+      'height': NODE_SIZES.double.height, 
+      'font-size': 180, 
+      'text-outline-width': 4,
+      'text-margin-y': NODE_SIZES.double['background-position-y'] / 2
+    } },
+  { selector: 'node.note-count[size="regular"]', 
+    style: { 'width': NODE_SIZES.regular.width, 
+      'height': NODE_SIZES.regular.height, 
+      'font-size': 80, 
+      'text-outline-width': 3,
+      'text-margin-y': NODE_SIZES.regular['background-position-y'] / 2
+    } },
+  { selector: 'node.note-count[size="half"]', 
+    style: { 'width': NODE_SIZES.small.width, 
+      'height': NODE_SIZES.small.height, 
+      'font-size': 48, 
+      'text-outline-width': 2,
+      'text-margin-y': NODE_SIZES.small['background-position-y'] / 2
+    } },
+  { selector: 'node.note-count.hidden', 
+    style: { 'display': 'none' } }
 ];
 
 // --- Drag state styles to ensure proper z-ordering ---

@@ -586,13 +586,15 @@ export function ensureNoteCountNodes(cy, notes, visible) {
   try {
     cy.nodes('.entry-parent').forEach(parent => {
       const id = parent.id();
+      const size = parent.data('size') || 'regular';
       const count = Array.isArray(notes[id]) ? notes[id].length : 0;
       const noteId = `${id}__noteCount`;
       let noteNode = cy.getElementById(noteId);
       if (noteNode.empty()) {
-        noteNode = cy.add({ group: 'nodes', data: { id: noteId, parent: id, label: String(count) }, position: parent.position(), selectable: false, grabbable: false, classes: 'note-count' });
+        noteNode = cy.add({ group: 'nodes', data: { id: noteId, parent: id, label: String(count), size }, position: parent.position(), selectable: false, grabbable: false, classes: 'note-count' });
       } else {
         noteNode.data('label', String(count));
+        noteNode.data('size', size);
       }
       if (visible && count > 0) noteNode.removeClass('hidden'); else noteNode.addClass('hidden');
     });
@@ -603,7 +605,7 @@ export function ensureNoteCountNodes(cy, notes, visible) {
 export function updateNoteCounts(cy, notes) {
   if (!cy) return;
   cy.nodes('.note-count').forEach(n => {
-    const parent = n.parent(); if (!parent.empty()) { const id = parent.id(); const count = Array.isArray(notes[id]) ? notes[id].length : 0; n.data('label', String(count)); }
+    const parent = n.parent(); if (!parent.empty()) { const id = parent.id(); const count = Array.isArray(notes[id]) ? notes[id].length : 0; n.data('label', String(count)); n.data('size', parent.data('size') || 'regular'); }
   });
 }
 
