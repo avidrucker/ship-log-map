@@ -195,15 +195,22 @@ export function buildElementsFromDomain(graph, options = {}) {
           pendingImageLoads.add(loadKey);
           printDebug(`🔄 [cyAdapter] Starting image load for: ${imageUrl}`);
           
+          // Capture node ID immediately to avoid closure issue
+          const nodeId = n.id;
+          const originalImageUrl = imageUrl;
+          
+          printDebug(`🎯 [cyAdapter] Captured nodeId="${nodeId}" for image loading: ${originalImageUrl}`);
+          
           // Use resolved CDN base URL (from override / graph / persisted) to avoid race with localStorage
             if (effectiveCdnBaseUrl) {
             loadImageWithFallback(imageUrl, g.mapName || '', effectiveCdnBaseUrl).then(loadedImageUrl => {
               pendingImageLoads.delete(loadKey);
-              printDebug(`✅ [cyAdapter] Image loaded successfully for ${imageUrl}, got data URL of length: ${loadedImageUrl?.length || 0}`);
+              printDebug(`✅ [cyAdapter] Image loaded successfully for nodeId="${nodeId}" originalUrl="${originalImageUrl}", got data URL of length: ${loadedImageUrl?.length || 0}`);
               
               // Immediately show the original loaded image (do NOT wait for grayscale)
               if (onImageLoaded) {
-                onImageLoaded(n.id, loadedImageUrl);
+                printDebug(`🎯 [cyAdapter] Calling onImageLoaded for nodeId="${nodeId}" with image`);
+                onImageLoaded(nodeId, loadedImageUrl);
               }
               
               // Apply grayscale afterwards (background) if enabled and real raster image
@@ -212,19 +219,19 @@ export function buildElementsFromDomain(graph, options = {}) {
                    loadedImageUrl.startsWith('data:image/jpeg;') || 
                    loadedImageUrl.startsWith('data:image/jpg;') || 
                    loadedImageUrl.startsWith('data:image/webp;'))) {
-                printDebug(`🎨 [cyAdapter] Starting grayscale (post-display) for: ${imageUrl}`);
-                preprocessImageToGrayscale(loadedImageUrl, imageUrl).then(grayscaleUrl => {
-                  printDebug(`✅ [cyAdapter] Grayscale conversion complete for: ${imageUrl}`);
+                printDebug(`🎨 [cyAdapter] Starting grayscale (post-display) for: ${originalImageUrl}`);
+                preprocessImageToGrayscale(loadedImageUrl, originalImageUrl).then(grayscaleUrl => {
+                  printDebug(`✅ [cyAdapter] Grayscale conversion complete for: ${originalImageUrl}`);
                   if (onImageLoaded) {
-                    onImageLoaded(n.id, grayscaleUrl);
+                    onImageLoaded(nodeId, grayscaleUrl);
                   }
                 }).catch(error => {
-                  console.warn(`❌ [cyAdapter] Grayscale conversion failed for: ${imageUrl}`, error);
+                  console.warn(`❌ [cyAdapter] Grayscale conversion failed for: ${originalImageUrl}`, error);
                 });
               }
             }).catch(error => {
               pendingImageLoads.delete(loadKey);
-              console.warn(`❌ [cyAdapter] Failed to load image: ${imageUrl}`, error);
+              console.warn(`❌ [cyAdapter] Failed to load image: ${originalImageUrl}`, error);
             });
           } else {
             printDebug(`⚠️ [cyAdapter] No effective CDN base URL available during load for '${imageUrl}'`);
@@ -339,7 +346,7 @@ export async function mountCy({ container, graph, styles = cytoscapeStyles, mode
     try {
       node.data('imageUrl', imageUrl);
       cy.style().update();
-      printDebug(`✅ [cyAdapter] Updated node ${nodeId} image on active instance`);
+      printDebug(`✅ [cyAdapter] Updated node "${nodeId}" image on active instance (imageUrl length: ${imageUrl?.length || 0})`);
     } catch (err) {
       console.error(`❌ [cyAdapter] Failed to update node ${nodeId} image:`, err);
     }
