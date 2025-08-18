@@ -30,7 +30,7 @@ const NodeColorPicker = ({ selectedNodeIds, onNodeColorChange }) => {
           cursor: "pointer"
         }}
       >
-        <option value="">Color:</option>
+        <option value="">Color</option>
         <option value="gray">Gray</option>
         <option value="green">Green</option>
         <option value="orange">Orange</option>
