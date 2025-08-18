@@ -225,8 +225,8 @@ const dragStateRules = [
     selector: 'node.entry:grabbed', 
     style: { 
       'z-index': -1,  // Higher than normal but much lower than note-count nodes
-      'background-color': 'blue', // Slight highlight for visibility
-      'opacity': 0.5, // this demonstrates that the child node is being dragged simultaneously underneath
+      // 'background-color': 'blue', // Slight highlight for visibility
+      // 'opacity': 0.5, // this demonstrates that the child node is being dragged simultaneously underneath
       // 'z-compound-depth': 'bottom'
     } 
   },
