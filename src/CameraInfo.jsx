@@ -214,7 +214,10 @@ function CameraInfo({ zoom, pan, selectedNodeIds, selectedEdgeIds, mode, mapName
               color: "#ff9800",
               fontSize: "11px",
               wordBreak: "break-all",
-              maxWidth: "200px"
+              maxWidth: "200px",
+              overflow: "hidden", // This property hides any content that overflows the element's box.
+              whiteSpace: "nowrap", // This property prevents the text from wrapping to the next line, ensuring it stays on a single line.
+              textOverflow: "ellipsis"
             }}
             title="Click to edit CDN base URL"
           >

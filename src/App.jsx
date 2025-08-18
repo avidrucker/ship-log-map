@@ -4,6 +4,7 @@ import CytoscapeGraph from "./CytoscapeGraph";
 import defaultShipLogData from "./default_ship_log.json";
 import { loadAndValidateRumorMapFromFile } from "./rumorMapValidation";
 import GraphControls from "./GraphControls";
+import UniversalControls from "./UniversalControls";
 import NoteEditorModal from "./NoteEditorModal";
 import NoteViewerModal from "./NoteViewerModal";
 import DebugModal from "./DebugModal";
@@ -1136,21 +1137,25 @@ function App() {
         onEditSelected={handleEditSelected}
         onConnectNodes={handleConnectSelectedNodes}
         onExportMap={exportMap}
-        onImportFile={handleFileSelect}
         onResetMap={handleResetToInitial}
         onNewMap={handleNewMap}
-        onFitToView={handleFitToView}
-        fileInputRef={fileInputRef}
+        onRotate={handleRotateAllNodes}
+        onUndo={handleUndo}
+        canUndo={!!lastUndoState}
+        onOpenDebugModal={DEV_MODE ? handleOpenDebugModal : undefined}
         onNodeColorChange={handleNodeColorChange}
         areNodesConnected={areNodesConnected}
         mode={mode}
+      />
+
+      <UniversalControls
+        fileInputRef={fileInputRef}
+        onImportFile={handleFileSelect}
+        onFitToView={handleFitToView}
         onModeToggle={MODE_TOGGLE ? handleModeToggle : undefined}
-        onOpenDebugModal={DEV_MODE ? handleOpenDebugModal : undefined}
-        onUndo={handleUndo}
-        canUndo={!!lastUndoState}
+        mode={mode}
         showNoteCountOverlay={showNoteCountOverlay}
         onToggleNoteCountOverlay={handleToggleNoteCountOverlay}
-        onRotate={handleRotateAllNodes} // NEW prop
       />
 
       <NoteEditorModal
