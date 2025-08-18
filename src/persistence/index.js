@@ -6,6 +6,8 @@ const MODE_STORAGE_KEY = "ship_log_map_mode_v1";
 const UNDO_STORAGE_KEY = "ship_log_map_undo_v1";
 const MAP_NAME_STORAGE_KEY = "ship_log_map_name_v1";
 const SCHEMA_VERSION = 1;
+const UNIVERSAL_MENU_COLLAPSED_KEY = "ship_log_universal_menu_collapsed_v1";
+const GRAPH_CONTROLS_COLLAPSED_KEY = "ship_log_graph_controls_collapsed_v1";
 
 export function newBlankMap() {
   return { nodes: [], edges: [], notes: {}, mode: 'editing', __version: SCHEMA_VERSION };
@@ -155,4 +157,17 @@ export function loadFromFile(file) {
     };
     reader.readAsText(file);
   });
+}
+
+export function saveUniversalMenuCollapsed(collapsed) {
+  try { localStorage.setItem(UNIVERSAL_MENU_COLLAPSED_KEY, JSON.stringify(!!collapsed)); } catch { /* noop */ }
+}
+export function loadUniversalMenuCollapsed() {
+  try { const v = localStorage.getItem(UNIVERSAL_MENU_COLLAPSED_KEY); return v ? JSON.parse(v) : false; } catch { return false; }
+}
+export function saveGraphControlsCollapsed(collapsed) {
+  try { localStorage.setItem(GRAPH_CONTROLS_COLLAPSED_KEY, JSON.stringify(!!collapsed)); } catch { /* noop */ }
+}
+export function loadGraphControlsCollapsed() {
+  try { const v = localStorage.getItem(GRAPH_CONTROLS_COLLAPSED_KEY); return v ? JSON.parse(v) : false; } catch { return false; }
 }

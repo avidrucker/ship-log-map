@@ -1,5 +1,15 @@
 import React from 'react';
 
+function HamburgerIcon({ color = '#fff', size = 18 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <rect x="3" y="6" width="18" height="2" fill={color}></rect>
+      <rect x="3" y="11" width="18" height="2" fill={color}></rect>
+      <rect x="3" y="16" width="18" height="2" fill={color}></rect>
+    </svg>
+  );
+}
+
 function UniversalControls({
   fileInputRef,
   onImportFile,
@@ -7,8 +17,27 @@ function UniversalControls({
   onModeToggle,
   mode,
   showNoteCountOverlay,
-  onToggleNoteCountOverlay
+  onToggleNoteCountOverlay,
+  // collapse state
+  collapsed,
+  onToggleCollapsed
 }) {
+  if (collapsed) {
+    return (
+      <div style={{ position: 'absolute', left: '10px', bottom: '10px', zIndex: 1000 }}>
+        <button
+          onClick={onToggleCollapsed}
+            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 12px', background: 'rgba(0,0,0,0.55)', border: '1px solid #444', borderRadius: '6px', cursor: 'pointer', color: '#fff', fontWeight: 'bold' }}
+            aria-label="Open universal menu"
+            title="Open universal menu"
+          >
+          <HamburgerIcon />
+          <span>Menu</span>
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div style={{ 
         position: 'absolute', 
@@ -21,6 +50,17 @@ function UniversalControls({
         background: 'rgba(0,0,0,0.55)', 
         padding: '8px 10px', 
         borderRadius: '6px' }}>
+      {/* Collapse button (open state) */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <button
+          onClick={onToggleCollapsed}
+          style={{ padding: '4px 8px', background: 'rgba(0,0,0,0.55)', color: '#fff', border: '1px solid #444', borderRadius: '4px', cursor: 'pointer', fontSize: '16px', lineHeight: 1 }}
+          aria-label="Collapse universal menu"
+          title="Collapse universal menu"
+        >
+          ✕
+        </button>
+      </div>
       <input
         ref={fileInputRef}
         type="file"

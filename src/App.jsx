@@ -16,7 +16,7 @@ import { appStateReducer, initialAppState, ACTION_TYPES } from "./appStateReduce
 import { ZOOM_TO_SELECTION, DEBUG_LOGGING, MODE_TOGGLE, DEV_MODE, GRAYSCALE_IMAGES } from "./config/features.js";
 
 // 🚀 New imports: centralized persistence + edge id helper
-import { saveToLocal, loadFromLocal, saveModeToLocal, loadModeFromLocal, saveUndoStateToLocal, loadUndoStateFromLocal, saveMapNameToLocal, loadMapNameFromLocal } from "./persistence/index.js";
+import { saveToLocal, loadFromLocal, saveModeToLocal, loadModeFromLocal, saveUndoStateToLocal, loadUndoStateFromLocal, saveMapNameToLocal, loadMapNameFromLocal, loadUniversalMenuCollapsed, loadGraphControlsCollapsed } from "./persistence/index.js";
 import { edgeId, renameNode } from "./graph/ops.js";
 import { setCdnBaseUrl, getCdnBaseUrl } from "./utils/imageLoader.js";
 import { printDebug } from "./utils/debug.js";
@@ -148,6 +148,12 @@ function App() {
     })(),
     undo: {
       lastGraphState: loadUndoStateFromLocal()
+    },
+    ui: {
+      shouldFitOnNextRender: false,
+      loadError: null,
+      universalMenuCollapsed: loadUniversalMenuCollapsed(),
+      graphControlsCollapsed: loadGraphControlsCollapsed()
     }
   });
 
@@ -165,6 +171,21 @@ function App() {
   const shouldFitOnNextRender = ui.shouldFitOnNextRender;
   const loadError = ui.loadError;
   const lastUndoState = undo.lastGraphState;
+  const universalMenuCollapsed = ui.universalMenuCollapsed;
+  const graphControlsCollapsed = ui.graphControlsCollapsed;
+
+  // Toggle handlers for collapsible menus
+  const toggleUniversalMenu = useCallback(() => {
+    const next = !universalMenuCollapsed;
+    dispatchAppState({ type: ACTION_TYPES.SET_UNIVERSAL_MENU_COLLAPSED, payload: { collapsed: next } });
+    // persist
+    import('./persistence/index.js').then(m => m.saveUniversalMenuCollapsed(next));
+  }, [universalMenuCollapsed]);
+  const toggleGraphControls = useCallback(() => {
+    const next = !graphControlsCollapsed;
+    dispatchAppState({ type: ACTION_TYPES.SET_GRAPH_CONTROLS_COLLAPSED, payload: { collapsed: next } });
+    import('./persistence/index.js').then(m => m.saveGraphControlsCollapsed(next));
+  }, [graphControlsCollapsed]);
 
   // Note count overlay state (persisted to localStorage, not JSON export)
   const [showNoteCountOverlay, setShowNoteCountOverlay] = useState(() => {
@@ -1103,7 +1124,9 @@ function App() {
         noteEditingTarget,
         noteEditingType,
         noteViewingTarget,
-        debugModalOpen
+        debugModalOpen,
+        universalMenuCollapsed,
+        graphControlsCollapsed
       },
       undo: {
         canUndo: !!lastUndoState,
@@ -1120,7 +1143,7 @@ function App() {
     exportNodePositions, graphData, mode, zoomLevel, cameraPosition, 
     selectedNodeIds, nodeSelectionOrder, selectedEdgeIds, shouldFitOnNextRender, 
     loadError, noteEditingTarget, noteEditingType, noteViewingTarget, debugModalOpen,
-    lastUndoState
+    lastUndoState, universalMenuCollapsed, graphControlsCollapsed
   ]);
 
   /** ---------- render ---------- **/
@@ -1146,6 +1169,8 @@ function App() {
         onNodeColorChange={handleNodeColorChange}
         areNodesConnected={areNodesConnected}
         mode={mode}
+        collapsed={graphControlsCollapsed}
+        onToggleCollapsed={toggleGraphControls}
       />
 
       <UniversalControls
@@ -1156,6 +1181,8 @@ function App() {
         mode={mode}
         showNoteCountOverlay={showNoteCountOverlay}
         onToggleNoteCountOverlay={handleToggleNoteCountOverlay}
+        collapsed={universalMenuCollapsed}
+        onToggleCollapsed={toggleUniversalMenu}
       />
 
       <NoteEditorModal
