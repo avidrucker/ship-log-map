@@ -3,6 +3,9 @@ import React, { useEffect, useRef } from "react";
 import { mountCy, syncElements, wireEvents, hasPendingGrayscaleConversions, updateCompletedGrayscaleImages, ensureNoteCountNodes, updateNoteCounts } from "./graph/cyAdapter.js";
 import { printDebug, printError, printWarn } from "./utils/debug.js";
 
+// NOTE: mountCy now supports async CDN placeholder default image loading for 'unspecified' images.
+// Passing mapName & cdnBaseUrl ensures placeholder keyed per map.
+
 // Keep the same props your App already passes in
 function CytoscapeGraph({
   nodes = [],

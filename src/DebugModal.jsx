@@ -8,6 +8,9 @@ function DebugModal({ isOpen, onClose, debugData, getCytoscapeInstance }) {
   const [cacheClearSuccess, setCacheClearSuccess] = useState(false);
   const [allCacheClearSuccess, setAllCacheClearSuccess] = useState(false);
   const [debugGraphSuccess, setDebugGraphSuccess] = useState(false);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
+  const [diagnosticsJson, setDiagnosticsJson] = useState('');
+  const [clearedDiagnostics, setClearedDiagnostics] = useState(false);
 
   if (!isOpen) return null;
 
@@ -74,6 +77,24 @@ function DebugModal({ isOpen, onClose, debugData, getCytoscapeInstance }) {
       }
       document.body.removeChild(textArea);
     }
+  };
+
+  const handleToggleDiagnostics = async () => {
+    try {
+      const { getImageLoadDiagnostics } = await import('./utils/imageLoader.js');
+      const diag = getImageLoadDiagnostics();
+      setDiagnosticsJson(JSON.stringify(diag, null, 2));
+      setShowDiagnostics(!showDiagnostics);
+    } catch (e) { console.error('Failed to load diagnostics', e); }
+  };
+  const handleClearDiagnostics = async () => {
+    try {
+      const { clearImageLoadDiagnostics } = await import('./utils/imageLoader.js');
+      clearImageLoadDiagnostics();
+      setClearedDiagnostics(true);
+      setTimeout(()=> setClearedDiagnostics(false), 1500);
+      if (showDiagnostics) setDiagnosticsJson('{}');
+    } catch (e) { console.error('Failed to clear diagnostics', e); }
   };
 
   const handleBackgroundClick = (e) => {
@@ -221,6 +242,36 @@ function DebugModal({ isOpen, onClose, debugData, getCytoscapeInstance }) {
           >
             {debugGraphSuccess ? "✓ Graph Logged to Console!" : "🔍 Debug Print Graph"}
           </button>
+
+          {/* Diagnostics toggle and clear */}
+          <button
+            onClick={handleToggleDiagnostics}
+            style={{
+              padding: "8px 16px",
+              backgroundColor: showDiagnostics ? "#555" : "#607d8b",
+              color: "#fff",
+              border: "none",
+              borderRadius: "4px",
+              cursor: "pointer",
+              fontSize: "14px"
+            }}
+          >
+            {showDiagnostics ? "Hide Image Diagnostics" : "Show Image Diagnostics"}
+          </button>
+          <button
+            onClick={handleClearDiagnostics}
+            style={{
+              padding: "8px 16px",
+              backgroundColor: clearedDiagnostics ? "#4caf50" : "#546e7a",
+              color: "#fff",
+              border: "none",
+              borderRadius: "4px",
+              cursor: "pointer",
+              fontSize: "14px"
+            }}
+          >
+            {clearedDiagnostics ? "✓ Diagnostics Cleared" : "Clear Diagnostics"}
+          </button>
         </div>
 
         {/* Cache statistics */}
@@ -228,7 +279,25 @@ function DebugModal({ isOpen, onClose, debugData, getCytoscapeInstance }) {
           <div>Image Cache: {cacheStats.totalImages} images cached</div>
           <div>CDN URL: {cacheStats.cdnBaseUrl || 'Not set'}</div>
           <div>Cache size: ~{Math.round(cacheStats.cacheSize / 1024)}KB</div>
+          <div>Default Placeholder: {cacheStats.hasDefaultPlaceholder ? `Loaded (${cacheStats.defaultPlaceholderLength} chars)` : 'Not loaded'} </div>
+          <div>Diagnostics Entries: {cacheStats.diagnosticsCount}</div>
         </div>
+
+        {showDiagnostics && (
+          <div style={{
+            flex: 0,
+            maxHeight: '25%',
+            overflow: 'auto',
+            backgroundColor: '#141a21',
+            border: '1px solid #30363d',
+            borderRadius: '4px',
+            padding: '10px',
+            marginBottom: '10px'
+          }}>
+            <div style={{ fontSize: '12px', color: '#bbb', marginBottom: '6px' }}>Image Load Diagnostics</div>
+            <pre style={{ margin: 0, fontSize: '11px', lineHeight: 1.3 }}>{diagnosticsJson}</pre>
+          </div>
+        )}
 
         {/* JSON content */}
         <div

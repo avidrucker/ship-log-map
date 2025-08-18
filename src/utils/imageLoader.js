@@ -1,26 +1,37 @@
 // src/utils/imageLoader.js
-import { printDebug } from "./debug.js"; // printWarn
+import { printDebug, printWarn } from "../utils/debug.js";
 
 // Storage keys
 const IMAGE_CACHE_KEY = 'shipLogImageCache';
 const CDN_BASE_URL_KEY = 'shipLogCdnBaseUrl';
+// Optional CDN placeholder filename
+const DEFAULT_PLACEHOLDER_FILENAME = 'default_image.svg';
 
-// Default "Image not found" SVG
+// Special cache key prefix for default placeholder (per map)
+const PLACEHOLDER_CACHE_KEY_PREFIX = '__default_placeholder__:'; // + mapName
+
+// Default "Image not found" SVG (used only when a specific image path fails)
 const IMAGE_NOT_FOUND_SVG = `data:image/svg+xml;base64,${btoa(`
 <svg width="100" height="100" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
   <rect width="100" height="100" fill="#f5f5f5" stroke="#ccc" stroke-width="2"/>
-  <text x="50" y="35" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#999">
-    Image
-  </text>
-  <text x="50" y="50" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#999">
-    not
-  </text>
-  <text x="50" y="65" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#999">
-    found
-  </text>
+  <text x="50" y="35" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#999">Image</text>
+  <text x="50" y="50" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#999">not</text>
+  <text x="50" y="65" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#999">found</text>
   <path d="M25 25 L75 75 M75 25 L25 75" stroke="#ff6b6b" stroke-width="2"/>
 </svg>
 `)}`;
+
+// Lightweight listeners for when the placeholder becomes available
+const placeholderListeners = new Set();
+function notifyPlaceholderLoaded(mapName, dataUrl) {
+  placeholderListeners.forEach(fn => {
+    try { fn(mapName, dataUrl); } catch { /* noop */ }
+  });
+}
+export function onDefaultPlaceholderLoaded(listener) {
+  placeholderListeners.add(listener);
+  return () => placeholderListeners.delete(listener);
+}
 
 // Image cache management
 class ImageCache {
@@ -37,16 +48,11 @@ class ImageCache {
         const parsedCache = JSON.parse(cached);
         const entryCount = Object.keys(parsedCache).length;
         printDebug(`💾 [ImageCache] Found ${entryCount} cached entries in localStorage`);
-        
-        // Clear the current cache and load from storage without triggering saves
         this.cache.clear();
         Object.entries(parsedCache).forEach(([key, value]) => {
-          this.cache.set(key, value); // This won't trigger saveCache since we're in constructor
-          printDebug(`💾 [ImageCache] Loaded cache entry: "${key}" (${value?.length || 0} chars)`);
+          this.cache.set(key, value);
         });
-        printDebug(`✅ [ImageCache] Cache loaded successfully with ${this.cache.size} entries`);
-      } else {
-        printDebug(`💾 [ImageCache] No cached entries found in localStorage`);
+        printDebug(`✅ [ImageCache] Cache hydrated with ${this.cache.size} entries`);
       }
     } catch (error) {
       console.warn('Failed to load image cache from localStorage:', error);
@@ -56,83 +62,41 @@ class ImageCache {
   saveCache() {
     try {
       const cacheObject = {};
-      this.cache.forEach((value, key) => {
-        cacheObject[key] = value;
-      });
+      this.cache.forEach((value, key) => { cacheObject[key] = value; });
       const serialized = JSON.stringify(cacheObject);
       const localStorageUsage = getLocalStorageUsage();
-      printDebug(`💾 [ImageCache] Attempting to save cache with ${Object.keys(cacheObject).length} entries, total size: ${serialized.length} characters`);
-      printDebug(`📊 [ImageCache] Current localStorage usage: ${Math.round(localStorageUsage / 1024)}KB`);
-      
+      printDebug(`💾 [ImageCache] Saving ${Object.keys(cacheObject).length} entries (size=${serialized.length} chars, localStorageUsage≈${Math.round(localStorageUsage/1024)}KB)`);
       localStorage.setItem(IMAGE_CACHE_KEY, serialized);
-      printDebug(`✅ [ImageCache] Cache saved successfully to localStorage`);
     } catch (error) {
-      console.error('❌ [ImageCache] Failed to save image cache to localStorage:', error);
-      if (error.name === 'QuotaExceededError') {
-        console.warn('🚨 [ImageCache] localStorage quota exceeded. Consider reducing cache size or clearing old entries.');
-        // Clear the cache to free up space
+      console.error('❌ [ImageCache] Failed to save image cache:', error);
+      if (error?.name === 'QuotaExceededError') {
+        printWarn('🚨 [ImageCache] Quota exceeded; clearing entire image cache');
         this.cache.clear();
-        try {
-          localStorage.removeItem(IMAGE_CACHE_KEY);
-        } catch (clearError) {
-          console.error('Failed to clear cache after quota exceeded:', clearError);
-        }
+        try { localStorage.removeItem(IMAGE_CACHE_KEY); } catch { /* noop */ }
       }
     }
   }
 
-  get(key) {
-    return this.cache.get(key);
-  }
+  get(key) { return this.cache.get(key); }
+  has(key) { return this.cache.has(key); }
 
   set(key, value) {
-    //// printDebug(`💾 [ImageCache] Setting cache entry: "${key}" (value length: ${value?.length || 0})`);
-    
-    // Check if this would exceed a reasonable size limit before saving
-    const estimatedSize = JSON.stringify({[key]: value}).length;
-    const currentUsage = getLocalStorageUsage();
-    
-    // If adding this entry would use more than 4MB total, clear some old entries
-    if (currentUsage + estimatedSize > 4 * 1024 * 1024) {
-      printDebug(`⚠️ [ImageCache] Cache getting large (${Math.round(currentUsage/1024)}KB), clearing older entries`);
-      this.clearOldEntries();
-    }
-    
     this.cache.set(key, value);
-    this.saveCache();
-  }
-
-  clearOldEntries() {
-    // Clear the oldest half of entries to make room
-    const entries = Array.from(this.cache.entries());
-    const keepCount = Math.floor(entries.length / 2);
-    
-    printDebug(`🧹 [ImageCache] Clearing ${entries.length - keepCount} old entries, keeping ${keepCount}`);
-    
-    this.cache.clear();
-    entries.slice(-keepCount).forEach(([key, value]) => {
-      this.cache.set(key, value);
-    });
-  }
-
-  has(key) {
-    const exists = this.cache.has(key);
-    //// printDebug(`🔍 [ImageCache] Checking if key exists: "${key}" -> ${exists ? 'YES' : 'NO'}`);
-    return exists;
+    // Debounced-ish save (simple microtask batching)
+    if (!this._saveScheduled) {
+      this._saveScheduled = true;
+      queueMicrotask(() => { this._saveScheduled = false; this.saveCache(); });
+    }
   }
 
   clear() {
+    const size = this.cache.size;
     this.cache.clear();
-    try {
-      localStorage.removeItem(IMAGE_CACHE_KEY);
-    } catch (error) {
-      console.warn('Failed to clear image cache from localStorage:', error);
-    }
+    try { localStorage.removeItem(IMAGE_CACHE_KEY); } catch { /* noop */ }
+    printDebug(`🧹 [ImageCache] Cleared cache (${size} entries removed)`);
   }
 
-  size() {
-    return this.cache.size;
-  }
+  size() { return this.cache.size; }
 }
 
 // Global image cache instance
@@ -141,235 +105,282 @@ const imageCache = new ImageCache();
 // CDN base URL management
 export function setCdnBaseUrl(url) {
   try {
+    if (typeof url !== 'string') return;
     localStorage.setItem(CDN_BASE_URL_KEY, url);
+    printDebug(`🌐 [ImageLoader] setCdnBaseUrl='${url}'`);
   } catch (error) {
-    console.warn('Failed to save CDN base URL:', error);
+    console.warn('Failed to set CDN base URL:', error);
   }
 }
-
 export function getCdnBaseUrl() {
-  try {
-    const url = localStorage.getItem(CDN_BASE_URL_KEY) || '';
-    printDebug(`🌐 [ImageLoader] Retrieved CDN base URL from localStorage: "${url}"`);
-    return url;
-  } catch (error) {
-    console.warn('Failed to load CDN base URL:', error);
-    return '';
-  }
+  try { return localStorage.getItem(CDN_BASE_URL_KEY) || ''; } catch { return ''; }
 }
 
-// Convert image file name to URL-encoded format for CDN
-function encodeImageFileName(fileName) {
-  // Handle common image extensions and encoding
-  return encodeURIComponent(fileName);
-}
-
-// Load image with cache-first, CDN-second strategy
-export async function loadImageWithFallback(imagePath, mapName = '', cdnBaseUrlOverride = undefined) {
-  printDebug(`🖼️ [ImageLoader] Loading image: "${imagePath}" for map: "${mapName}" (override CDN: ${cdnBaseUrlOverride || 'none'})`);
-  
-  if (imagePath.startsWith('data:')) {
-    printDebug(`🖼️ [ImageLoader] Image is already a data URL, returning as-is`);
-    return imagePath;
-  }
-  
-  const cacheKey = `${mapName}:${imagePath}`;
-  printDebug(`🖼️ [ImageLoader] Checking cache with key: "${cacheKey}"`);
-  
-  if (imageCache.has(cacheKey)) {
-    const cachedImage = imageCache.get(cacheKey);
-    printDebug(`✅ [ImageLoader] Found in cache! Returning cached image (${cachedImage.length > 100 ? 'data URL' : 'short value'})`);
-    return cachedImage;
-  } else {
-    printDebug(`❌ [ImageLoader] Not found in cache. Cache currently has ${imageCache.size()} entries.`);
-    printDebug(`🔍 [ImageLoader] Cache keys:`, Array.from(imageCache.cache.keys()));
-  }
-
-  // Prefer explicit override (fresh in memory) over persisted localStorage value
-  const cdnBaseUrl = cdnBaseUrlOverride !== undefined ? cdnBaseUrlOverride : getCdnBaseUrl();
-  printDebug(`🌐 [ImageLoader] Effective CDN base URL: "${cdnBaseUrl}" (source: ${cdnBaseUrlOverride !== undefined ? 'override' : 'localStorage'})`);
-  
-  if (cdnBaseUrl) {
-    // Validate the CDN URL and suggest corrections
-    const validation = validateCdnUrl(cdnBaseUrl);
-    if (!validation.isValid) {
-      console.warn(`⚠️ [ImageLoader] CDN URL validation issues:`, validation.issues);
-      if (validation.suggestion) {
-        printDebug(`💡 [ImageLoader] Suggested CDN URL: "${validation.suggestedUrl}"`);
-      }
-    }
-    
+// Helpers
+function encodeImageFileName(fileName) { return encodeURIComponent(fileName); }
+function buildCdnUrl(cdnBaseUrl, mapName, imagePath) {
+  if (!cdnBaseUrl) return null;
+  const trimmedBase = cdnBaseUrl.replace(/\/+$/, '');
+  const encodedMap = encodeURIComponent(mapName || 'default_map');
+  // Detect if base already ends with the map segment (encoded or raw) to avoid duplication
+  const lastSegment = trimmedBase.substring(trimmedBase.lastIndexOf('/') + 1);
+  const baseAlreadyIncludesMap = lastSegment === encodedMap || decodeURIComponent(lastSegment) === (mapName || 'default_map');
+  if (baseAlreadyIncludesMap) {
+    // Only log once per session per map duplication scenario (simple guard via symbol on function)
     try {
-      // Use the suggested URL if validation provided one, otherwise use original
-      const effectiveCdnUrl = validation.suggestedUrl || cdnBaseUrl;
-      
-      // Clean up the CDN base URL - remove any trailing slashes
-      let cleanCdnUrl = effectiveCdnUrl.replace(/\/$/, '');
-      
-      const cdnUrl = `${cleanCdnUrl}/${encodeImageFileName(imagePath)}`;
-      printDebug(`🌐 [ImageLoader] Attempting to load from CDN URL: "${cdnUrl}"`);
-      
-      const imageDataUrl = await loadImageFromUrl(cdnUrl);
-      printDebug(`✅ [ImageLoader] Successfully loaded from CDN! Image size: ${imageDataUrl.length} characters`);
-      
-      // Cache successful load
-      imageCache.set(cacheKey, imageDataUrl);
-      printDebug(`💾 [ImageLoader] Cached image with key: "${cacheKey}"`);
-      return imageDataUrl;
-    } catch (error) {
-      console.warn(`❌ [ImageLoader] Failed to load image from CDN: ${imagePath}`, error);
-      printDebug(`🔄 [ImageLoader] Will fallback to "image not found" SVG`);
-    }
-  } else {
-    printDebug(`⚠️ [ImageLoader] No CDN base URL configured, skipping CDN lookup`);
+      if (!buildCdnUrl._warned) buildCdnUrl._warned = new Set();
+      const key = trimmedBase + '|' + mapName;
+      if (!buildCdnUrl._warned.has(key)) {
+        printDebug(`🛠️ [ImageLoader] Base URL already contains map segment; preventing duplicate: base='${trimmedBase}', map='${mapName}'`);
+        buildCdnUrl._warned.add(key);
+      }
+    } catch { /* noop */ }
+    return `${trimmedBase}/${encodeImageFileName(imagePath)}`;
   }
-  
-  // Fallback to "image not found" SVG
-  printDebug(`🔄 [ImageLoader] Using fallback "image not found" SVG for: "${imagePath}"`);
-  const notFoundSvg = IMAGE_NOT_FOUND_SVG;
-  imageCache.set(cacheKey, notFoundSvg);
-  printDebug(`💾 [ImageLoader] Cached fallback SVG with key: "${cacheKey}"`);
-  return notFoundSvg;
+  return `${trimmedBase}/${encodedMap}/${encodeImageFileName(imagePath)}`;
 }
 
-// Load image from URL and convert to data URL
-async function loadImageFromUrl(url) {
-  printDebug(`🌐 [ImageLoader] Starting to load image from URL: "${url}"`);
-  
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    
-    img.onload = () => {
-      printDebug(`✅ [ImageLoader] Image loaded successfully from: "${url}"`);
-      printDebug(`📐 [ImageLoader] Image dimensions: ${img.width}x${img.height}`);
-      
-      try {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        
-        canvas.width = img.width;
-        canvas.height = img.height;
-        
-        ctx.drawImage(img, 0, 0);
-        
-        const dataUrl = canvas.toDataURL('image/png');
-        printDebug(`🎨 [ImageLoader] Converted to data URL, size: ${dataUrl.length} characters`);
-        resolve(dataUrl);
-      } catch (error) {
-        console.error(`❌ [ImageLoader] Failed to convert image to canvas/data URL:`, error);
-        reject(error);
-      }
-    };
-    
-    img.onerror = () => {
-      console.error(`❌ [ImageLoader] Failed to load image from URL: "${url}"`);
-      printDebug(`🔍 [ImageLoader] Check if the URL is accessible and the image exists`);
-      reject(new Error(`Failed to load image from ${url}`));
-    };
-    
-    printDebug(`🔄 [ImageLoader] Setting img.src to: "${url}"`);
-    img.src = url;
-  });
-}
+// Placeholder state tracking per mapName
+const placeholderLoadPromises = new Map(); // mapName -> Promise
 
-// Preload images for a list of nodes
-export async function preloadNodeImages(nodes, mapName = '', cdnBaseUrlOverride = undefined) {
-  const promises = nodes
-    .filter(node => node.imageUrl && !node.imageUrl.startsWith('data:'))
-    .map(async (node) => {
-      try {
-        const imageUrl = await loadImageWithFallback(node.imageUrl, mapName, cdnBaseUrlOverride);
-        return { nodeId: node.id, imageUrl };
-      } catch (error) {
-        console.warn(`Failed to preload image for node ${node.id}:`, error);
-        return { nodeId: node.id, imageUrl: IMAGE_NOT_FOUND_SVG };
-      }
+async function fetchAsDataUrl(url, options = {}) {
+  const { cacheMode = 'force-cache', responseType = 'blob' } = options;
+  const started = Date.now();
+  const resp = await fetch(url, { cache: cacheMode });
+  const duration = Date.now() - started;
+  if (!resp.ok) {
+    const ct = resp.headers.get('content-type');
+    throw new Error(`HTTP ${resp.status} (${resp.statusText}) ct=${ct || 'n/a'} in ${duration}ms`);
+  }
+  const blob = await resp.blob();
+  if (responseType === 'blob') {
+    // Convert to base64 DataURL (important for Cytoscape image usage uniformity)
+    return await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
     });
-
-  const results = await Promise.allSettled(promises);
-  return results
-    .filter(result => result.status === 'fulfilled')
-    .map(result => result.value);
+  }
+  return blob; // future extension
 }
 
-// Clear all image caches
+// Build alternative CDN URLs for retry (raw.githubusercontent <-> jsdelivr)
+function buildAlternativeBaseUrls(cdnBaseUrl) {
+  const alts = [];
+  try {
+    const u = new URL(cdnBaseUrl);
+    // raw.githubusercontent.com -> cdn.jsdelivr.net/gh
+    if (u.hostname === 'raw.githubusercontent.com') {
+      // raw: /user/repo/branch/path
+      const [user, repo, branch, ...rest] = u.pathname.slice(1).split('/');
+      if (user && repo && branch) {
+        alts.push(`https://cdn.jsdelivr.net/gh/${user}/${repo}@${branch}/${rest.join('/')}`.replace(/\/$/, ''));
+      }
+    }
+    // jsdelivr -> raw.githubusercontent.com
+    if (u.hostname === 'cdn.jsdelivr.net' && u.pathname.startsWith('/gh/')) {
+      // /gh/user/repo@branch/path
+      const parts = u.pathname.split('/'); // ['', 'gh', 'user', 'repo@branch', 'path', ...]
+      const user = parts[2];
+      const repoBranch = parts[3];
+      const after = parts.slice(4).join('/');
+      if (repoBranch && repoBranch.includes('@')) {
+        const [repo, branch] = repoBranch.split('@');
+        alts.push(`https://raw.githubusercontent.com/${user}/${repo}/${branch}/${after}`.replace(/\/$/, ''));
+      }
+    }
+  } catch { /* noop */ }
+  return alts;
+}
+
+// Diagnostics tracking for image load attempts (in-memory only)
+const MAX_DIAGNOSTIC_ENTRIES = 100;
+const imageLoadDiagnostics = new Map(); // key -> { attempts: [...], finalResult }
+
+function recordImageAttempt(key, info) {
+  let entry = imageLoadDiagnostics.get(key);
+  if (!entry) { entry = { attempts: [], finalResult: null }; imageLoadDiagnostics.set(key, entry); }
+  entry.attempts.push({ ...info, ts: Date.now() });
+  // Truncate attempts if too many (unlikely per key)
+  if (entry.attempts.length > 10) entry.attempts.splice(0, entry.attempts.length - 10);
+  // Global truncation
+  if (imageLoadDiagnostics.size > MAX_DIAGNOSTIC_ENTRIES) {
+    // Remove oldest by first attempt timestamp
+    const oldestKey = [...imageLoadDiagnostics.entries()].sort((a,b)=>a[1].attempts[0].ts - b[1].attempts[0].ts)[0]?.[0];
+    if (oldestKey) imageLoadDiagnostics.delete(oldestKey);
+  }
+}
+function finalizeImageAttempt(key, finalResult) {
+  const entry = imageLoadDiagnostics.get(key);
+  if (entry) entry.finalResult = finalResult;
+}
+export function getImageLoadDiagnostics() {
+  // Return shallow copy safe for JSON
+  const out = {};
+  imageLoadDiagnostics.forEach((v,k)=> { out[k] = { attempts: v.attempts, finalResult: v.finalResult }; });
+  return out;
+}
+export function clearImageLoadDiagnostics() { imageLoadDiagnostics.clear(); }
+
+// Attempt to load & cache default placeholder for a map (idempotent)
+export function ensureDefaultPlaceholderLoaded(mapName = 'default_map', cdnBaseUrlOverride) {
+  const cacheKey = PLACEHOLDER_CACHE_KEY_PREFIX + mapName;
+  // If already cached (string) just resolve
+  if (imageCache.has(cacheKey)) {
+    const existing = imageCache.get(cacheKey);
+    if (typeof existing === 'string') return Promise.resolve(existing);
+  }
+  if (placeholderLoadPromises.has(mapName)) return placeholderLoadPromises.get(mapName);
+
+  const cdnBaseUrl = cdnBaseUrlOverride !== undefined ? cdnBaseUrlOverride : getCdnBaseUrl();
+  if (!cdnBaseUrl) {
+    printDebug(`⚠️ [ImageLoader] No CDN base URL; skipping placeholder load for map '${mapName}'`);
+    return Promise.resolve(null);
+  }
+  const url = buildCdnUrl(cdnBaseUrl, mapName, DEFAULT_PLACEHOLDER_FILENAME);
+  const p = (async () => {
+    try {
+      printDebug(`🖼️ [ImageLoader] Attempting to load default placeholder from: ${url}`);
+      const dataUrl = await fetchAsDataUrl(url);
+      if (!dataUrl.startsWith('data:image/svg+xml')) {
+        printWarn(`⚠️ [ImageLoader] default_image.svg did not return SVG (content-type mismatch)`);
+        return null;
+      }
+      imageCache.set(cacheKey, dataUrl);
+      notifyPlaceholderLoaded(mapName, dataUrl);
+      printDebug(`✅ [ImageLoader] Loaded & cached default placeholder for map '${mapName}'`);
+      return dataUrl;
+    } catch (e) {
+      printDebug(`❌ [ImageLoader] Failed to load default placeholder: ${e.message}`);
+      return null; // silent failure -> fallback to built-in
+    } finally {
+      placeholderLoadPromises.delete(mapName);
+    }
+  })();
+  placeholderLoadPromises.set(mapName, p);
+  return p;
+}
+
+export function getDefaultPlaceholderSvg(mapName = 'default_map') {
+  const cacheKey = PLACEHOLDER_CACHE_KEY_PREFIX + mapName;
+  const v = imageCache.get(cacheKey);
+  return (typeof v === 'string') ? v : null;
+}
+
+// Core loader for individual images referenced in graph
+export async function loadImageWithFallback(imagePath, mapName = '', cdnBaseUrlOverride = undefined) {
+  printDebug(`🖼️ [ImageLoader] loadImageWithFallback("${imagePath}", map="${mapName}")`);
+  if (!imagePath) return IMAGE_NOT_FOUND_SVG;
+  if (imagePath.startsWith('data:')) return imagePath; // already a data URL
+
+  const cacheKey = `${mapName}:${imagePath}`;
+  if (imageCache.has(cacheKey)) {
+    const cached = imageCache.get(cacheKey);
+    if (typeof cached === 'string') {
+      printDebug(`💾 [ImageLoader] Cache hit for ${cacheKey}`);
+      return cached;
+    }
+  }
+
+  const cdnBaseUrl = cdnBaseUrlOverride !== undefined ? cdnBaseUrlOverride : getCdnBaseUrl();
+  if (!cdnBaseUrl) {
+    printDebug(`⚠️ [ImageLoader] No CDN base URL set; cannot fetch '${imagePath}'`);
+    return IMAGE_NOT_FOUND_SVG;
+  }
+  const primaryUrl = buildCdnUrl(cdnBaseUrl, mapName, imagePath);
+  const diagKey = cacheKey;
+
+  const attemptFetch = async (url, cacheMode) => {
+    try {
+      recordImageAttempt(diagKey, { url, cacheMode, phase: 'fetch-start' });
+      const dataUrl = await fetchAsDataUrl(url, { cacheMode });
+      recordImageAttempt(diagKey, { url, cacheMode, phase: 'fetch-success', length: dataUrl.length });
+      return { success: true, dataUrl };
+    } catch (e) {
+      recordImageAttempt(diagKey, { url, cacheMode, phase: 'fetch-error', error: e.message });
+      printDebug(`❌ [ImageLoader] Attempt failed url='${url}' cache='${cacheMode}' error='${e.message}'`);
+      return { success: false, error: e };
+    }
+  };
+
+  // Strategy: try force-cache, then no-cache; then alternative base URLs.
+  const cacheModes = ['force-cache', 'no-cache'];
+  const alternativeBases = buildAlternativeBaseUrls(cdnBaseUrl);
+  const urlsToTry = [primaryUrl];
+  alternativeBases.forEach(base => {
+    const altUrl = buildCdnUrl(base, mapName, imagePath);
+    if (altUrl && !urlsToTry.includes(altUrl)) urlsToTry.push(altUrl);
+  });
+
+  for (const url of urlsToTry) {
+    for (const mode of cacheModes) {
+      const res = await attemptFetch(url, mode);
+      if (res.success) {
+        imageCache.set(cacheKey, res.dataUrl);
+        finalizeImageAttempt(diagKey, 'success');
+        printDebug(`✅ [ImageLoader] Loaded & cached '${imagePath}' from '${url}' (${res.dataUrl.length} chars)`);
+        return res.dataUrl;
+      }
+    }
+  }
+
+  printDebug(`🛑 [ImageLoader] All attempts failed for '${imagePath}'. Falling back to IMAGE_NOT_FOUND_SVG.`);
+  imageCache.set(cacheKey, IMAGE_NOT_FOUND_SVG);
+  finalizeImageAttempt(diagKey, 'fallback');
+  return IMAGE_NOT_FOUND_SVG;
+}
+
+// Preload list of nodes (only those with non-data imageUrl strings)
+export async function preloadNodeImages(nodes, mapName = '', cdnBaseUrlOverride = undefined) {
+  const tasks = nodes.filter(n => n.imageUrl && !n.imageUrl.startsWith('data:') && n.imageUrl !== 'unspecified')
+    .map(n => loadImageWithFallback(n.imageUrl, mapName, cdnBaseUrlOverride).then(url => ({ id: n.id, url })).catch(() => null));
+  const results = await Promise.all(tasks);
+  return results.filter(Boolean);
+}
+
 export function clearAllImageCaches() {
   imageCache.clear();
-  
-  // Also clear grayscale cache if it exists
+  // Also attempt to clear grayscale cache (cyAdapter)
   try {
     localStorage.removeItem('shipLogGrayscaleCache');
-  } catch (error) {
-    console.warn('Failed to clear grayscale cache:', error);
-  }
+  } catch { /* noop */ }
 }
 
-// Get cache statistics
-export function getImageCacheStats() {
+export function getImageCacheStats(mapName = 'default_map') {
+  const placeholder = getDefaultPlaceholderSvg(mapName);
   return {
     totalImages: imageCache.size(),
     cdnBaseUrl: getCdnBaseUrl(),
-    cacheSize: JSON.stringify(Array.from(imageCache.cache.entries())).length
+    cacheSize: (() => { try { return (localStorage.getItem(IMAGE_CACHE_KEY) || '').length; } catch { return 0; } })(),
+    hasDefaultPlaceholder: !!placeholder,
+    defaultPlaceholderLength: placeholder ? placeholder.length : 0,
+    diagnosticsCount: imageLoadDiagnostics.size
   };
 }
 
-// Export the cache instance for direct access if needed
 export { imageCache };
 
 // Validate and suggest correct CDN URLs
 export function validateCdnUrl(url) {
-  if (!url) {
-    return {
-      isValid: false,
-      suggestion: '',
-      issues: ['No URL provided']
-    };
-  }
-
+  if (!url) return { isValid: false, suggestion: null, issues: ['URL empty'], originalUrl: url, suggestedUrl: null };
   const issues = [];
   let suggestion = url;
-
-  // Check for GitHub repository URLs that need fixing
   if (url.includes('github.com') && url.includes('/tree/')) {
-    issues.push('GitHub repository URL detected - should be converted to GitHub Pages URL');
-    
-    // Convert github.com/user/repo/tree/branch to user.github.io/repo
-    const githubRepoMatch = url.match(/https?:\/\/github\.com\/([^/]+)\/([^/]+)\/tree\/[^/]+(.*)/);
-    if (githubRepoMatch) {
-      const [, username, repoName, remainingPath] = githubRepoMatch;
-      suggestion = `https://${username}.github.io/${repoName}${remainingPath || ''}`;
-      printDebug(`🔧 [URLValidator] Suggested GitHub Pages URL: "${suggestion}"`);
-    }
+    issues.push('GitHub tree URL will not serve raw assets.');
+    suggestion = url.replace('/tree/', '/raw/');
   }
-
-  // Check for trailing slashes
   if (url.endsWith('/')) {
-    suggestion = suggestion.replace(/\/$/, '');
+    suggestion = suggestion.replace(/\/+$/, '');
   }
-
-  // Check if URL is accessible (this would need to be async, but for now just validate format)
   const urlPattern = /^https?:\/\/.+/;
-  if (!urlPattern.test(url)) {
-    issues.push('URL must start with http:// or https://');
-  }
-
-  return {
-    isValid: issues.length === 0,
-    suggestion: suggestion !== url ? suggestion : null,
-    issues,
-    originalUrl: url,
-    suggestedUrl: suggestion
-  };
+  if (!urlPattern.test(url)) issues.push('Must start with http(s)://');
+  return { isValid: issues.length === 0, suggestion: suggestion !== url ? suggestion : null, issues, originalUrl: url, suggestedUrl: suggestion };
 }
 
-// Check localStorage usage
 function getLocalStorageUsage() {
-  let total = 0;
-  for (const key in localStorage) {
-    if (Object.prototype.hasOwnProperty.call(localStorage, key)) {
-      total += localStorage[key].length + key.length;
-    }
-  }
-  return total;
+  try {
+    let total = 0; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); const v = localStorage.getItem(k); total += (k?.length || 0) + (v?.length || 0); }
+    return total;
+  } catch { return 0; }
 }

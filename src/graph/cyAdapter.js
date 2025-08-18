@@ -5,7 +5,7 @@ import { deserializeGraph } from "./ops.js";
 import { TEST_ICON_SVG } from "../constants/testAssets.js";
 import { GRAYSCALE_IMAGES } from "../config/features.js";
 import { convertImageToGrayscale } from "../utils/grayscaleUtils.js";
-import { loadImageWithFallback, getCdnBaseUrl, imageCache } from "../utils/imageLoader.js";
+import { loadImageWithFallback, getCdnBaseUrl, imageCache, getDefaultPlaceholderSvg, ensureDefaultPlaceholderLoaded, onDefaultPlaceholderLoaded } from "../utils/imageLoader.js";
 import { printDebug } from "../utils/debug.js"; // printWarn
 
 // Cache for grayscale images to avoid reprocessing
@@ -170,65 +170,48 @@ export function buildElementsFromDomain(graph, options = {}) {
     printDebug(`🌐 [cyAdapter] Using persisted cdnBaseUrl='${effectiveCdnBaseUrl || ''}'`);
   }
 
+  // Attempt (non-blocking) load of default placeholder if not already cached
+  try { ensureDefaultPlaceholderLoaded(g.mapName || 'default_map', effectiveCdnBaseUrl); } catch { /* noop */ }
+  const defaultPlaceholder = getDefaultPlaceholderSvg(g.mapName || 'default_map');
+
   // Process nodes - use cache/CDN/fallback system, then apply grayscale if enabled
   const nodes = g.nodes.map(n => {
-    // existing image logic preserved
     let imageUrl = n.imageUrl;
-    
-    // Handle "unspecified" or missing image URLs
+
+    // Handle "unspecified" or missing image URLs -> use CDN placeholder if available, else test icon
     if (!imageUrl || imageUrl === "unspecified") {
-      imageUrl = TEST_ICON_SVG;
+      imageUrl = defaultPlaceholder || TEST_ICON_SVG;
     }    // If not a data URL and not the test SVG, check if we need to use the loader system
     else if (imageUrl !== TEST_ICON_SVG && !imageUrl.startsWith('data:')) {
       printDebug(`🔍 [cyAdapter] Processing non-data-URL image: ${imageUrl}, forceImageLoad: ${forceImageLoad}`);
-      
-      // First check if we have it in cache synchronously
       const cacheKey = `${g.mapName || ''}:${imageUrl}`;
       if (imageCache.has(cacheKey)) {
-        // Use cached version
         imageUrl = imageCache.get(cacheKey);
         printDebug(`✅ [cyAdapter] Using cached image for: ${n.imageUrl}`);
         printDebug(`🔍 [cyAdapter] Cached imageUrl is: ${imageUrl ? imageUrl.substring(0, 50) + '...' : 'null/undefined'}`);
       } else if (forceImageLoad) {
-        // Only trigger loading if explicitly requested (e.g., on map load, not on node moves)
         const loadKey = `${g.mapName || ''}:${imageUrl}`;
         if (!pendingImageLoads.has(loadKey)) {
           pendingImageLoads.add(loadKey);
           printDebug(`🔄 [cyAdapter] Starting image load for: ${imageUrl}`);
-          
-          // Capture node ID immediately to avoid closure issue
-          const nodeId = n.id;
+          // IMPORTANT: we must update the CHILD node ("id__entry") because that's where imageUrl lives.
+          const parentIdForNode = n.id;
+          const entryChildIdForNode = `${parentIdForNode}__entry`;
           const originalImageUrl = imageUrl;
-          
-          printDebug(`🎯 [cyAdapter] Captured nodeId="${nodeId}" for image loading: ${originalImageUrl}`);
-          
-          // Use resolved CDN base URL (from override / graph / persisted) to avoid race with localStorage
-            if (effectiveCdnBaseUrl) {
+          printDebug(`🎯 [cyAdapter] Scheduling async load for childId="${entryChildIdForNode}" originalUrl="${originalImageUrl}"`);
+          if (effectiveCdnBaseUrl) {
             loadImageWithFallback(imageUrl, g.mapName || '', effectiveCdnBaseUrl).then(loadedImageUrl => {
               pendingImageLoads.delete(loadKey);
-              printDebug(`✅ [cyAdapter] Image loaded successfully for nodeId="${nodeId}" originalUrl="${originalImageUrl}", got data URL of length: ${loadedImageUrl?.length || 0}`);
-              
-              // Immediately show the original loaded image (do NOT wait for grayscale)
+              printDebug(`✅ [cyAdapter] Image loaded for childId="${entryChildIdForNode}" originalUrl="${originalImageUrl}" length=${loadedImageUrl?.length || 0}`);
               if (onImageLoaded) {
-                printDebug(`🎯 [cyAdapter] Calling onImageLoaded for nodeId="${nodeId}" with image`);
-                onImageLoaded(nodeId, loadedImageUrl);
+                onImageLoaded(entryChildIdForNode, loadedImageUrl);
               }
-              
-              // Apply grayscale afterwards (background) if enabled and real raster image
-              if (GRAYSCALE_IMAGES && loadedImageUrl && 
-                  (loadedImageUrl.startsWith('data:image/png;') || 
-                   loadedImageUrl.startsWith('data:image/jpeg;') || 
-                   loadedImageUrl.startsWith('data:image/jpg;') || 
-                   loadedImageUrl.startsWith('data:image/webp;'))) {
+              if (GRAYSCALE_IMAGES && loadedImageUrl && (loadedImageUrl.startsWith('data:image/png;') || loadedImageUrl.startsWith('data:image/jpeg;') || loadedImageUrl.startsWith('data:image/jpg;') || loadedImageUrl.startsWith('data:image/webp;'))) {
                 printDebug(`🎨 [cyAdapter] Starting grayscale (post-display) for: ${originalImageUrl}`);
                 preprocessImageToGrayscale(loadedImageUrl, originalImageUrl).then(grayscaleUrl => {
                   printDebug(`✅ [cyAdapter] Grayscale conversion complete for: ${originalImageUrl}`);
-                  if (onImageLoaded) {
-                    onImageLoaded(nodeId, grayscaleUrl);
-                  }
-                }).catch(error => {
-                  console.warn(`❌ [cyAdapter] Grayscale conversion failed for: ${originalImageUrl}`, error);
-                });
+                  if (onImageLoaded) { onImageLoaded(entryChildIdForNode, grayscaleUrl); }
+                }).catch(error => { console.warn(`❌ [cyAdapter] Grayscale conversion failed for: ${originalImageUrl}`, error); });
               }
             }).catch(error => {
               pendingImageLoads.delete(loadKey);
@@ -240,13 +223,10 @@ export function buildElementsFromDomain(graph, options = {}) {
         } else {
           printDebug(`⏳ [cyAdapter] Image already loading: ${imageUrl}`);
         }
-        
-        // Use test icon as placeholder while loading
-        imageUrl = TEST_ICON_SVG;
+        imageUrl = defaultPlaceholder || TEST_ICON_SVG; // placeholder while loading
       } else {
-        // Don't trigger loading, use test icon as placeholder
         printDebug(`🔒 [cyAdapter] Skipping image load (not forced): ${imageUrl}`);
-        imageUrl = TEST_ICON_SVG;
+        imageUrl = defaultPlaceholder || TEST_ICON_SVG;
       }
     }
     
@@ -315,9 +295,37 @@ export function buildElementsFromDomain(graph, options = {}) {
 // Create & mount Cytoscape instance
 export async function mountCy({ container, graph, styles = cytoscapeStyles, mode = 'editing' }) {
   let cy;
-  
+  const unsubscribePlaceholder = onDefaultPlaceholderLoaded((mapName, dataUrl) => {
+    try {
+      if (!cy || cy.destroyed()) return;
+      const domainMapName = graph.mapName || 'default_map';
+      if (mapName !== domainMapName) return;
+      let updated = 0;
+      cy.nodes('.entry').forEach(n => {
+        const original = n.data('originalImageUrl');
+        const current = n.data('imageUrl');
+        if ((original === 'unspecified' || !original) && (!current || current === TEST_ICON_SVG)) {
+          n.data('imageUrl', dataUrl);
+          updated++;
+        }
+      });
+      if (updated) {
+        printDebug(`🖼️ [cyAdapter] Applied CDN default placeholder to ${updated} nodes after async load`);
+        cy.style().update();
+      }
+    } catch { /* noop */ }
+  });
+
   // Create image update callback aware of active instance
   const onImageLoaded = (nodeId, imageUrl) => {
+    // Redirect parent id to child if necessary (backward compatibility safeguard)
+    if (nodeId && !nodeId.endsWith('__entry')) {
+      const possibleChild = `${nodeId}__entry`;
+      if (cy && cy.getElementById(possibleChild).length > 0) {
+        printDebug(`🛠️ [cyAdapter] Redirecting onImageLoaded target from parent '${nodeId}' to child '${possibleChild}'`);
+        nodeId = possibleChild;
+      }
+    }
     // If local cy reference not set yet just queue
     if (!cy) {
       pendingNodeImageUpdates.push({ nodeId, imageUrl });
@@ -390,6 +398,8 @@ export async function mountCy({ container, graph, styles = cytoscapeStyles, mode
       pixelRatio: 1,
       layout: { name: 'preset' }
     });
+    // Attach destroy listener for placeholder unsubscribe
+    try { cy.on('destroy', () => { try { unsubscribePlaceholder(); } catch { /* noop */ } }); } catch { /* noop */ }
   
     currentActiveCy = cy; // mark active
     
@@ -418,7 +428,8 @@ export async function mountCy({ container, graph, styles = cytoscapeStyles, mode
       pixelRatio: 1,
       layout: { name: 'preset' }
     });
-
+    try { cy.on('destroy', () => { try { unsubscribePlaceholder(); } catch { /* noop */ } }); } catch { /* noop */ }
+  
     currentActiveCy = cy; // mark active
 
     if (pendingNodeImageUpdates.length) {
