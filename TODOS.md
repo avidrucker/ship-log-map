@@ -54,7 +54,9 @@
 - [x] Implementing a "map name" feature that allows users to set a name for the current map, which is saved with the graph state and can be displayed in the UI
 - [x] Increase the size of the edge arrow chevrons to make them more visible and more closely match the original source material
 - [x] Fix bug where entry nodes that are selected do not currently display their bright color, but they should
-- [ ] Implement different size (or different font-size) note-count nodes that associate with the different sizes of the entry nodes they are associated with so that larger entry nodes have larger note-count nodes and smaller entry nodes have smaller note-count nodes
+- [x] Implement different size (or different font-size) note-count nodes that associate with the different sizes of the entry nodes they are associated with so that larger entry nodes have larger note-count nodes and smaller entry nodes have smaller note-count nodes
+- [x] Fix the undo button which doesn't seem to be restoring nodes after they have been moved
+- [ ] Implement an icon system that allows users to select from a set of icons for nodes, which can be used to visually represent the type of node (e.g. a bed icon for sleep nodes, a shower icon for hygiene nodes, etc.) that uses font awesome 4.7 icons
 
 Notes for Future Features
 - Listing out "layers" which show things such as electrical lines, water lines, Internet, etc. that can be toggled on and off
