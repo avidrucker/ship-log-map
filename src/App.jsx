@@ -245,14 +245,48 @@ function App() {
   // Handle undo functionality
   const handleUndo = useCallback(() => {
     if (lastUndoState) {
-      setGraphData(lastUndoState);
+      const prevState = lastUndoState; // capture for closures
+      setGraphData(prevState);
       clearUndoState(); // Clear undo after using it
       
       // Clear selections since they might reference nodes/edges that changed
       dispatchAppState({ type: ACTION_TYPES.CLEAR_ALL_SELECTIONS });
       clearCytoscapeSelections();
+
+      // Proactively update Cytoscape immediately for snappier visual undo (avoid waiting for React effect)
+      const cy = getCytoscapeInstance();
+      if (cy) {
+        import('./graph/cyAdapter.js').then(({ syncElements, ensureNoteCountNodes, updateNoteCounts }) => {
+          try {
+            // Sync elements (keeps current camera)
+            syncElements(cy, { 
+              nodes: prevState.nodes, 
+              edges: prevState.edges, 
+              mapName: prevState.mapName, 
+              cdnBaseUrl: prevState.cdnBaseUrl || cdnBaseUrl, 
+              notes: prevState.notes
+            }, { mode });
+
+            // Restore node positions explicitly (in case only position change -> skip structural sync branch)
+            prevState.nodes.forEach(n => {
+              const parent = cy.getElementById(n.id);
+              if (parent && parent.length) parent.position({ x: n.x, y: n.y });
+            });
+
+            // Refresh note-count overlay if visible
+            if (showNoteCountOverlay) {
+              ensureNoteCountNodes(cy, prevState.notes || {}, showNoteCountOverlay);
+              updateNoteCounts(cy, prevState.notes || {});
+            }
+
+            cy.style().update();
+          } catch (e) {
+            printDebug('⚠️ [App] Undo visual sync failed:', e);
+          }
+        }).catch(e => printDebug('⚠️ [App] Failed dynamic import during undo:', e));
+      }
     }
-  }, [lastUndoState, clearUndoState, clearCytoscapeSelections]);
+  }, [lastUndoState, clearUndoState, clearCytoscapeSelections, getCytoscapeInstance, cdnBaseUrl, mode, showNoteCountOverlay]);
 
   /** ---------- handlers ---------- **/
 
