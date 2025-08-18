@@ -20,11 +20,11 @@ export const FEATURES = {
   
   // Development mode - shows debug tools and features
   // Set to false in production to hide debug button and modal
-  DEV_MODE: true,
+  DEV_MODE: false,
   
   // Render all node images in black and white (grayscale)
   // This creates a grayscale effect for images only, without affecting node colors or text
-  GRAYSCALE_IMAGES: true,
+  GRAYSCALE_IMAGES: false,
   
   // Future feature flags can be added here...
 };
