@@ -43,6 +43,7 @@ export const ACTION_TYPES = {
   // New UI collapse actions
   SET_UNIVERSAL_MENU_COLLAPSED: 'SET_UNIVERSAL_MENU_COLLAPSED',
   SET_GRAPH_CONTROLS_COLLAPSED: 'SET_GRAPH_CONTROLS_COLLAPSED',
+  SET_CAMERA_INFO_COLLAPSED: 'SET_CAMERA_INFO_COLLAPSED',
   
   // Undo actions
   SET_UNDO_STATE: 'SET_UNDO_STATE',
@@ -91,7 +92,8 @@ export const initialAppState = {
     shouldFitOnNextRender: false,
     loadError: null,
     universalMenuCollapsed: false,
-    graphControlsCollapsed: false
+    graphControlsCollapsed: false,
+    cameraInfoCollapsed: false
   },
   undo: {
     lastGraphState: null
@@ -308,6 +310,14 @@ export function appStateReducer(state, action) {
           graphControlsCollapsed: action.payload.collapsed
         }
       };
+    case ACTION_TYPES.SET_CAMERA_INFO_COLLAPSED:
+      return {
+        ...state,
+        ui: {
+          ...state.ui,
+          cameraInfoCollapsed: action.payload.collapsed
+        }
+      };
       
     case ACTION_TYPES.SET_UNDO_STATE:
       return {
@@ -426,6 +436,10 @@ export const actions = {
   }),
   setGraphControlsCollapsed: (collapsed) => ({
     type: ACTION_TYPES.SET_GRAPH_CONTROLS_COLLAPSED,
+    payload: { collapsed }
+  }),
+  setCameraInfoCollapsed: (collapsed) => ({
+    type: ACTION_TYPES.SET_CAMERA_INFO_COLLAPSED,
     payload: { collapsed }
   }),
 };

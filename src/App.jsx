@@ -16,7 +16,7 @@ import { appStateReducer, initialAppState, ACTION_TYPES } from "./appStateReduce
 import { ZOOM_TO_SELECTION, DEBUG_LOGGING, MODE_TOGGLE, DEV_MODE, GRAYSCALE_IMAGES } from "./config/features.js";
 
 // 🚀 New imports: centralized persistence + edge id helper
-import { saveToLocal, loadFromLocal, saveModeToLocal, loadModeFromLocal, saveUndoStateToLocal, loadUndoStateFromLocal, saveMapNameToLocal, loadMapNameFromLocal, loadUniversalMenuCollapsed, loadGraphControlsCollapsed } from "./persistence/index.js";
+import { saveToLocal, loadFromLocal, saveModeToLocal, loadModeFromLocal, saveUndoStateToLocal, loadUndoStateFromLocal, saveMapNameToLocal, loadMapNameFromLocal, loadUniversalMenuCollapsed, loadGraphControlsCollapsed, loadCameraInfoCollapsed } from "./persistence/index.js";
 import { edgeId, renameNode } from "./graph/ops.js";
 import { setCdnBaseUrl, getCdnBaseUrl } from "./utils/imageLoader.js";
 import { printDebug } from "./utils/debug.js";
@@ -153,7 +153,8 @@ function App() {
       shouldFitOnNextRender: false,
       loadError: null,
       universalMenuCollapsed: loadUniversalMenuCollapsed(),
-      graphControlsCollapsed: loadGraphControlsCollapsed()
+      graphControlsCollapsed: loadGraphControlsCollapsed(),
+      cameraInfoCollapsed: loadCameraInfoCollapsed()
     }
   });
 
@@ -173,6 +174,7 @@ function App() {
   const lastUndoState = undo.lastGraphState;
   const universalMenuCollapsed = ui.universalMenuCollapsed;
   const graphControlsCollapsed = ui.graphControlsCollapsed;
+  const cameraInfoCollapsed = ui.cameraInfoCollapsed;
 
   // Toggle handlers for collapsible menus
   const toggleUniversalMenu = useCallback(() => {
@@ -186,6 +188,11 @@ function App() {
     dispatchAppState({ type: ACTION_TYPES.SET_GRAPH_CONTROLS_COLLAPSED, payload: { collapsed: next } });
     import('./persistence/index.js').then(m => m.saveGraphControlsCollapsed(next));
   }, [graphControlsCollapsed]);
+  const toggleCameraInfo = useCallback(() => {
+    const next = !cameraInfoCollapsed;
+    dispatchAppState({ type: ACTION_TYPES.SET_CAMERA_INFO_COLLAPSED, payload: { collapsed: next } });
+    import('./persistence/index.js').then(m => m.saveCameraInfoCollapsed(next));
+  }, [cameraInfoCollapsed]);
 
   // Note count overlay state (persisted to localStorage, not JSON export)
   const [showNoteCountOverlay, setShowNoteCountOverlay] = useState(() => {
@@ -1227,6 +1234,8 @@ function App() {
         onMapNameChange={setMapName}
         cdnBaseUrl={cdnBaseUrl}
         onCdnBaseUrlChange={setCdnBaseUrlHandler}
+        collapsed={cameraInfoCollapsed}
+        onToggleCollapsed={toggleCameraInfo}
       />
 
       <ErrorDisplay error={loadError} onClearError={clearError} />

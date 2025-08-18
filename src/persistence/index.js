@@ -8,6 +8,7 @@ const MAP_NAME_STORAGE_KEY = "ship_log_map_name_v1";
 const SCHEMA_VERSION = 1;
 const UNIVERSAL_MENU_COLLAPSED_KEY = "ship_log_universal_menu_collapsed_v1";
 const GRAPH_CONTROLS_COLLAPSED_KEY = "ship_log_graph_controls_collapsed_v1";
+const CAMERA_INFO_COLLAPSED_KEY = "ship_log_camera_info_collapsed_v1";
 
 export function newBlankMap() {
   return { nodes: [], edges: [], notes: {}, mode: 'editing', __version: SCHEMA_VERSION };
@@ -170,4 +171,10 @@ export function saveGraphControlsCollapsed(collapsed) {
 }
 export function loadGraphControlsCollapsed() {
   try { const v = localStorage.getItem(GRAPH_CONTROLS_COLLAPSED_KEY); return v ? JSON.parse(v) : false; } catch { return false; }
+}
+export function saveCameraInfoCollapsed(collapsed) {
+  try { localStorage.setItem(CAMERA_INFO_COLLAPSED_KEY, JSON.stringify(!!collapsed)); } catch { /* noop */ }
+}
+export function loadCameraInfoCollapsed() {
+  try { const v = localStorage.getItem(CAMERA_INFO_COLLAPSED_KEY); return v ? JSON.parse(v) : false; } catch { return false; }
 }

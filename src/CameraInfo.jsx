@@ -1,11 +1,22 @@
 import React, { useState, useCallback, useEffect } from "react";
 
-function CameraInfo({ zoom, pan, selectedNodeIds, selectedEdgeIds, mode, mapName, onMapNameChange, cdnBaseUrl, onCdnBaseUrlChange }) {
+function HamburgerIcon({ color = '#fff', size = 18 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <rect x="3" y="6" width="18" height="2" fill={color}></rect>
+      <rect x="3" y="11" width="18" height="2" fill={color}></rect>
+      <rect x="3" y="16" width="18" height="2" fill={color}></rect>
+    </svg>
+  );
+}
+
+function CameraInfo({ zoom, pan, selectedNodeIds, selectedEdgeIds, mode, mapName, onMapNameChange, cdnBaseUrl, onCdnBaseUrlChange, collapsed, onToggleCollapsed }) {
   const [isEditingMapName, setIsEditingMapName] = useState(false);
   const [tempMapName, setTempMapName] = useState(mapName);
   const [isEditingCdnUrl, setIsEditingCdnUrl] = useState(false);
   const [tempCdnUrl, setTempCdnUrl] = useState(cdnBaseUrl);
 
+  // Map name editing handlers
   const handleStartEditMapName = useCallback(() => {
     setTempMapName(mapName);
     setIsEditingMapName(true);
@@ -59,10 +70,27 @@ function CameraInfo({ zoom, pan, selectedNodeIds, selectedEdgeIds, mode, mapName
     }
   }, [handleSaveCdnUrl, handleCancelEditCdnUrl]);
 
-  // Update temp CDN URL when prop changes
-  useEffect(() => {
-    setTempCdnUrl(cdnBaseUrl);
-  }, [cdnBaseUrl]);
+  // Sync temp values if props change while not editing
+  useEffect(() => { if (!isEditingMapName) setTempMapName(mapName); }, [mapName, isEditingMapName]);
+  useEffect(() => { if (!isEditingCdnUrl) setTempCdnUrl(cdnBaseUrl); }, [cdnBaseUrl, isEditingCdnUrl]);
+
+  // Collapsed view JSX
+  const collapsedView = (
+    <div style={{ position: 'absolute', top: '10px', left: '10px', zIndex: 1000 }}>
+      <button
+        onClick={onToggleCollapsed}
+        style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 12px', background: 'rgba(0,0,0,0.55)', border: '1px solid #444', borderRadius: '6px', cursor: 'pointer', color: '#fff', fontWeight: 'bold' }}
+        aria-label="Open camera info"
+        title="Open camera info"
+      >
+        <HamburgerIcon />
+        <span>Camera</span>
+      </button>
+    </div>
+  );
+
+  if (collapsed) return collapsedView;
+
   return (
     <div style={{
       position: "absolute",
@@ -74,8 +102,20 @@ function CameraInfo({ zoom, pan, selectedNodeIds, selectedEdgeIds, mode, mapName
       padding: "10px",
       borderRadius: "5px",
       fontFamily: "monospace",
-      fontSize: "12px"
+      fontSize: "12px",
+      minWidth: '180px'
     }}>
+      {/* Collapse button */}
+      <div style={{ position: 'absolute', top: '4px', right: '4px' }}>
+        <button
+          onClick={onToggleCollapsed}
+          style={{ padding: '2px 6px', background: 'rgba(255,255,255,0.1)', color: '#fff', border: '1px solid #555', borderRadius: '4px', cursor: 'pointer', fontSize: '14px', lineHeight: 1 }}
+          aria-label="Collapse camera info"
+          title="Collapse camera info"
+        >
+          ✕
+        </button>
+      </div>
       <div style={{ 
         color: mode === 'editing' ? "#4caf50" : "#2196f3",
         fontWeight: "bold",
@@ -85,7 +125,6 @@ function CameraInfo({ zoom, pan, selectedNodeIds, selectedEdgeIds, mode, mapName
       }}>
         {mode === 'editing' ? 'Editing' : 'Playing'}
       </div>
-      
       {/* Map Name Field */}
       <div style={{ marginBottom: "8px" }}>
         <div style={{ color: "#888", fontSize: "10px", marginBottom: "2px" }}>Map Name:</div>
@@ -152,7 +191,6 @@ function CameraInfo({ zoom, pan, selectedNodeIds, selectedEdgeIds, mode, mapName
           </div>
         )}
       </div>
-      
       {/* CDN Base URL Field */}
       <div style={{ marginBottom: "8px" }}>
         <div style={{ color: "#888", fontSize: "10px", marginBottom: "2px" }}>Image CDN URL:</div>
@@ -215,8 +253,8 @@ function CameraInfo({ zoom, pan, selectedNodeIds, selectedEdgeIds, mode, mapName
               fontSize: "11px",
               wordBreak: "break-all",
               maxWidth: "200px",
-              overflow: "hidden", // This property hides any content that overflows the element's box.
-              whiteSpace: "nowrap", // This property prevents the text from wrapping to the next line, ensuring it stays on a single line.
+              overflow: "hidden",
+              whiteSpace: "nowrap",
               textOverflow: "ellipsis"
             }}
             title="Click to edit CDN base URL"
@@ -225,7 +263,6 @@ function CameraInfo({ zoom, pan, selectedNodeIds, selectedEdgeIds, mode, mapName
           </div>
         )}
       </div>
-      
       <div>Zoom: {(zoom * 100).toFixed(0)}%</div>
       <div>Camera:<br/>({Math.round(pan.x)},{Math.round(pan.y)})</div>
       {selectedNodeIds.length > 0 && (
