@@ -202,6 +202,18 @@ function NoteEditorModal({
     }
   }, [targetId, targetType, onUpdateImage, mapName]);
 
+  // New: Delete image handler
+  const handleDeleteImage = useCallback(() => {
+    if (targetType !== 'node') return;
+    try {
+      // Reset image to 'unspecified'
+      onUpdateImage(targetId, 'unspecified', null);
+      setImageImportError(null);
+    } catch (e) {
+      setImageImportError(`Failed to delete image: ${e.message}`);
+    }
+  }, [targetId, targetType, onUpdateImage]);
+
   if (!targetId) return null;
 
   return (
@@ -304,24 +316,43 @@ function NoteEditorModal({
           {/* Image Import Button - Only for nodes */}
           {targetType === 'node' && (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px' }}>
-              <button
-                onClick={handleImageImport}
-                disabled={isImportingImage}
-                style={{
-                  background: isImportingImage ? "#666" : "#9c27b0",
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: "4px",
-                  padding: "6px 12px",
-                  cursor: isImportingImage ? "not-allowed" : "pointer",
-                  fontSize: "14px",
-                  opacity: isImportingImage ? 0.7 : 1
-                }}
-                title="Import a custom square image for this node"
-              >
-                {isImportingImage ? "Importing..." : (currentImageUrl && currentImageUrl.startsWith('data:') ? "Change Image" : "Import Image")}
-              </button>
-              {currentImageUrl && currentImageUrl.startsWith('data:') && (
+              <div style={{ display: 'flex', gap: '6px' }}>
+                <button
+                  onClick={handleImageImport}
+                  disabled={isImportingImage}
+                  style={{
+                    background: isImportingImage ? "#666" : "#9c27b0",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: "4px",
+                    padding: "6px 12px",
+                    cursor: isImportingImage ? "not-allowed" : "pointer",
+                    fontSize: "14px",
+                    opacity: isImportingImage ? 0.7 : 1
+                  }}
+                  title="Import a custom square image for this node"
+                >
+                  {isImportingImage ? "Importing..." : (currentImageUrl && currentImageUrl !== 'unspecified' && !currentImageUrl.startsWith('data:image/svg+xml') ? "Change Image" : "Import Image")}
+                </button>
+                {(currentImageUrl && currentImageUrl !== 'unspecified' && !currentImageUrl.startsWith('data:image/svg+xml')) && (
+                  <button
+                    onClick={handleDeleteImage}
+                    style={{
+                      background: "#f44336",
+                      color: "#fff",
+                      border: "none",
+                      borderRadius: "4px",
+                      padding: "6px 12px",
+                      cursor: "pointer",
+                      fontSize: "14px"
+                    }}
+                    title="Delete custom image and revert to default"
+                  >
+                    Delete Image
+                  </button>
+                )}
+              </div>
+              {currentImageUrl && currentImageUrl !== 'unspecified' && currentImageUrl.startsWith('data:') && !currentImageUrl.startsWith('data:image/svg+xml') && (
                 <div style={{
                   fontSize: "10px",
                   color: "#4caf50",
