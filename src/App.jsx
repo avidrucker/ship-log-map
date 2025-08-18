@@ -793,6 +793,44 @@ function App() {
     printDebug('🔥 [APP] setShowNoteCountOverlay called with:', newState);
   }, [showNoteCountOverlay, graphData.notes]);
 
+  // NEW: Rotate all nodes 90° clockwise about origin (0,0)
+  const handleRotateAllNodes = useCallback(() => {
+    if (!graphData.nodes.length) return;
+    // Save undo state before rotation
+    saveUndoState();
+    // Apply rotation: (x, y) -> (y, -x)
+    const rotatedNodes = graphData.nodes.map(n => ({ ...n, x: n.y, y: -n.x }));
+    const nextGraph = { ...graphData, nodes: rotatedNodes };
+    setGraphData(nextGraph);
+
+    // Immediate visual sync (similar to undo path)
+    const cy = getCytoscapeInstance();
+    if (cy) {
+      import('./graph/cyAdapter.js').then(({ syncElements, ensureNoteCountNodes, updateNoteCounts }) => {
+        try {
+          syncElements(cy, { 
+            nodes: rotatedNodes, 
+            edges: graphData.edges, 
+            mapName: graphData.mapName, 
+            cdnBaseUrl: graphData.cdnBaseUrl, 
+            notes: graphData.notes 
+          }, { mode });
+          rotatedNodes.forEach(n => {
+            const parent = cy.getElementById(n.id);
+            if (parent && parent.length) parent.position({ x: n.x, y: n.y });
+          });
+          if (showNoteCountOverlay) {
+            ensureNoteCountNodes(cy, graphData.notes || {}, showNoteCountOverlay);
+            updateNoteCounts(cy, graphData.notes || {});
+          }
+          cy.style().update();
+        } catch (e) {
+          printDebug('⚠️ [App] Rotate visual sync failed:', e);
+        }
+      });
+    }
+  }, [graphData, saveUndoState, getCytoscapeInstance, mode, showNoteCountOverlay]);
+
   // notes — now stored in graphData.notes
   const handleStartNoteEditing = useCallback((targetId, targetType) => {
     // Zoom to selection if feature is enabled
@@ -1112,6 +1150,7 @@ function App() {
         canUndo={!!lastUndoState}
         showNoteCountOverlay={showNoteCountOverlay}
         onToggleNoteCountOverlay={handleToggleNoteCountOverlay}
+        onRotate={handleRotateAllNodes} // NEW prop
       />
 
       <NoteEditorModal

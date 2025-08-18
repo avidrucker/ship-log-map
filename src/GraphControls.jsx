@@ -25,7 +25,8 @@ function GraphControls({
   onUndo,
   canUndo,
   showNoteCountOverlay,
-  onToggleNoteCountOverlay
+  onToggleNoteCountOverlay,
+  onRotate
 }) {
   const canConnect = selectedNodes.length === 2 && !areNodesConnected(selectedNodes[0], selectedNodes[1]);
 
@@ -121,6 +122,22 @@ function GraphControls({
       >
         Undo
       </button>
+      
+      {mode === 'editing' && (
+        <button
+          style={{
+            padding: "8px 12px",
+            background: "#455a64",
+            color: "#fff",
+            border: "1px solid #37474f",
+            cursor: "pointer"
+          }}
+          onClick={onRotate}
+          title="Rotate all nodes 90° clockwise around origin"
+        >
+          Rotate
+        </button>
+      )}
       
       {mode === 'editing' && (
         <button
