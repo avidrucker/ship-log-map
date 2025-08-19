@@ -68,6 +68,11 @@
 - [ ] **Move rotate button to the bottom left panel because it is useful in all modes, not just editing mode**
 - [ ] Add a compass rose to the map that shows the cardinal directions (N, S, E, W) and can be toggled on and off
 - [ ] IDEA: Temporarily add map nodes which indicate the cardinal directions (north point of map, east point, etc.)
+- [ ] Implement sharable maps via query params, where, the map can be shared via a URL that points at the map's JSON file in the CDN and will load the map from that URL when the app is opened with those query params, for example, the CDN https://avidrucker.github.io/img-test-1/Gaia%20Yoga will be accessed by the app when the user opens the app with the URL https://avidrucker.github.io/ship-log-map/?map=https://avidrucker.github.io/img-test-1/Gaia%20Yoga/gaia_yoga.json where the map query param is the URL of the map's JSON file in the CDN constructed by the app address (https://avidrucker.github.io/ship-log-map/) and the map's CDN file URL (https://avidrucker.github.io/img-test-1/Gaia%20Yoga/) plus the map's JSON file name (gaia_yoga.json). If a map query param is not provided, the app will default to loading the map from the hard-coded example map JSON file in the app (e.g. https://avidrucker.github.io/ship-log-map/example_map.json)
+- [ ] Implement below the CDN link display/edit field the display off the current map URL with query params to load the current map from its CDN
+- [ ] Update the Reset button to revert to the JSON map from the specified CDN rather than the current hard-coded example map 
+- [ ] Implement importing of an image overlay from the CDN or just in memory that can be toggled on and off, moved, and resized, which can be used to display a background image for the map (e.g. a floor plan, etc.)
+- [ ] Fix undo button so that, when creating new nodes, or changing the graph state otherwise, a refresh of the page is not necessary to see the visual reversal of the last action (i.e. the undo button should immediately revert the graph state to the previous state without requiring a refresh)
 
 Notes for Future Features
 - Listing out "layers" which show things such as electrical lines, water lines, Internet, etc. that can be toggled on and off
