@@ -9,6 +9,8 @@ const SCHEMA_VERSION = 1;
 const UNIVERSAL_MENU_COLLAPSED_KEY = "ship_log_universal_menu_collapsed_v1";
 const GRAPH_CONTROLS_COLLAPSED_KEY = "ship_log_graph_controls_collapsed_v1";
 const CAMERA_INFO_COLLAPSED_KEY = "ship_log_camera_info_collapsed_v1";
+const ORIENTATION_KEY = "ship_log_orientation_v1";
+const COMPASS_VISIBLE_KEY = "ship_log_compass_visible_v1";
 
 export function newBlankMap() {
   return { nodes: [], edges: [], notes: {}, mode: 'editing', __version: SCHEMA_VERSION };
@@ -177,4 +179,16 @@ export function saveCameraInfoCollapsed(collapsed) {
 }
 export function loadCameraInfoCollapsed() {
   try { const v = localStorage.getItem(CAMERA_INFO_COLLAPSED_KEY); return v ? JSON.parse(v) : false; } catch { return false; }
+}
+export function saveOrientationToLocal(orientation) {
+  try { localStorage.setItem(ORIENTATION_KEY, String(((orientation % 360) + 360) % 360)); return true; } catch { return false; }
+}
+export function loadOrientationFromLocal() {
+  try { const v = localStorage.getItem(ORIENTATION_KEY); return v != null ? parseInt(v, 10) || 0 : 0; } catch { return 0; }
+}
+export function saveCompassVisibleToLocal(visible) {
+  try { localStorage.setItem(COMPASS_VISIBLE_KEY, JSON.stringify(!!visible)); return true; } catch { return false; }
+}
+export function loadCompassVisibleFromLocal() {
+  try { const v = localStorage.getItem(COMPASS_VISIBLE_KEY); return v ? JSON.parse(v) : true; } catch { return true; }
 }

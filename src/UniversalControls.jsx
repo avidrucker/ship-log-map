@@ -18,6 +18,11 @@ function UniversalControls({
   mode,
   showNoteCountOverlay,
   onToggleNoteCountOverlay,
+  // orientation
+  onRotateMap,
+  orientation,
+  compassVisible,
+  onToggleCompass,
   // collapse state
   collapsed,
   onToggleCollapsed
@@ -95,6 +100,20 @@ function UniversalControls({
         title={`${showNoteCountOverlay ? 'Hide' : 'Show'} Note Count Overlay`}
       >
         Notes {showNoteCountOverlay ? 'ON' : 'OFF'}
+      </button>
+      <button
+        style={{ padding: '6px 10px', background: '#455a64', color: '#fff', border: '1px solid #37474f', cursor: 'pointer' }}
+        onClick={onRotateMap}
+        title={`Rotate map (orientation: ${orientation}°)`}
+      >
+        Rotate Compass
+      </button>
+      <button
+        style={{ padding: '6px 10px', background: compassVisible ? '#8d6e63' : '#666', color: '#fff', border: `1px solid ${compassVisible ? '#6d4c41' : '#555'}`, cursor: 'pointer' }}
+        onClick={onToggleCompass}
+        title={`${compassVisible ? 'Hide' : 'Show'} Compass`}
+      >
+        Comp {compassVisible ? 'ON' : 'OFF'}
       </button>
     </div>
   );

@@ -16,10 +16,13 @@ import { appStateReducer, initialAppState, ACTION_TYPES } from "./appStateReduce
 import { ZOOM_TO_SELECTION, DEBUG_LOGGING, MODE_TOGGLE, DEV_MODE, GRAYSCALE_IMAGES } from "./config/features.js";
 
 // 🚀 New imports: centralized persistence + edge id helper
-import { saveToLocal, loadFromLocal, saveModeToLocal, loadModeFromLocal, saveUndoStateToLocal, loadUndoStateFromLocal, saveMapNameToLocal, loadMapNameFromLocal, loadUniversalMenuCollapsed, loadGraphControlsCollapsed, loadCameraInfoCollapsed } from "./persistence/index.js";
+import { saveToLocal, loadFromLocal, saveModeToLocal, loadModeFromLocal, saveUndoStateToLocal, loadUndoStateFromLocal, saveMapNameToLocal, loadMapNameFromLocal, loadUniversalMenuCollapsed, loadGraphControlsCollapsed, loadCameraInfoCollapsed, saveUniversalMenuCollapsed, saveGraphControlsCollapsed, saveCameraInfoCollapsed } from "./persistence/index.js";
+// Add new persistence imports
+import { loadOrientationFromLocal, saveOrientationToLocal, loadCompassVisibleFromLocal, saveCompassVisibleToLocal } from './persistence/index.js';
 import { edgeId, renameNode } from "./graph/ops.js";
 import { setCdnBaseUrl, getCdnBaseUrl } from "./utils/imageLoader.js";
 import { printDebug } from "./utils/debug.js";
+import { rotateCompassOnly, rotateNodesAndCompass } from './utils/rotation.js';
 
 /** ---------- helpers & migration ---------- **/
 
@@ -31,6 +34,9 @@ function normalizeGraphData(data) {
   const mode = typeof data?.mode === "string" ? data.mode : "editing";
   const mapName = typeof data?.mapName === "string" ? data.mapName : "default_map";
   const cdnBaseUrl = typeof data?.cdnBaseUrl === "string" ? data.cdnBaseUrl : "";
+  // New: preserve orientation & compassVisible from imported/exported JSON
+  const orientation = Number.isFinite(data?.orientation) ? ((data.orientation % 360) + 360) % 360 : 0;
+  const compassVisible = typeof data?.compassVisible === 'boolean' ? data.compassVisible : true;
 
   const normNodes = nodes.map(n => {
     const imageUrl = n.imageUrl || "unspecified";
@@ -54,7 +60,7 @@ function normalizeGraphData(data) {
     direction: e.direction ?? "forward"
   }));
 
-  return { nodes: normNodes, edges: normEdges, notes, mode, mapName, cdnBaseUrl };
+  return { nodes: normNodes, edges: normEdges, notes, mode, mapName, cdnBaseUrl, orientation, compassVisible };
 }
 
 // if any node lacks coords, hydrate from default by id
@@ -146,20 +152,23 @@ function App() {
       // Get from imageLoader localStorage
       return getCdnBaseUrl();
     })(),
-    undo: {
-      lastGraphState: loadUndoStateFromLocal()
-    },
+    orientation: loadOrientationFromLocal(),
     ui: {
       shouldFitOnNextRender: false,
       loadError: null,
       universalMenuCollapsed: loadUniversalMenuCollapsed(),
       graphControlsCollapsed: loadGraphControlsCollapsed(),
-      cameraInfoCollapsed: loadCameraInfoCollapsed()
+      cameraInfoCollapsed: loadCameraInfoCollapsed(),
+      compassVisible: loadCompassVisibleFromLocal()
+    },
+    undo: {
+      lastGraphState: loadUndoStateFromLocal()
     }
   });
 
   // Extract frequently used state for easier access
-  const { selections, camera, ui, mode, mapName, cdnBaseUrl, undo } = appState;
+  const { selections, camera, ui, mode, mapName, cdnBaseUrl, undo, orientation } = appState;
+  const compassVisible = ui.compassVisible;
   const selectedNodeIds = selections.nodes.ids;
   const nodeSelectionOrder = selections.nodes.order;
   const selectedEdgeIds = selections.edges.ids;
@@ -176,29 +185,24 @@ function App() {
   const graphControlsCollapsed = ui.graphControlsCollapsed;
   const cameraInfoCollapsed = ui.cameraInfoCollapsed;
 
-  // Toggle handlers for collapsible menus
+  // Local UI state (not yet in reducer): note count overlay
+  const [showNoteCountOverlay, setShowNoteCountOverlay] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('shipLogNoteCountOverlay')) || false; } catch { return false; }
+  });
+  const handleToggleNoteCountOverlay = useCallback(() => {
+    setShowNoteCountOverlay(v => !v);
+  }, []);
+
+  // Collapse toggles mapped to reducer-backed state
   const toggleUniversalMenu = useCallback(() => {
-    const next = !universalMenuCollapsed;
-    dispatchAppState({ type: ACTION_TYPES.SET_UNIVERSAL_MENU_COLLAPSED, payload: { collapsed: next } });
-    // persist
-    import('./persistence/index.js').then(m => m.saveUniversalMenuCollapsed(next));
+    dispatchAppState({ type: ACTION_TYPES.SET_UNIVERSAL_MENU_COLLAPSED, payload: { collapsed: !universalMenuCollapsed } });
   }, [universalMenuCollapsed]);
   const toggleGraphControls = useCallback(() => {
-    const next = !graphControlsCollapsed;
-    dispatchAppState({ type: ACTION_TYPES.SET_GRAPH_CONTROLS_COLLAPSED, payload: { collapsed: next } });
-    import('./persistence/index.js').then(m => m.saveGraphControlsCollapsed(next));
+    dispatchAppState({ type: ACTION_TYPES.SET_GRAPH_CONTROLS_COLLAPSED, payload: { collapsed: !graphControlsCollapsed } });
   }, [graphControlsCollapsed]);
   const toggleCameraInfo = useCallback(() => {
-    const next = !cameraInfoCollapsed;
-    dispatchAppState({ type: ACTION_TYPES.SET_CAMERA_INFO_COLLAPSED, payload: { collapsed: next } });
-    import('./persistence/index.js').then(m => m.saveCameraInfoCollapsed(next));
+    dispatchAppState({ type: ACTION_TYPES.SET_CAMERA_INFO_COLLAPSED, payload: { collapsed: !cameraInfoCollapsed } });
   }, [cameraInfoCollapsed]);
-
-  // Note count overlay state (persisted to localStorage, not JSON export)
-  const [showNoteCountOverlay, setShowNoteCountOverlay] = useState(() => {
-    const saved = localStorage.getItem("shipLogNoteCountOverlay");
-    return saved ? JSON.parse(saved) : false;
-  });
 
   // ---------- debug taps ----------
   useEffect(() => { printDebug('🏠 App: zoomLevel changed to:', zoomLevel); }, [zoomLevel]);
@@ -209,9 +213,9 @@ function App() {
   // ---------- persistence ----------
   useEffect(() => {
     // persist graph (nodes/edges/notes), mode, map name, and CDN base URL
-    const dataWithModeAndName = { ...graphData, mode, mapName, cdnBaseUrl };
+    const dataWithModeAndName = { ...graphData, mode, mapName, cdnBaseUrl, orientation };
     saveToLocal(dataWithModeAndName);
-  }, [graphData, mode, mapName, cdnBaseUrl]);
+  }, [graphData, mode, mapName, cdnBaseUrl, orientation]);
 
   // Save CDN base URL to imageLoader storage
   useEffect(() => {
@@ -245,6 +249,15 @@ function App() {
   useEffect(() => {
     localStorage.setItem("shipLogNoteCountOverlay", JSON.stringify(showNoteCountOverlay));
   }, [showNoteCountOverlay]);
+
+  // Persist orientation & compass visibility
+  useEffect(() => { saveOrientationToLocal(orientation); }, [orientation]);
+  useEffect(() => { saveCompassVisibleToLocal(compassVisible); }, [compassVisible]);
+
+  // Persist collapse states for UI panels
+  useEffect(() => { saveUniversalMenuCollapsed(universalMenuCollapsed); }, [universalMenuCollapsed]);
+  useEffect(() => { saveGraphControlsCollapsed(graphControlsCollapsed); }, [graphControlsCollapsed]);
+  useEffect(() => { saveCameraInfoCollapsed(cameraInfoCollapsed); }, [cameraInfoCollapsed]);
 
   // Manage grayscale cache based on feature flag
   useEffect(() => {
@@ -281,41 +294,8 @@ function App() {
       // Clear selections since they might reference nodes/edges that changed
       dispatchAppState({ type: ACTION_TYPES.CLEAR_ALL_SELECTIONS });
       clearCytoscapeSelections();
-
-      // Proactively update Cytoscape immediately for snappier visual undo (avoid waiting for React effect)
-      const cy = getCytoscapeInstance();
-      if (cy) {
-        import('./graph/cyAdapter.js').then(({ syncElements, ensureNoteCountNodes, updateNoteCounts }) => {
-          try {
-            // Sync elements (keeps current camera)
-            syncElements(cy, { 
-              nodes: prevState.nodes, 
-              edges: prevState.edges, 
-              mapName: prevState.mapName, 
-              cdnBaseUrl: prevState.cdnBaseUrl || cdnBaseUrl, 
-              notes: prevState.notes
-            }, { mode });
-
-            // Restore node positions explicitly (in case only position change -> skip structural sync branch)
-            prevState.nodes.forEach(n => {
-              const parent = cy.getElementById(n.id);
-              if (parent && parent.length) parent.position({ x: n.x, y: n.y });
-            });
-
-            // Refresh note-count overlay if visible
-            if (showNoteCountOverlay) {
-              ensureNoteCountNodes(cy, prevState.notes || {}, showNoteCountOverlay);
-              updateNoteCounts(cy, prevState.notes || {});
-            }
-
-            cy.style().update();
-          } catch (e) {
-            printDebug('⚠️ [App] Undo visual sync failed:', e);
-          }
-        }).catch(e => printDebug('⚠️ [App] Failed dynamic import during undo:', e));
-      }
     }
-  }, [lastUndoState, clearUndoState, clearCytoscapeSelections, getCytoscapeInstance, cdnBaseUrl, mode, showNoteCountOverlay]);
+  }, [lastUndoState, clearUndoState, clearCytoscapeSelections]);
 
   /** ---------- handlers ---------- **/
 
@@ -367,6 +347,12 @@ function App() {
         // Set CDN base URL if it's included in the imported data (even if empty string)
         if (typeof g1.cdnBaseUrl === 'string') {
           dispatchAppState({ type: ACTION_TYPES.SET_CDN_BASE_URL, payload: { cdnBaseUrl: g1.cdnBaseUrl } });
+        }
+        if (typeof g1.orientation === 'number') {
+          dispatchAppState({ type: ACTION_TYPES.SET_ORIENTATION, payload: { orientation: g1.orientation } });
+        }
+        if (typeof g1.compassVisible === 'boolean') {
+          dispatchAppState({ type: ACTION_TYPES.SET_COMPASS_VISIBLE, payload: { visible: g1.compassVisible } });
         }
 
         // Reset camera + fit
@@ -746,9 +732,11 @@ function App() {
     const updatedGraph = {
       ...graphData,
       nodes: updatedNodes,
-      mode, // Include current mode in export
-      mapName, // Include current map name in export
-      cdnBaseUrl // Include current CDN base URL in export
+      mode,
+      mapName,
+      cdnBaseUrl,
+      orientation,
+      compassVisible
     };
 
     // Generate filename from map name: lowercase, spaces to underscores
@@ -770,7 +758,7 @@ function App() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-  }, [graphData, exportNodePositions, mode, mapName, cdnBaseUrl]);
+  }, [graphData, exportNodePositions, mode, mapName, cdnBaseUrl, orientation, compassVisible]);
 
   const handleNodeColorChange = useCallback((nodeIds, newColor) => {
     printDebug('🏠 App: Change color:', nodeIds, '->', newColor);
@@ -796,6 +784,50 @@ function App() {
     dispatchAppState({ type: ACTION_TYPES.SET_CAMERA_POSITION, payload: { position } });
   }, []);
 
+  // New: rotate map (increments orientation by 90° clockwise)
+  const handleRotateMap = useCallback(() => {
+    const next = rotateCompassOnly(orientation);
+    dispatchAppState({ type: ACTION_TYPES.SET_ORIENTATION, payload: { orientation: next } });
+  }, [orientation]);
+  // New: rotate all nodes AND compass (graph controls button)
+  const handleRotateNodesAndMap = useCallback(() => {
+    // Save undo first
+    saveUndoState();
+    
+    // Get the Cytoscape instance for direct manipulation
+    const cy = getCytoscapeInstance();
+    
+    setGraphData(prev => {
+      const { nodes: rotated } = rotateNodesAndCompass(prev.nodes, orientation);
+      printDebug('🌀 App: Rotated nodes data updated, triggering re-render:', { 
+        nodeCount: rotated.length, 
+        firstNodeBefore: prev.nodes[0] ? `(${prev.nodes[0].x}, ${prev.nodes[0].y})` : 'none',
+        firstNodeAfter: rotated[0] ? `(${rotated[0].x}, ${rotated[0].y})` : 'none'
+      });
+      
+      // If Cytoscape is available, immediately update positions for instant visual feedback
+      if (cy) {
+        printDebug('🔄 App: Forcing immediate position update in Cytoscape after rotation');
+        rotated.forEach(node => {
+          const cyNode = cy.getElementById(node.id);
+          if (cyNode.length > 0) {
+            cyNode.position({ x: node.x, y: node.y });
+          }
+        });
+        // Force a layout refresh to ensure everything is properly positioned
+        cy.fit(cy.nodes(), 50);
+      }
+      
+      return { ...prev, nodes: rotated };
+    });
+    const next = ((orientation + 90) % 360 + 360) % 360; // keep normalization consistent
+    dispatchAppState({ type: ACTION_TYPES.SET_ORIENTATION, payload: { orientation: next } });
+  }, [orientation, saveUndoState, getCytoscapeInstance]);
+
+  const handleToggleCompass = useCallback(() => {
+    dispatchAppState({ type: ACTION_TYPES.SET_COMPASS_VISIBLE, payload: { visible: !compassVisible } });
+  }, [compassVisible]);
+
   // map name
   const setMapName = useCallback((newMapName) => {
     dispatchAppState({ type: ACTION_TYPES.SET_MAP_NAME, payload: { mapName: newMapName } });
@@ -805,60 +837,6 @@ function App() {
   const setCdnBaseUrlHandler = useCallback((newCdnBaseUrl) => {
     dispatchAppState({ type: ACTION_TYPES.SET_CDN_BASE_URL, payload: { cdnBaseUrl: newCdnBaseUrl } });
   }, []);
-
-  // Note count overlay toggle
-  const handleToggleNoteCountOverlay = useCallback(() => {
-    const newState = !showNoteCountOverlay;
-    printDebug('🔥 [APP] handleToggleNoteCountOverlay called!');
-    printDebug('🔥 [APP] Current showNoteCountOverlay:', showNoteCountOverlay);
-    printDebug('🔥 [APP] New state will be:', newState);
-    printDebug('🔥 [APP] Current graphData.notes:', graphData.notes);
-    printDebug('🔥 [APP] Available notes:', Object.keys(graphData.notes).map(key => `${key}: ${graphData.notes[key]?.length || 0}`));
-    
-    setShowNoteCountOverlay(newState);
-    printDebug(`🏷️ [App] Note count overlay toggled: ${newState}`);
-    printDebug(`🏷️ [App] Available notes:`, Object.keys(graphData.notes).map(key => `${key}: ${graphData.notes[key]?.length || 0}`));
-    
-    printDebug('🔥 [APP] setShowNoteCountOverlay called with:', newState);
-  }, [showNoteCountOverlay, graphData.notes]);
-
-  // NEW: Rotate all nodes 90° clockwise about origin (0,0)
-  const handleRotateAllNodes = useCallback(() => {
-    if (!graphData.nodes.length) return;
-    // Save undo state before rotation
-    saveUndoState();
-    // Apply rotation: (x, y) -> (y, -x)
-    const rotatedNodes = graphData.nodes.map(n => ({ ...n, x: n.y, y: -n.x }));
-    const nextGraph = { ...graphData, nodes: rotatedNodes };
-    setGraphData(nextGraph);
-
-    // Immediate visual sync (similar to undo path)
-    const cy = getCytoscapeInstance();
-    if (cy) {
-      import('./graph/cyAdapter.js').then(({ syncElements, ensureNoteCountNodes, updateNoteCounts }) => {
-        try {
-          syncElements(cy, { 
-            nodes: rotatedNodes, 
-            edges: graphData.edges, 
-            mapName: graphData.mapName, 
-            cdnBaseUrl: graphData.cdnBaseUrl, 
-            notes: graphData.notes 
-          }, { mode });
-          rotatedNodes.forEach(n => {
-            const parent = cy.getElementById(n.id);
-            if (parent && parent.length) parent.position({ x: n.x, y: n.y });
-          });
-          if (showNoteCountOverlay) {
-            ensureNoteCountNodes(cy, graphData.notes || {}, showNoteCountOverlay);
-            updateNoteCounts(cy, graphData.notes || {});
-          }
-          cy.style().update();
-        } catch (e) {
-          printDebug('⚠️ [App] Rotate visual sync failed:', e);
-        }
-      });
-    }
-  }, [graphData, saveUndoState, getCytoscapeInstance, mode, showNoteCountOverlay]);
 
   // notes — now stored in graphData.notes
   const handleStartNoteEditing = useCallback((targetId, targetType) => {
@@ -899,8 +877,6 @@ function App() {
 
   const handleModeToggle = useCallback(() => {
     const newMode = mode === 'editing' ? 'playing' : 'editing';
-    printDebug(`🎮 [App] Mode toggle initiated: ${mode} -> ${newMode}`);
-    
     dispatchAppState({
       type: ACTION_TYPES.SET_MODE,
       payload: { mode: newMode }
@@ -917,8 +893,6 @@ function App() {
     if (noteViewingTarget) {
       handleCloseNoteViewing();
     }
-    
-    printDebug(`✅ [App] Mode toggle completed: now in ${newMode} mode`);
   }, [mode, noteEditingTarget, noteViewingTarget, clearCytoscapeSelections, handleCloseNoteEditing, handleCloseNoteViewing]);
 
   const handleUpdateNotes = useCallback((targetId, newNotes) => {
@@ -1045,18 +1019,21 @@ function App() {
     // Clear all selections first
     dispatchAppState({ type: ACTION_TYPES.CLEAR_ALL_SELECTIONS });
     clearCytoscapeSelections();
-
-    // NOTE: Do NOT restore camera here directly. Closing the note viewer will handle it once.
-
+    
+    // In playing mode, restore camera when clicking background (after clearing selections)
+    if (mode === 'playing' && ZOOM_TO_SELECTION && hasOriginalCamera()) {
+      restoreOriginalCamera(true);
+    }
+    
     // Close note editing modal if open
     if (noteEditingTarget) {
       handleCloseNoteEditing();
     }
-    // Close note viewing modal if open (this will also restore camera once)
+    // Close note viewing modal if open
     if (noteViewingTarget) {
       handleCloseNoteViewing();
     }
-  }, [noteEditingTarget, noteViewingTarget, handleCloseNoteEditing, handleCloseNoteViewing, clearCytoscapeSelections]);
+  }, [mode, noteEditingTarget, noteViewingTarget, handleCloseNoteEditing, handleCloseNoteViewing, clearCytoscapeSelections, hasOriginalCamera, restoreOriginalCamera]);
 
   const areNodesConnected = useCallback((sourceId, targetId) => {
     return graphData.edges.some(e =>
@@ -1131,9 +1108,7 @@ function App() {
         noteEditingTarget,
         noteEditingType,
         noteViewingTarget,
-        debugModalOpen,
-        universalMenuCollapsed,
-        graphControlsCollapsed
+        debugModalOpen
       },
       undo: {
         canUndo: !!lastUndoState,
@@ -1150,7 +1125,7 @@ function App() {
     exportNodePositions, graphData, mode, zoomLevel, cameraPosition, 
     selectedNodeIds, nodeSelectionOrder, selectedEdgeIds, shouldFitOnNextRender, 
     loadError, noteEditingTarget, noteEditingType, noteViewingTarget, debugModalOpen,
-    lastUndoState, universalMenuCollapsed, graphControlsCollapsed
+    lastUndoState
   ]);
 
   /** ---------- render ---------- **/
@@ -1169,15 +1144,15 @@ function App() {
         onExportMap={exportMap}
         onResetMap={handleResetToInitial}
         onNewMap={handleNewMap}
-        onRotate={handleRotateAllNodes}
-        onUndo={handleUndo}
-        canUndo={!!lastUndoState}
-        onOpenDebugModal={DEV_MODE ? handleOpenDebugModal : undefined}
         onNodeColorChange={handleNodeColorChange}
         areNodesConnected={areNodesConnected}
         mode={mode}
         collapsed={graphControlsCollapsed}
         onToggleCollapsed={toggleGraphControls}
+        onOpenDebugModal={DEV_MODE ? handleOpenDebugModal : undefined}
+        onUndo={handleUndo}
+        canUndo={!!lastUndoState}
+        onRotate={handleRotateNodesAndMap}
       />
 
       <UniversalControls
@@ -1188,6 +1163,10 @@ function App() {
         mode={mode}
         showNoteCountOverlay={showNoteCountOverlay}
         onToggleNoteCountOverlay={handleToggleNoteCountOverlay}
+        onRotateMap={handleRotateMap}
+        orientation={orientation}
+        compassVisible={compassVisible}
+        onToggleCompass={handleToggleCompass}
         collapsed={universalMenuCollapsed}
         onToggleCollapsed={toggleUniversalMenu}
       />
@@ -1280,6 +1259,20 @@ function App() {
         showNoteCountOverlay={showNoteCountOverlay}
         notes={graphData.notes}
       />
+
+      {compassVisible && (
+        <div style={{ position: 'absolute', top: '10px', left: '10px', zIndex: 900, width: '60px', height: '60px', pointerEvents: 'none', opacity: 0.9 }}>
+          <svg viewBox="0 0 100 100" style={{ width: '100%', height: '100%', transform: `rotate(${orientation}deg)` }}>
+            <circle cx="50" cy="50" r="48" fill="rgba(0,0,0,0.4)" stroke="#fff" strokeWidth="2" />
+            <polygon points="50,15 60,50 50,45 40,50" fill="#ff5252" />
+            <polygon points="50,85 40,50 50,55 60,50" fill="#fff" />
+            <text x="50" y="20" textAnchor="middle" fontSize="12" fill="#fff" fontFamily="sans-serif">N</text>
+            <text x="50" y="95" textAnchor="middle" fontSize="12" fill="#fff" fontFamily="sans-serif">S</text>
+            <text x="15" y="55" textAnchor="middle" fontSize="12" fill="#fff" fontFamily="sans-serif">W</text>
+            <text x="85" y="55" textAnchor="middle" fontSize="12" fill="#fff" fontFamily="sans-serif">E</text>
+          </svg>
+        </div>
+      )}
     </div>
   );
 }

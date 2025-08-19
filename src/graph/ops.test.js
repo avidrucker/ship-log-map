@@ -13,7 +13,8 @@ describe("graph ops", () => {
     expect(g.nodes).toHaveLength(1);
     g = renameNode(g, "A", "A1");
     expect(g.nodes[0].title).toBe("A1");
-    g = removeNodeAndEdges(g, "A");
+    expect(g.nodes[0].id).toBe("A1"); // ID should also change
+    g = removeNodeAndEdges(g, "A1"); // Use the new ID
     expect(g.nodes).toHaveLength(0);
   });
 

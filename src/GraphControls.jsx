@@ -125,7 +125,7 @@ function GraphControls({
           onClick={onRotate}
           title="Rotate all nodes 90° clockwise around origin"
         >
-          Rotate
+          Rotate Map
         </button>
         {DEV_MODE && onOpenDebugModal && (
           <button

@@ -54,6 +54,9 @@ export const ACTION_TYPES = {
   
   // CDN base URL actions
   SET_CDN_BASE_URL: 'SET_CDN_BASE_URL',
+  // New orientation & compass actions
+  SET_ORIENTATION: 'SET_ORIENTATION',
+  SET_COMPASS_VISIBLE: 'SET_COMPASS_VISIBLE'
 };
 
 // Initial state
@@ -88,12 +91,14 @@ export const initialAppState = {
   mode: 'editing', // 'editing' or 'playing'
   mapName: 'default_map', // Editable map name
   cdnBaseUrl: '', // CDN base URL for image loading
+  orientation: 0, // Map orientation in degrees (0-359)
   ui: {
     shouldFitOnNextRender: false,
     loadError: null,
     universalMenuCollapsed: false,
     graphControlsCollapsed: false,
-    cameraInfoCollapsed: false
+    cameraInfoCollapsed: false,
+    compassVisible: true // Compass visibility toggle
   },
   undo: {
     lastGraphState: null
@@ -256,6 +261,23 @@ export function appStateReducer(state, action) {
       return {
         ...state,
         cdnBaseUrl: action.payload.cdnBaseUrl
+      };
+    case ACTION_TYPES.SET_ORIENTATION: {
+      let deg = action.payload.orientation;
+      // normalize into 0-359
+      deg = ((deg % 360) + 360) % 360;
+      return {
+        ...state,
+        orientation: deg
+      };
+    }
+    case ACTION_TYPES.SET_COMPASS_VISIBLE:
+      return {
+        ...state,
+        ui: {
+          ...state.ui,
+            compassVisible: action.payload.visible
+        }
       };
       
     case ACTION_TYPES.SET_ZOOM:
@@ -441,5 +463,13 @@ export const actions = {
   setCameraInfoCollapsed: (collapsed) => ({
     type: ACTION_TYPES.SET_CAMERA_INFO_COLLAPSED,
     payload: { collapsed }
+  }),
+  setOrientation: (orientation) => ({
+    type: ACTION_TYPES.SET_ORIENTATION,
+    payload: { orientation }
+  }),
+  setCompassVisible: (visible) => ({
+    type: ACTION_TYPES.SET_COMPASS_VISIBLE,
+    payload: { visible }
   }),
 };

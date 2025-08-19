@@ -307,17 +307,41 @@ function CytoscapeGraph({
       printDebug(`🔄 [CytoscapeGraph] Only positions changed, updating positions without sync`);
       // Only update positions without triggering full sync
       let updatedCount = 0;
+      let majorChange = false;
+      
       nodes.forEach(node => {
+        // Find the parent node (the actual draggable node in cytoscape)
         const cyNode = cy.getElementById(node.id);
         if (cyNode.length > 0) {
           const currentPos = cyNode.position();
-          if (currentPos.x !== node.x || currentPos.y !== node.y) {
+          const deltaX = Math.abs(currentPos.x - node.x);
+          const deltaY = Math.abs(currentPos.y - node.y);
+          
+          if (deltaX > 0.01 || deltaY > 0.01) {
+            printDebug(`📍 [CytoscapeGraph] Updating position for node ${node.id}: (${currentPos.x}, ${currentPos.y}) -> (${node.x}, ${node.y})`);
             cyNode.position({ x: node.x, y: node.y });
             updatedCount++;
+            
+            // If this is a large coordinate change (like from rotation), mark as major change
+            if (deltaX > 10 || deltaY > 10) {
+              majorChange = true;
+            }
           }
         }
       });
-      printDebug(`📍 [CytoscapeGraph] Updated positions for ${updatedCount} nodes`);
+      
+      printDebug(`📍 [CytoscapeGraph] Updated positions for ${updatedCount} nodes (major change: ${majorChange})`);
+      
+      // If we updated any positions and it was a major change, force a refresh
+      if (updatedCount > 0 && majorChange) {
+        printDebug(`🔄 [CytoscapeGraph] Major position changes detected, forcing layout refresh`);
+        // Force a full sync instead for major changes like rotation
+        syncElements(cyRef.current, { nodes, edges, mapName, cdnBaseUrl }, { mode });
+      } else if (updatedCount > 0) {
+        // For minor position changes, just trigger a layout refresh
+        cy.fit(cy.nodes(), 0); // Fit without padding to refresh layout
+        cy.center(); // Re-center the view
+      }
     }
   }, [nodes, edges, mode, mapName, cdnBaseUrl, showNoteCountOverlay, notes]);
 
