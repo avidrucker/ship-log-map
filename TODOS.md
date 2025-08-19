@@ -6,18 +6,18 @@
 - [ ] Implement context menu to replace current UI for adding/removing nodes, edges, renaming nodes, etc.
 - [x] Implement a "save" button to save the current graph state
 - [x] Implement a "load" button to load a previously saved graph state
-- [ ] Implement a "new" button to clear the current graph state and start fresh with zero nodes, edges, and the camera is reset to the default position and zoom
-- [ ] Implement a "debug" button to log the current graph state to the console
-- [ ] Change selected node outline/border color to be the node's bright color instead of white
+- [x] Implement a "new" button to clear the current graph state and start fresh with zero nodes, edges, and the camera is reset to the default position and zoom
+- [x] Implement a "debug" button to log the current graph state to the console
+- [x] Change selected node outline/border color to be the node's bright color instead of white
 - [x] Implement a "delete" button to remove the currently selected node and all its edges
 - [x] Implement a "rename" button to rename the currently selected node
 - [x] Implement a "connect" button to connect the currently selected node to another node
-- [ ] Implement a "play mode" button which hides the UI and allows the user to interact with the graph without editing it
-- [ ] Implement an explicit "edit mode" button which shows the UI and allows the user to edit the graph
-- [ ] Implement a "zoom to node" button which zooms the camera to the currently selected node, centering it in the viewport and zooming in to a comfortable reading/viewing level (this zoom amount should vary depending on the node size)
-- [ ] Implement adding of clues/hints to edges, which can be displayed when an edge is clicked
-- [ ] Implement adding of clues/hints to nodes, which can be displayed when a node is clicked
-- [ ] Pressing Esc while a modal is open should close the modal (for both note editor and node renaming)
+- [x] Implement a "play mode" button which hides the UI and allows the user to interact with the graph without editing it
+- [x] Implement an explicit "edit mode" button which shows the UI and allows the user to edit the graph
+- [x] Implement a "zoom to node" feature which zooms the camera to the currently selected node, centering it in the viewport and zooming in to a comfortable reading/viewing level (this zoom amount should vary depending on the node size)
+- [x] Implement adding of clues/hints to edges, which can be displayed when an edge is clicked
+- [x] Implement adding of clues/hints to nodes, which can be displayed when a node is clicked
+- [ ] **Pressing Esc while a modal is open should close the modal (for both note editor and node renaming)**
 - ~~Selecting a node will deselect all edges~~
 - ~~Selecting an edge will deselect all nodes~~
 - [x] Clicking outside of the Note Editor Modal closes it, including when clicking on the background or other nodes/edges
@@ -26,9 +26,9 @@
 - [x] See if arrows can be moved to the center of edges instead of being at the end
 - [x] Fix focused/active nodes to not have different border colors (they should match the node's color always)
 - [x] Change cursor to pointer when hovering over nodes and edges
-- [ ] Implement re-ordering of notes in the Note Editor Modal
+- ~~Implement re-ordering of notes in the Note Editor Modal~~
 - [ ] Implement "unlocking" of nodes in player mode where initially a question mark is shown on the node instead of its title and picture to indicate that a node exists, but is not yet accessible
-- [ ] Implement "unlocking" of notes where, in the note viewer modal, there is an indicator that further notes exist, but are not yet accessible
+- [ ] Implement "unlocking" of notes where, in the note viewer modal, there is an indicator that further notes exist, but are not yet accessible, and then, that indicator goes away when all existing notes are found/discovered/shown
 - [x] Fix node and edge selection so that single clicking adds to the selection (instead of requiring shift+click) and clicking on the background deselects all nodes and edges
 - [x] fix colors to match original source material
 - [ ] Implement typewriter effect for notes in the Note Viewer Modal
@@ -57,7 +57,7 @@
 - [x] Implement different size (or different font-size) note-count nodes that associate with the different sizes of the entry nodes they are associated with so that larger entry nodes have larger note-count nodes and smaller entry nodes have smaller note-count nodes
 - [x] Fix the undo button which doesn't seem to be restoring nodes after they have been moved
 - [ ] Implement an icon system that allows users to select from a set of icons for nodes, which can be used to visually represent the type of node (e.g. a bed icon for sleep nodes, a shower icon for hygiene nodes, etc.) that uses font awesome 4.7 icons
-- [ ] Implement the usage (loading from CDN, caching, and displaying) of an optional placeholder SVG image that can live in the CDN and get cached into the app, where, if the image exists in the specified CDN folder and/or is cached, it will be the default placeholder SVG image icon for nodes that do not have an image set, and if a default_image.svg image does not exist in the CDN (or cache), then the app will use the default app's built-in "unspecified" SVG image instead. The name of the file in the CDN, if it exists, will be "default_image.svg". Clearing the cache will remove this image from the cache, and the app will revert to using the built-in "unspecified" SVG image, but refreshing the page will trigger an attempt to reload the "default_image.svg" from the CDN again
+- [x] Implement the usage (loading from CDN, caching, and displaying) of an optional placeholder SVG image that can live in the CDN and get cached into the app, where, if the image exists in the specified CDN folder and/or is cached, it will be the default placeholder SVG image icon for nodes that do not have an image set, and if a default_image.svg image does not exist in the CDN (or cache), then the app will use the default app's built-in "unspecified" SVG image instead. The name of the file in the CDN, if it exists, will be "default_image.svg". Clearing the cache will remove this image from the cache, and the app will revert to using the built-in "unspecified" SVG image, but refreshing the page will trigger an attempt to reload the "default_image.svg" from the CDN again
 - [ ] IDEA: Implement toggle which switches between showing node titles and showing secondary text labels for nodes, where the secondary text labels are set in the node's data and can be used to show additional information about the node (e.g. an alternate language title, etc.)
 - [ ] Implement a 3rd node type which displays "tags" for nodes, where the tags are displayed as small text labels below the node title and can be used to categorize nodes (e.g. "play", "sleep", "eat", etc.), and the data structure for the node will include a "tags" array that contains the tags for the node
   - [ ] IDEA 1: and the editor modal will allow users to add/remove tags from the selected node, in which the tags are displayed as buttons that can be toggled on and off to add/remove them from the selected node
@@ -65,6 +65,9 @@
 - [ ] Implement a "manage tags" modal that allows users to create, edit, and delete tags
 - [ ] Implement a "manage icons" modal that allows users to select from a set of icons for tags, which can be used to visually represent a given tag (e.g. a bed icon for the "sleep" tag, a shower icon for the "showers" tag, etc.)
 - [ ] IDEA: Implement deselecting of nodes and edges when clicking on the close modal button as well as pressing the Esc key when the note editor modal is open, so that the user can close the modal *and* deselect the node without having to click on the background
+- [ ] **Move rotate button to the bottom left panel because it is useful in all modes, not just editing mode**
+- [ ] Add a compass rose to the map that shows the cardinal directions (N, S, E, W) and can be toggled on and off
+- [ ] IDEA: Temporarily add map nodes which indicate the cardinal directions (north point of map, east point, etc.)
 
 Notes for Future Features
 - Listing out "layers" which show things such as electrical lines, water lines, Internet, etc. that can be toggled on and off
