@@ -37,8 +37,8 @@ const SPINNER_CSS = `
 function getMapUrlFromQuery() {
   const urlParams = new URLSearchParams(window.location.search);
   const mapUrl = urlParams.get('map');
-  console.log('[URL] Current window.location.search:', window.location.search);
-  console.log('[URL] Extracted map URL:', mapUrl);
+  printDebug('[URL] Current window.location.search:', window.location.search);
+  printDebug('[URL] Extracted map URL:', mapUrl);
   printDebug('[URL] Current window.location.search:', window.location.search);
   printDebug('[URL] Extracted map URL:', mapUrl);
   return mapUrl;
@@ -67,18 +67,18 @@ function clearQueryParams() {
 // Helper to load map from CDN
 async function loadMapFromCdn(mapUrl) {
   try {
-    console.log('[CDN] Attempting to load map from:', mapUrl);
+    printDebug('[CDN] Attempting to load map from:', mapUrl);
     printDebug('[CDN] Attempting to load map from:', mapUrl);
     
     const response = await fetch(mapUrl);
-    console.log('[CDN] Fetch response status:', response.status, response.statusText);
+    printDebug('[CDN] Fetch response status:', response.status, response.statusText);
     
     if (!response.ok) {
       throw new Error('HTTP ' + response.status + ': ' + response.statusText);
     }
     
     const data = await response.json();
-    console.log('[CDN] Successfully loaded map data:', data);
+    printDebug('[CDN] Successfully loaded map data:', data);
     printDebug('[CDN] Successfully loaded map data');
     
     // Validate the data structure
@@ -304,7 +304,7 @@ function App() {
   useEffect(() => { printDebug('🎮 App: mode changed to:', mode); }, [mode]);
   useEffect(() => { 
     printDebug('📊 App: graphData changed - nodes:', graphData.nodes.length, 'edges:', graphData.edges.length, 'mapName:', graphData.mapName || 'default'); 
-    console.log('📊 [App] graphData changed:', { 
+    printDebug('📊 [App] graphData changed:', { 
       nodeCount: graphData.nodes.length, 
       edgeCount: graphData.edges.length, 
       mapName: graphData.mapName || 'default',
@@ -314,7 +314,7 @@ function App() {
 
   // Add a special debug effect to track when graphData actually changes
   useEffect(() => {
-    console.log('🔄 [App] graphData state updated! New data:', {
+    printDebug('🔄 [App] graphData state updated! New data:', {
       nodeCount: graphData.nodes.length,
       edgeCount: graphData.edges.length,
       mapName: graphData.mapName,
@@ -343,31 +343,31 @@ function App() {
 
   // ---------- URL monitoring for CDN map loading ----------
   useEffect(() => {
-    console.log('🚨🚨🚨 [URL EFFECT] URL monitoring effect initialized - VERSION 3.0 🚨🚨🚨');
+    printDebug('🚨🚨🚨 [URL EFFECT] URL monitoring effect initialized - VERSION 3.0 🚨🚨🚨');
     let hasLoadedFromUrl = false; // Flag to track if we've already loaded from URL
     
     const handleURLChange = async () => {
-      console.log('🚨🚨🚨 [URL EFFECT] handleURLChange called - VERSION 3.0 🚨🚨🚨');
+      printDebug('🚨🚨🚨 [URL EFFECT] handleURLChange called - VERSION 3.0 🚨🚨🚨');
       const newMapUrl = getMapUrlFromQuery();
-      console.log('[URL EFFECT] newMapUrl:', JSON.stringify(newMapUrl));
-      console.log('[URL EFFECT] currentMapUrl:', JSON.stringify(currentMapUrl));
-      console.log('[URL EFFECT] Are they different?', newMapUrl !== currentMapUrl);
-      console.log('[URL EFFECT] hasLoadedFromUrl:', hasLoadedFromUrl);
+      printDebug('[URL EFFECT] newMapUrl:', JSON.stringify(newMapUrl));
+      printDebug('[URL EFFECT] currentMapUrl:', JSON.stringify(currentMapUrl));
+      printDebug('[URL EFFECT] Are they different?', newMapUrl !== currentMapUrl);
+      printDebug('[URL EFFECT] hasLoadedFromUrl:', hasLoadedFromUrl);
       
       if (newMapUrl !== currentMapUrl) {
-        console.log('[URL EFFECT] ✅ CONDITION MET - URL changed, new map URL:', newMapUrl || 'none');
+        printDebug('[URL EFFECT] ✅ CONDITION MET - URL changed, new map URL:', newMapUrl || 'none');
         printDebug('[URL] URL changed, new map URL:', newMapUrl || 'none');
         setCurrentMapUrl(newMapUrl);
         
         if (newMapUrl) {
           // Check if we're already loading this URL
           if (currentCdnLoadRef.current === newMapUrl) {
-            console.log('[URL EFFECT] ⏳ Already loading this URL, skipping duplicate request');
+            printDebug('[URL EFFECT] ⏳ Already loading this URL, skipping duplicate request');
             return;
           }
           
           currentCdnLoadRef.current = newMapUrl;
-          console.log('[URL EFFECT] Starting CDN load for:', newMapUrl);
+          printDebug('[URL EFFECT] Starting CDN load for:', newMapUrl);
           // Clear any previous CDN errors and set loading flags
           setCdnLoadingState({ isLoading: true, error: null });
           setIsLoadingFromCDN(true);
@@ -377,81 +377,81 @@ function App() {
             
             // Only proceed if this is still the current load operation
             if (currentCdnLoadRef.current !== newMapUrl) {
-              console.log('[URL EFFECT] ⏭️ CDN load operation superseded, skipping state update');
+              printDebug('[URL EFFECT] ⏭️ CDN load operation superseded, skipping state update');
               return;
             }
             
-            console.log('[URL EFFECT] CDN load completed, proceeding with state update');
+            printDebug('[URL EFFECT] CDN load completed, proceeding with state update');
             
             if (result.success) {
-              console.log('[URL EFFECT] Successfully loaded map from CDN, updating app state');
-              console.log('[URL EFFECT] Loaded data:', result.data);
+              printDebug('[URL EFFECT] Successfully loaded map from CDN, updating app state');
+              printDebug('[URL EFFECT] Loaded data:', result.data);
               printDebug('[URL] Successfully loaded map from CDN, updating app state');
               
               // Normalize and update graph data
-              console.log('[URL EFFECT] Normalizing data...');
+              printDebug('[URL EFFECT] Normalizing data...');
               const normalizedData = normalizeGraphData(result.data);
-              console.log('[URL EFFECT] Normalized data:', normalizedData);
+              printDebug('[URL EFFECT] Normalized data:', normalizedData);
               const hydratedData = hydrateCoordsIfMissing(normalizedData, defaultShipLogData);
-              console.log('[URL EFFECT] Hydrated data:', hydratedData);
+              printDebug('[URL EFFECT] Hydrated data:', hydratedData);
               
-              console.log('[URL EFFECT] Setting graph data...');
-              console.log('[URL EFFECT] Current graphData nodes:', graphData.nodes.length);
-              console.log('[URL EFFECT] New graphData nodes:', hydratedData.nodes.length);
-              console.log('[URL EFFECT] About to call setGraphData with:', {
+              printDebug('[URL EFFECT] Setting graph data...');
+              printDebug('[URL EFFECT] Current graphData nodes:', graphData.nodes.length);
+              printDebug('[URL EFFECT] New graphData nodes:', hydratedData.nodes.length);
+              printDebug('[URL EFFECT] About to call setGraphData with:', {
                 nodeCount: hydratedData.nodes.length,
                 edgeCount: hydratedData.edges.length,
                 mapName: hydratedData.mapName,
                 mode: hydratedData.mode
               });
               setGraphData(hydratedData);
-              console.log('[URL EFFECT] Graph data set completed');
+              printDebug('[URL EFFECT] Graph data set completed');
               
               // Update app state with loaded data
-              console.log('[URL EFFECT] Updating app state...');
+              printDebug('[URL EFFECT] Updating app state...');
               if (typeof normalizedData.mode === 'string' && MODE_TOGGLE) {
-                console.log('[URL EFFECT] Setting mode:', normalizedData.mode);
+                printDebug('[URL EFFECT] Setting mode:', normalizedData.mode);
                 dispatchAppState({ type: ACTION_TYPES.SET_MODE, payload: { mode: normalizedData.mode } });
               }
               if (typeof normalizedData.mapName === 'string') {
-                console.log('[URL EFFECT] Setting map name:', normalizedData.mapName);
+                printDebug('[URL EFFECT] Setting map name:', normalizedData.mapName);
                 dispatchAppState({ type: ACTION_TYPES.SET_MAP_NAME, payload: { mapName: normalizedData.mapName } });
               }
               if (typeof normalizedData.cdnBaseUrl === 'string') {
-                console.log('[URL EFFECT] Setting CDN base URL:', normalizedData.cdnBaseUrl);
+                printDebug('[URL EFFECT] Setting CDN base URL:', normalizedData.cdnBaseUrl);
                 dispatchAppState({ type: ACTION_TYPES.SET_CDN_BASE_URL, payload: { cdnBaseUrl: normalizedData.cdnBaseUrl } });
               }
               if (typeof normalizedData.orientation === 'number') {
-                console.log('[URL EFFECT] Setting orientation:', normalizedData.orientation);
+                printDebug('[URL EFFECT] Setting orientation:', normalizedData.orientation);
                 dispatchAppState({ type: ACTION_TYPES.SET_ORIENTATION, payload: { orientation: normalizedData.orientation } });
               }
               if (typeof normalizedData.compassVisible === 'boolean') {
-                console.log('[URL EFFECT] Setting compass visible:', normalizedData.compassVisible);
+                printDebug('[URL EFFECT] Setting compass visible:', normalizedData.compassVisible);
                 dispatchAppState({ type: ACTION_TYPES.SET_COMPASS_VISIBLE, payload: { visible: normalizedData.compassVisible } });
               }
               
               // Reset camera and fit to view
-              console.log('[URL EFFECT] Resetting camera...');
+              printDebug('[URL EFFECT] Resetting camera...');
               dispatchAppState({ type: ACTION_TYPES.SET_ZOOM, payload: { zoom: 1 } });
               dispatchAppState({ type: ACTION_TYPES.SET_CAMERA_POSITION, payload: { position: { x: 0, y: 0 } } });
               dispatchAppState({ type: ACTION_TYPES.SET_SHOULD_FIT, payload: { shouldFit: true } });
               
               // Clear selections and undo state
-              console.log('[URL EFFECT] Clearing selections...');
+              printDebug('[URL EFFECT] Clearing selections...');
               clearCytoscapeSelections();
               dispatchAppState({ type: ACTION_TYPES.CLEAR_ALL_SELECTIONS });
               clearUndoState();
               
-              console.log('[URL EFFECT] Setting CDN loading state to success...');
+              printDebug('[URL EFFECT] Setting CDN loading state to success...');
               setCdnLoadingState({ isLoading: false, error: null });
               
               // Mark that we've successfully loaded from URL
               hasLoadedFromUrl = true;
-              console.log('[URL EFFECT] Marked hasLoadedFromUrl = true');
+              printDebug('[URL EFFECT] Marked hasLoadedFromUrl = true');
               
               // Clear the CDN loading flag after a short delay to allow state to settle
               setTimeout(() => {
-                console.log('[URL EFFECT] Clearing CDN loading flag');
+                printDebug('[URL EFFECT] Clearing CDN loading flag');
                 setIsLoadingFromCDN(false);
                 currentCdnLoadRef.current = null;
               }, 100);
@@ -462,7 +462,7 @@ function App() {
               currentCdnLoadRef.current = null;
             }
           } catch (error) {
-            console.log('[URL EFFECT] Exception during CDN loading:', error.message);
+            printDebug('[URL EFFECT] Exception during CDN loading:', error.message);
             printDebug('[URL] Exception during CDN loading:', error.message);
             setCdnLoadingState({ isLoading: false, error: 'Unexpected error: ' + error.message });
             setIsLoadingFromCDN(false);
@@ -475,26 +475,26 @@ function App() {
           currentCdnLoadRef.current = null;
         }
       } else {
-        console.log('[URL EFFECT] ❌ CONDITION NOT MET - URLs are the same, skipping CDN load');
+        printDebug('[URL EFFECT] ❌ CONDITION NOT MET - URLs are the same, skipping CDN load');
       }
     };
     
     // Initial check on mount
-    console.log('[URL EFFECT] Running initial URL check');
+    printDebug('[URL EFFECT] Running initial URL check');
     const initialMapUrl = getMapUrlFromQuery();
-    console.log('[URL EFFECT] Initial map URL from query:', initialMapUrl);
+    printDebug('[URL EFFECT] Initial map URL from query:', initialMapUrl);
     
     if (initialMapUrl) {
-      console.log('[URL EFFECT] Found query params, performing initial load');
+      printDebug('[URL EFFECT] Found query params, performing initial load');
       handleURLChange();
     } else {
-      console.log('[URL EFFECT] No query params found, skipping initial load');
+      printDebug('[URL EFFECT] No query params found, skipping initial load');
       setCurrentMapUrl(null); // Ensure currentMapUrl is set to null for consistency
     }
     
     // Listen for popstate events (back/forward navigation) - always needed for navigation
     window.addEventListener('popstate', handleURLChange);
-    console.log('[URL EFFECT] Added popstate listener');
+    printDebug('[URL EFFECT] Added popstate listener');
     
     // Clean up listener
     return () => {
@@ -506,13 +506,13 @@ function App() {
   useEffect(() => {
     // Don't persist while loading from CDN to avoid overwriting CDN data
     if (isLoadingFromCDN) {
-      console.log('[PERSISTENCE] Skipping persistence during CDN load');
+      printDebug('[PERSISTENCE] Skipping persistence during CDN load');
       return;
     }
     
     // persist graph (nodes/edges/notes), mode, map name, and CDN base URL
     const dataWithModeAndName = { ...graphData, mode, mapName, cdnBaseUrl, orientation };
-    console.log('[PERSISTENCE] Saving to local:', {
+    printDebug('[PERSISTENCE] Saving to local:', {
       nodeCount: dataWithModeAndName.nodes.length,
       mapName: dataWithModeAndName.mapName,
       mode: dataWithModeAndName.mode
