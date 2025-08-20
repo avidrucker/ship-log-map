@@ -19,7 +19,7 @@ function UniversalControls({
   showNoteCountOverlay,
   onToggleNoteCountOverlay,
   // orientation
-  onRotateMap,
+  onRotateNodesAndCompass,
   orientation,
   compassVisible,
   onToggleCompass,
@@ -103,10 +103,10 @@ function UniversalControls({
       </button>
       <button
         style={{ padding: '6px 10px', background: '#455a64', color: '#fff', border: '1px solid #37474f', cursor: 'pointer' }}
-        onClick={onRotateMap}
-        title={`Rotate map (orientation: ${orientation}°)`}
+        onClick={onRotateNodesAndCompass}
+        title={`Rotate entire map 90° clockwise (orientation: ${orientation}°)`}
       >
-        Rotate Compass
+        Rotate Map
       </button>
       <button
         style={{ padding: '6px 10px', background: compassVisible ? '#8d6e63' : '#666', color: '#fff', border: `1px solid ${compassVisible ? '#6d4c41' : '#555'}`, cursor: 'pointer' }}

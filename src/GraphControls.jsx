@@ -19,10 +19,11 @@ function GraphControls({
   onResetMap,
   onCreateNode,
   onNewMap,
-  onRotate,
+  onRotateCompass,
   onUndo,
   canUndo,
   onOpenDebugModal,
+  onOpenShareModal,
   // selection state + conditional actions
   selectedNodes,
   selectedEdges,
@@ -122,10 +123,17 @@ function GraphControls({
         </button>
         <button
           style={{ padding: '8px 12px', background: '#455a64', color: '#fff', border: '1px solid #37474f', cursor: 'pointer' }}
-          onClick={onRotate}
-          title="Rotate all nodes 90° clockwise around origin"
+          onClick={onRotateCompass}
+          title="Rotate compass only 90° clockwise"
         >
-          Rotate Map
+          Rotate Compass
+        </button>
+        <button
+          style={{ padding: '8px 12px', background: '#2196f3', color: '#fff', border: '1px solid #1976d2', cursor: 'pointer' }}
+          onClick={onOpenShareModal}
+          title="Share map with others"
+        >
+          📤 Share
         </button>
         {DEV_MODE && onOpenDebugModal && (
           <button

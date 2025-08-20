@@ -8,6 +8,7 @@ import UniversalControls from "./UniversalControls";
 import NoteEditorModal from "./NoteEditorModal";
 import NoteViewerModal from "./NoteViewerModal";
 import DebugModal from "./DebugModal";
+import ShareModal from "./ShareModal";
 import CameraInfo from "./CameraInfo";
 import ErrorDisplay from "./ErrorDisplay";
 import { TEST_ICON_SVG } from "./constants/testAssets.js";
@@ -191,6 +192,15 @@ function App() {
   });
   const handleToggleNoteCountOverlay = useCallback(() => {
     setShowNoteCountOverlay(v => !v);
+  }, []);
+
+  // Share modal state
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const handleOpenShareModal = useCallback(() => {
+    setShareModalOpen(true);
+  }, []);
+  const handleCloseShareModal = useCallback(() => {
+    setShareModalOpen(false);
   }, []);
 
   // Collapse toggles mapped to reducer-backed state
@@ -1150,9 +1160,10 @@ function App() {
         collapsed={graphControlsCollapsed}
         onToggleCollapsed={toggleGraphControls}
         onOpenDebugModal={DEV_MODE ? handleOpenDebugModal : undefined}
+        onOpenShareModal={handleOpenShareModal}
         onUndo={handleUndo}
         canUndo={!!lastUndoState}
-        onRotate={handleRotateNodesAndMap}
+        onRotateCompass={handleRotateMap}
       />
 
       <UniversalControls
@@ -1163,7 +1174,7 @@ function App() {
         mode={mode}
         showNoteCountOverlay={showNoteCountOverlay}
         onToggleNoteCountOverlay={handleToggleNoteCountOverlay}
-        onRotateMap={handleRotateMap}
+        onRotateNodesAndCompass={handleRotateNodesAndMap}
         orientation={orientation}
         compassVisible={compassVisible}
         onToggleCompass={handleToggleCompass}
@@ -1202,6 +1213,13 @@ function App() {
           getCytoscapeInstance={getCytoscapeInstance}
         />
       )}
+
+      <ShareModal
+        isOpen={shareModalOpen}
+        onClose={handleCloseShareModal}
+        mapName={mapName}
+        cdnBaseUrl={cdnBaseUrl}
+      />
 
       <CameraInfo
         zoom={zoomLevel}
@@ -1273,6 +1291,14 @@ function App() {
           </svg>
         </div>
       )}
+
+      <ShareModal
+        isOpen={shareModalOpen}
+        onClose={handleCloseShareModal}
+        // Pass any necessary props for sharing
+        mapName={mapName}
+        graphData={graphData}
+      />
     </div>
   );
 }
