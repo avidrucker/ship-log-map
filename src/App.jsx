@@ -25,6 +25,66 @@ import { setCdnBaseUrl, getCdnBaseUrl } from "./utils/imageLoader.js";
 import { printDebug } from "./utils/debug.js";
 import { rotateCompassOnly, rotateNodesAndCompass } from './utils/rotation.js';
 
+// Add CSS for spinner animation
+const SPINNER_CSS = `
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}`;
+
+/** ---------- URL/CDN helpers ---------- **/
+
+// Helper to get map URL from query parameters
+function getMapUrlFromQuery() {
+  const urlParams = new URLSearchParams(window.location.search);
+  return urlParams.get('map');
+}
+
+// Helper to update query parameters
+function updateQueryParams(mapUrl) {
+  const url = new URL(window.location);
+  if (mapUrl) {
+    url.searchParams.set('map', mapUrl);
+  } else {
+    url.searchParams.delete('map');
+  }
+  window.history.replaceState({}, '', url);
+  printDebug('[URL] Updated query params:', url.search);
+}
+
+// Helper to clear query parameters
+function clearQueryParams() {
+  const url = new URL(window.location);
+  url.search = '';
+  window.history.replaceState({}, '', url);
+  printDebug('🔄 [URL] Cleared query parameters');
+}
+
+// Helper to load map from CDN
+async function loadMapFromCdn(mapUrl) {
+  try {
+    printDebug('[CDN] Attempting to load map from:', mapUrl);
+    
+    const response = await fetch(mapUrl);
+    if (!response.ok) {
+      throw new Error('HTTP ' + response.status + ': ' + response.statusText);
+    }
+    
+    const data = await response.json();
+    printDebug('[CDN] Successfully loaded map data');
+    
+    // Validate the data structure
+    if (!data || typeof data !== 'object') {
+      throw new Error('Invalid JSON structure: not an object');
+    }
+    
+    return { success: true, data };
+  } catch (error) {
+    printDebug('[CDN] Failed to load map:', error.message);
+    return { success: false, error: error.message };
+  }
+}
+
 /** ---------- helpers & migration ---------- **/
 
 // ensure every node has size/color/x/y; every edge has id & direction
@@ -203,6 +263,13 @@ function App() {
     setShareModalOpen(false);
   }, []);
 
+  // CDN loading state
+  const [currentMapUrl, setCurrentMapUrl] = useState(() => getMapUrlFromQuery());
+  const [cdnLoadingState, setCdnLoadingState] = useState({ 
+    isLoading: false, 
+    error: null 
+  });
+
   // Collapse toggles mapped to reducer-backed state
   const toggleUniversalMenu = useCallback(() => {
     dispatchAppState({ type: ACTION_TYPES.SET_UNIVERSAL_MENU_COLLAPSED, payload: { collapsed: !universalMenuCollapsed } });
@@ -219,6 +286,111 @@ function App() {
   useEffect(() => { printDebug('🏠 App: cameraPosition changed to:', cameraPosition); }, [cameraPosition]);
   useEffect(() => { printDebug('🏠 App: shouldFitOnNextRender changed to:', shouldFitOnNextRender); }, [shouldFitOnNextRender]);
   useEffect(() => { printDebug('🎮 App: mode changed to:', mode); }, [mode]);
+
+  // Add CSS for spinner animation
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.textContent = SPINNER_CSS;
+    document.head.appendChild(style);
+    return () => {
+      if (document.head.contains(style)) {
+        document.head.removeChild(style);
+      }
+    };
+  }, []);
+
+  // Helper to clear undo state (for new/load operations) - defined early because it's used in effects
+  const clearUndoState = useCallback(() => {
+    dispatchAppState({ type: ACTION_TYPES.CLEAR_UNDO_STATE });
+  }, []);
+
+  // ---------- URL monitoring for CDN map loading ----------
+  useEffect(() => {
+    let isActive = true; // Flag to prevent state updates if component unmounts
+    
+    const handleURLChange = async () => {
+      if (!isActive) return;
+      
+      const newMapUrl = getMapUrlFromQuery();
+      
+      if (newMapUrl !== currentMapUrl) {
+        printDebug('[URL] URL changed, new map URL:', newMapUrl || 'none');
+        setCurrentMapUrl(newMapUrl);
+        
+        if (newMapUrl) {
+          // Clear any previous CDN errors
+          setCdnLoadingState({ isLoading: true, error: null });
+          
+          try {
+            const result = await loadMapFromCdn(newMapUrl);
+            
+            if (!isActive) return; // Component unmounted during async operation
+            
+            if (result.success) {
+              printDebug('[URL] Successfully loaded map from CDN, updating app state');
+              
+              // Normalize and update graph data
+              const normalizedData = normalizeGraphData(result.data);
+              const hydratedData = hydrateCoordsIfMissing(normalizedData, defaultShipLogData);
+              setGraphData(hydratedData);
+              
+              // Update app state with loaded data
+              if (typeof normalizedData.mode === 'string') {
+                dispatchAppState({ type: ACTION_TYPES.SET_MODE, payload: { mode: normalizedData.mode } });
+              }
+              if (typeof normalizedData.mapName === 'string') {
+                dispatchAppState({ type: ACTION_TYPES.SET_MAP_NAME, payload: { mapName: normalizedData.mapName } });
+              }
+              if (typeof normalizedData.cdnBaseUrl === 'string') {
+                dispatchAppState({ type: ACTION_TYPES.SET_CDN_BASE_URL, payload: { cdnBaseUrl: normalizedData.cdnBaseUrl } });
+              }
+              if (typeof normalizedData.orientation === 'number') {
+                dispatchAppState({ type: ACTION_TYPES.SET_ORIENTATION, payload: { orientation: normalizedData.orientation } });
+              }
+              if (typeof normalizedData.compassVisible === 'boolean') {
+                dispatchAppState({ type: ACTION_TYPES.SET_COMPASS_VISIBLE, payload: { visible: normalizedData.compassVisible } });
+              }
+              
+              // Reset camera and fit to view
+              dispatchAppState({ type: ACTION_TYPES.SET_ZOOM, payload: { zoom: 1 } });
+              dispatchAppState({ type: ACTION_TYPES.SET_CAMERA_POSITION, payload: { position: { x: 0, y: 0 } } });
+              dispatchAppState({ type: ACTION_TYPES.SET_SHOULD_FIT, payload: { shouldFit: true } });
+              
+              // Clear selections and undo state
+              clearCytoscapeSelections();
+              dispatchAppState({ type: ACTION_TYPES.CLEAR_ALL_SELECTIONS });
+              clearUndoState();
+              
+              setCdnLoadingState({ isLoading: false, error: null });
+            } else {
+              printDebug('[URL] Failed to load map from CDN:', result.error);
+              setCdnLoadingState({ isLoading: false, error: 'Failed to load map from CDN: ' + result.error });
+            }
+          } catch (error) {
+            if (isActive) {
+              printDebug('[URL] Exception during CDN loading:', error.message);
+              setCdnLoadingState({ isLoading: false, error: 'Unexpected error: ' + error.message });
+            }
+          }
+        } else {
+          // No map URL, clear any CDN loading state
+          setCdnLoadingState({ isLoading: false, error: null });
+        }
+      }
+    };
+    
+    // Initial check on mount
+    handleURLChange();
+    
+    // Listen for popstate events (back/forward navigation)
+    window.addEventListener('popstate', handleURLChange);
+    
+    // Clean up listener and mark as inactive
+    return () => {
+      isActive = false;
+      window.removeEventListener('popstate', handleURLChange);
+    };
+  }, [currentMapUrl, clearCytoscapeSelections, clearUndoState]);
 
   // ---------- persistence ----------
   useEffect(() => {
@@ -288,11 +460,6 @@ function App() {
       payload: { graphState: graphData }
     });
   }, [graphData]);
-
-  // Helper to clear undo state (for new/load operations)
-  const clearUndoState = useCallback(() => {
-    dispatchAppState({ type: ACTION_TYPES.CLEAR_UNDO_STATE });
-  }, []);
 
   // Handle undo functionality
   const handleUndo = useCallback(() => {
@@ -375,10 +542,10 @@ function App() {
         dispatchAppState({ type: ACTION_TYPES.CLEAR_ALL_SELECTIONS });
         clearUndoState();
       } else {
-        dispatchAppState({ type: ACTION_TYPES.SET_LOAD_ERROR, payload: { error: `Invalid map file: ${result.errors.join('; ')}` } });
+        dispatchAppState({ type: ACTION_TYPES.SET_LOAD_ERROR, payload: { error: 'Invalid map file: ' + result.errors.join('; ') } });
       }
     } catch (error) {
-      dispatchAppState({ type: ACTION_TYPES.SET_LOAD_ERROR, payload: { error: `Failed to load file: ${error.message}` } });
+      dispatchAppState({ type: ACTION_TYPES.SET_LOAD_ERROR, payload: { error: 'Failed to load file: ' + error.message } });
     }
 
     // Clear the input so the same file can be selected again
@@ -707,8 +874,8 @@ function App() {
     // unique id/title
     let counter = 1, uniqueId, uniqueTitle;
     do {
-      uniqueId = `untitled${counter}`;
-      uniqueTitle = `untitled${counter}`;
+      uniqueId = 'untitled' + counter;
+      uniqueTitle = 'untitled' + counter;
       counter++;
     } while (graphData.nodes.some(n => n.id === uniqueId || n.title === uniqueTitle));
 
@@ -756,7 +923,7 @@ function App() {
       .replace(/[^a-z0-9_-]/g, '') // Remove any non-alphanumeric characters except underscores and hyphens
       || 'untitled_map'; // fallback if map name is empty or becomes empty after sanitization
     
-    const filename = `${sanitizedMapName}.json`;
+    const filename = sanitizedMapName + '.json';
 
     const blob = new Blob([JSON.stringify(updatedGraph, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
@@ -1237,6 +1404,69 @@ function App() {
 
       <ErrorDisplay error={loadError} onClearError={clearError} />
 
+      {/* CDN Loading Indicator */}
+      {cdnLoadingState.isLoading && (
+        <div style={{
+          position: 'fixed',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          background: 'rgba(0, 0, 0, 0.8)',
+          color: '#fff',
+          padding: '20px',
+          borderRadius: '8px',
+          zIndex: 9999,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px'
+        }}>
+          <div style={{
+            width: '20px',
+            height: '20px',
+            border: '2px solid #fff',
+            borderTop: '2px solid transparent',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite'
+          }}></div>
+          Loading map from CDN...
+        </div>
+      )}
+
+      {/* CDN Error Display */}
+      {cdnLoadingState.error && (
+        <div style={{
+          position: 'fixed',
+          top: '20px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          background: '#d32f2f',
+          color: '#fff',
+          padding: '12px 20px',
+          borderRadius: '6px',
+          zIndex: 9999,
+          maxWidth: '500px',
+          textAlign: 'center'
+        }}>
+          <div style={{ fontWeight: 'bold', marginBottom: '8px' }}>CDN Loading Error</div>
+          <div style={{ fontSize: '14px', marginBottom: '12px' }}>{cdnLoadingState.error}</div>
+          <button
+            onClick={() => setCdnLoadingState({ isLoading: false, error: null })}
+            style={{
+              background: '#fff',
+              color: '#d32f2f',
+              border: 'none',
+              padding: '6px 12px',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '12px',
+              fontWeight: 'bold'
+            }}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
       <CytoscapeGraph
         // 🔁 pass nodes/edges (not graphData)
         nodes={graphData.nodes}
@@ -1291,14 +1521,6 @@ function App() {
           </svg>
         </div>
       )}
-
-      <ShareModal
-        isOpen={shareModalOpen}
-        onClose={handleCloseShareModal}
-        // Pass any necessary props for sharing
-        mapName={mapName}
-        graphData={graphData}
-      />
     </div>
   );
 }
