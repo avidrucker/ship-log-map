@@ -16,7 +16,7 @@ export const FEATURES = {
   
   // Enable editing/playing mode toggle
   // When enabled, users can switch between editing mode (full functionality) and playing mode (view-only)
-  MODE_TOGGLE: true,
+  MODE_TOGGLE: false,
   
   // Development mode - shows debug tools and features
   // Set to false in production to hide debug button and modal
