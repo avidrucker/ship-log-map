@@ -73,6 +73,7 @@
 - [ ] Update the Reset button to revert to the JSON map from the specified CDN rather than the current hard-coded example map 
 - [ ] Implement importing of an image overlay from the CDN or just in memory that can be toggled on and off, moved, and resized, which can be used to display a background image for the map (e.g. a floor plan, etc.)
 - [ ] Fix undo button so that, when creating new nodes, or changing the graph state otherwise, a refresh of the page is not necessary to see the visual reversal of the last action (i.e. the undo button should immediately revert the graph state to the previous state without requiring a refresh)
+- [ ] Fix reocurring bug where clicking outside of the Note Viewer Modal plays the "zoom back" animation twice currently
 
 Notes for Future Features
 - Listing out "layers" which show things such as electrical lines, water lines, Internet, etc. that can be toggled on and off
