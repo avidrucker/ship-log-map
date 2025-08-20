@@ -13,7 +13,7 @@ import CameraInfo from "./CameraInfo";
 import ErrorDisplay from "./ErrorDisplay";
 import { useCytoscapeInstance } from "./useCytoscapeInstance";
 import { appStateReducer, initialAppState, ACTION_TYPES } from "./appStateReducer";
-import { ZOOM_TO_SELECTION, DEBUG_LOGGING, MODE_TOGGLE, DEV_MODE, GRAYSCALE_IMAGES } from "./config/features.js";
+import { ZOOM_TO_SELECTION, DEBUG_LOGGING, MODE_TOGGLE, DEV_MODE, GRAYSCALE_IMAGES, CAMERA_INFO_HIDDEN } from "./config/features.js";
 
 // 🚀 New imports: centralized persistence + edge id helper
 import { saveToLocal, loadFromLocal, saveModeToLocal, loadModeFromLocal, saveUndoStateToLocal, loadUndoStateFromLocal, saveMapNameToLocal, loadMapNameFromLocal, loadUniversalMenuCollapsed, loadGraphControlsCollapsed, loadCameraInfoCollapsed, saveUniversalMenuCollapsed, saveGraphControlsCollapsed, saveCameraInfoCollapsed } from "./persistence/index.js";
@@ -200,6 +200,10 @@ function App() {
       })()
     },
     mode: (() => {
+      // If MODE_TOGGLE is disabled, force playing mode
+      if (!MODE_TOGGLE) {
+        return 'playing';
+      }
       // Try to get mode from loaded graph data first, then from localStorage
       const saved = loadFromLocal();
       if (saved && typeof saved.mode === 'string') {
@@ -228,9 +232,9 @@ function App() {
     ui: {
       shouldFitOnNextRender: false,
       loadError: null,
-      universalMenuCollapsed: loadUniversalMenuCollapsed(),
-      graphControlsCollapsed: loadGraphControlsCollapsed(),
-      cameraInfoCollapsed: loadCameraInfoCollapsed(),
+      universalMenuCollapsed: !MODE_TOGGLE ? true : loadUniversalMenuCollapsed(),
+      graphControlsCollapsed: !MODE_TOGGLE ? true : loadGraphControlsCollapsed(),
+      cameraInfoCollapsed: !MODE_TOGGLE ? true : loadCameraInfoCollapsed(),
       compassVisible: loadCompassVisibleFromLocal()
     },
     undo: {
@@ -405,7 +409,7 @@ function App() {
               
               // Update app state with loaded data
               console.log('[URL EFFECT] Updating app state...');
-              if (typeof normalizedData.mode === 'string') {
+              if (typeof normalizedData.mode === 'string' && MODE_TOGGLE) {
                 console.log('[URL EFFECT] Setting mode:', normalizedData.mode);
                 dispatchAppState({ type: ACTION_TYPES.SET_MODE, payload: { mode: normalizedData.mode } });
               }
@@ -628,8 +632,8 @@ function App() {
         const g2 = hydrateCoordsIfMissing(g1, defaultShipLogData);
         setGraphData(g2);
 
-        // Set mode if it's included in the imported data
-        if (typeof g1.mode === 'string') {
+        // Set mode if it's included in the imported data and MODE_TOGGLE is enabled
+        if (typeof g1.mode === 'string' && MODE_TOGGLE) {
           dispatchAppState({ type: ACTION_TYPES.SET_MODE, payload: { mode: g1.mode } });
         }
 
@@ -681,7 +685,7 @@ function App() {
     setGraphData(normalizedDefault);
 
     // Reset mode, map name, and CDN URL to default values
-    if (typeof normalizedDefault.mode === 'string') {
+    if (typeof normalizedDefault.mode === 'string' && MODE_TOGGLE) {
       dispatchAppState({ type: ACTION_TYPES.SET_MODE, payload: { mode: normalizedDefault.mode } });
     }
     if (typeof normalizedDefault.mapName === 'string') {
@@ -1430,28 +1434,30 @@ function App() {
     <div
       style={{ position: "fixed", top: 0, left: 0, width: "100%", height: "100%", overflow: "hidden" }}
     >
-      <GraphControls
-        selectedNodes={selectedNodeIds}
-        selectedEdges={selectedEdgeIds}
-        onCreateNode={handleCreateNode}
-        onDeleteSelectedNodes={handleDeleteSelectedNodes}
-        onDeleteSelectedEdges={handleDeleteSelectedEdges}
-        onEditSelected={handleEditSelected}
-        onConnectNodes={handleConnectSelectedNodes}
-        onExportMap={exportMap}
-        onResetMap={handleResetToInitial}
-        onNewMap={handleNewMap}
-        onNodeColorChange={handleNodeColorChange}
-        areNodesConnected={areNodesConnected}
-        mode={mode}
-        collapsed={graphControlsCollapsed}
-        onToggleCollapsed={toggleGraphControls}
-        onOpenDebugModal={DEV_MODE ? handleOpenDebugModal : undefined}
-        onOpenShareModal={handleOpenShareModal}
-        onUndo={handleUndo}
-        canUndo={!!lastUndoState}
-        onRotateCompass={handleRotateMap}
-      />
+      {MODE_TOGGLE && (
+        <GraphControls
+          selectedNodes={selectedNodeIds}
+          selectedEdges={selectedEdgeIds}
+          onCreateNode={handleCreateNode}
+          onDeleteSelectedNodes={handleDeleteSelectedNodes}
+          onDeleteSelectedEdges={handleDeleteSelectedEdges}
+          onEditSelected={handleEditSelected}
+          onConnectNodes={handleConnectSelectedNodes}
+          onExportMap={exportMap}
+          onResetMap={handleResetToInitial}
+          onNewMap={handleNewMap}
+          onNodeColorChange={handleNodeColorChange}
+          areNodesConnected={areNodesConnected}
+          mode={mode}
+          collapsed={graphControlsCollapsed}
+          onToggleCollapsed={toggleGraphControls}
+          onOpenDebugModal={DEV_MODE ? handleOpenDebugModal : undefined}
+          onOpenShareModal={handleOpenShareModal}
+          onUndo={handleUndo}
+          canUndo={!!lastUndoState}
+          onRotateCompass={handleRotateMap}
+        />
+      )}
 
       <UniversalControls
         fileInputRef={fileInputRef}
@@ -1508,19 +1514,21 @@ function App() {
         cdnBaseUrl={cdnBaseUrl}
       />
 
-      <CameraInfo
-        zoom={zoomLevel}
-        pan={cameraPosition}
-        selectedNodeIds={selectedNodeIds}
-        selectedEdgeIds={selectedEdgeIds}
-        mode={mode}
-        mapName={mapName}
-        onMapNameChange={setMapName}
-        cdnBaseUrl={cdnBaseUrl}
-        onCdnBaseUrlChange={setCdnBaseUrlHandler}
-        collapsed={cameraInfoCollapsed}
-        onToggleCollapsed={toggleCameraInfo}
-      />
+      {!CAMERA_INFO_HIDDEN && (
+        <CameraInfo
+          zoom={zoomLevel}
+          pan={cameraPosition}
+          selectedNodeIds={selectedNodeIds}
+          selectedEdgeIds={selectedEdgeIds}
+          mode={mode}
+          mapName={mapName}
+          onMapNameChange={setMapName}
+          cdnBaseUrl={cdnBaseUrl}
+          onCdnBaseUrlChange={setCdnBaseUrlHandler}
+          collapsed={cameraInfoCollapsed}
+          onToggleCollapsed={toggleCameraInfo}
+        />
+      )}
 
       <ErrorDisplay error={loadError} onClearError={clearError} />
 

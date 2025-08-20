@@ -26,6 +26,10 @@ export const FEATURES = {
   // This creates a grayscale effect for images only, without affecting node colors or text
   GRAYSCALE_IMAGES: false,
   
+  // Hide the camera info panel completely when enabled
+  // When true, the camera info panel will not render at all
+  CAMERA_INFO_HIDDEN: true,
+  
   // Future feature flags can be added here...
 };
 
@@ -35,5 +39,6 @@ export const {
   DEBUG_LOGGING,
   MODE_TOGGLE,
   DEV_MODE,
-  GRAYSCALE_IMAGES
+  GRAYSCALE_IMAGES,
+  CAMERA_INFO_HIDDEN
 } = FEATURES;

@@ -73,13 +73,15 @@ function UniversalControls({
         onChange={onImportFile}
         style={{ display: 'none' }}
       />
-      <button
-        style={{ padding: '6px 10px', background: mode === 'editing' ? '#ff9800' : '#2196f3', color: '#fff', border: `1px solid ${mode === 'editing' ? '#f57c00' : '#1976d2'}`, cursor: 'pointer', fontWeight: 'bold' }}
-        onClick={onModeToggle}
-        title={`Switch to ${mode === 'editing' ? 'Playing' : 'Editing'} Mode`}
-      >
-        Mode
-      </button>
+      {onModeToggle && (
+        <button
+          style={{ padding: '6px 10px', background: mode === 'editing' ? '#ff9800' : '#2196f3', color: '#fff', border: `1px solid ${mode === 'editing' ? '#f57c00' : '#1976d2'}`, cursor: 'pointer', fontWeight: 'bold' }}
+          onClick={onModeToggle}
+          title={`Switch to ${mode === 'editing' ? 'Playing' : 'Editing'} Mode`}
+        >
+          Mode
+        </button>
+      )}
       <button
         style={{ padding: '6px 10px', background: '#1976d2', color: '#fff', border: '1px solid #0d47a1', cursor: 'pointer' }}
         onClick={() => fileInputRef.current?.click()}
