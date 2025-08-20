@@ -11,7 +11,6 @@ import DebugModal from "./DebugModal";
 import ShareModal from "./ShareModal";
 import CameraInfo from "./CameraInfo";
 import ErrorDisplay from "./ErrorDisplay";
-import { TEST_ICON_SVG } from "./constants/testAssets.js";
 import { useCytoscapeInstance } from "./useCytoscapeInstance";
 import { appStateReducer, initialAppState, ACTION_TYPES } from "./appStateReducer";
 import { ZOOM_TO_SELECTION, DEBUG_LOGGING, MODE_TOGGLE, DEV_MODE, GRAYSCALE_IMAGES } from "./config/features.js";
@@ -46,16 +45,16 @@ function getMapUrlFromQuery() {
 }
 
 // Helper to update query parameters
-function updateQueryParams(mapUrl) {
-  const url = new URL(window.location);
-  if (mapUrl) {
-    url.searchParams.set('map', mapUrl);
-  } else {
-    url.searchParams.delete('map');
-  }
-  window.history.replaceState({}, '', url);
-  printDebug('[URL] Updated query params:', url.search);
-}
+// function updateQueryParams(mapUrl) {
+//   const url = new URL(window.location);
+//   if (mapUrl) {
+//     url.searchParams.set('map', mapUrl);
+//   } else {
+//     url.searchParams.delete('map');
+//   }
+//   window.history.replaceState({}, '', url);
+//   printDebug('[URL] Updated query params:', url.search);
+// }
 
 // Helper to clear query parameters
 function clearQueryParams() {
