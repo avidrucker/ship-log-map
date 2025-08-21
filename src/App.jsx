@@ -1321,18 +1321,17 @@ function App() {
     dispatchAppState({ type: ACTION_TYPES.CLEAR_ALL_SELECTIONS });
     clearCytoscapeSelections();
     
-    // In playing mode, restore camera when clicking background (after clearing selections)
-    if (mode === 'playing' && ZOOM_TO_SELECTION && hasOriginalCamera()) {
-      restoreOriginalCamera(true);
-    }
-    
     // Close note editing modal if open
     if (noteEditingTarget) {
       handleCloseNoteEditing();
     }
     // Close note viewing modal if open
-    if (noteViewingTarget) {
+    else if (noteViewingTarget) {
       handleCloseNoteViewing();
+    }
+    // Only restore camera if no modals are open (modals handle their own camera restoration)
+    else if (mode === 'playing' && ZOOM_TO_SELECTION && hasOriginalCamera()) {
+      restoreOriginalCamera(true);
     }
   }, [mode, noteEditingTarget, noteViewingTarget, handleCloseNoteEditing, handleCloseNoteViewing, clearCytoscapeSelections, hasOriginalCamera, restoreOriginalCamera]);
 
