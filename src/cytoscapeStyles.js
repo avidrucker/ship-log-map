@@ -260,7 +260,9 @@ const parentSizeRules = [
 // Ensure entry child nodes ignore pointer events so dragging/selecting hits the parent container
 const entryChildInteractionRule = {
   selector: 'node.entry',
-  style: { 'events': 'no' }
+  style: { 'events': 'no',
+          'overlay-opacity': 0 // Disable default overlay to avoid changing color on focus/active
+   }
 };
 
 const cytoscapeStyles = [

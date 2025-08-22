@@ -1,17 +1,16 @@
 // src/styles/tokens.js
 
 export const COLORS = {
-  gray:   { base: "#5e666a", bright: "#25271c" },
-  green:  { base: "#2d6e4a", bright: "#008e53" },
-  orange: { base: "#905e3b", bright: "#8e3b00" },
-  purple: { base: "#3f2e71", bright: "#26008e" },
-  red:    { base: "#903b3b", bright: "#8e0000" },
-  blue:   { base: "#173b76", bright: "#0042ae" },
+  gray:   { base: "#7f807a", bright: "#e2e4da" },
+  green:  { base: "#388a5d", bright: "#68ffac" },
+  orange: { base: "#b4764a", bright: "#ffa768" },
+  purple: { base: "#4f3a8d", bright: "#9068ff" },
+  red:    { base: "#b44a4a", bright: "#ff6868" },
+  blue:   { base: "#1d4a94", bright: "#3280ff" },
 
-  white: "#FFFFFF",
-  text:  "#FFFFFF",
+  text:  "black",
   bg:    "#020d16",
-  edge:  "darkgray"
+  edge:  "#7f807a"
 };
 
 export const NODE_SIZES = {
