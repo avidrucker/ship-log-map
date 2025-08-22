@@ -349,6 +349,10 @@ function App() {
       printDebug('[URL EFFECT] Are they different?', newMapUrl !== currentMapUrl);
       printDebug('[URL EFFECT] hasLoadedFromUrl:', hasLoadedFromUrl);
       
+      // Helper: check editing mode from query
+      const editingEnabledFromQuery = getEditingEnabledFromQuery();
+      const hasQueryParams = hasAnyQueryParams();
+      
       if (newMapUrl !== currentMapUrl) {
         printDebug('[URL EFFECT] ✅ CONDITION MET - URL changed, new map URL:', newMapUrl || 'none');
         printDebug('[URL] URL changed, new map URL:', newMapUrl || 'none');
@@ -390,69 +394,50 @@ function App() {
               const hydratedData = hydrateCoordsIfMissing(normalizedData, defaultShipLogData);
               printDebug('[URL EFFECT] Hydrated data:', hydratedData);
               
-              printDebug('[URL EFFECT] Setting graph data...');
-              printDebug('[URL EFFECT] Current graphData nodes:', graphData.nodes.length);
-              printDebug('[URL EFFECT] New graphData nodes:', hydratedData.nodes.length);
-              printDebug('[URL EFFECT] About to call setGraphData with:', {
-                nodeCount: hydratedData.nodes.length,
-                edgeCount: hydratedData.edges.length,
-                mapName: hydratedData.mapName,
-                mode: hydratedData.mode
-              });
-              setGraphData(hydratedData);
-              printDebug('[URL EFFECT] Graph data set completed');
+              // --- MODE OVERRIDE LOGIC ---
+              let forcedMode;
+              if (editingEnabledFromQuery) {
+                // If editing=true, use mode from JSON or localStorage
+                forcedMode = hydratedData.mode || 'editing';
+              } else if (hasQueryParams) {
+                // If there are query params but NOT editing=true, force playing mode
+                forcedMode = 'playing';
+              } else {
+                // No query params, allow editing
+                forcedMode = hydratedData.mode || 'editing';
+              }
+              const hydratedDataWithMode = { ...hydratedData, mode: forcedMode };
+              setGraphData(hydratedDataWithMode);
+              dispatchAppState({ type: ACTION_TYPES.SET_MODE, payload: { mode: forcedMode } });
+              saveModeToLocal(forcedMode);
+              printDebug('[URL EFFECT] Forced mode set to:', forcedMode);
               
               // Update app state with loaded data
-              printDebug('[URL EFFECT] Updating app state...');
-              if (typeof normalizedData.mode === 'string') {
-                printDebug('[URL EFFECT] Setting mode:', normalizedData.mode);
-                dispatchAppState({ type: ACTION_TYPES.SET_MODE, payload: { mode: normalizedData.mode } });
+              if (typeof hydratedData.mapName === 'string') {
+                dispatchAppState({ type: ACTION_TYPES.SET_MAP_NAME, payload: { mapName: hydratedData.mapName } });
               }
-              if (typeof normalizedData.mapName === 'string') {
-                printDebug('[URL EFFECT] Setting map name:', normalizedData.mapName);
-                dispatchAppState({ type: ACTION_TYPES.SET_MAP_NAME, payload: { mapName: normalizedData.mapName } });
+              if (typeof hydratedData.cdnBaseUrl === 'string') {
+                dispatchAppState({ type: ACTION_TYPES.SET_CDN_BASE_URL, payload: { cdnBaseUrl: hydratedData.cdnBaseUrl } });
               }
-              if (typeof normalizedData.cdnBaseUrl === 'string') {
-                printDebug('[URL EFFECT] Setting CDN base URL:', normalizedData.cdnBaseUrl);
-                dispatchAppState({ type: ACTION_TYPES.SET_CDN_BASE_URL, payload: { cdnBaseUrl: normalizedData.cdnBaseUrl } });
+              if (typeof hydratedData.orientation === 'number') {
+                dispatchAppState({ type: ACTION_TYPES.SET_ORIENTATION, payload: { orientation: hydratedData.orientation } });
               }
-              if (typeof normalizedData.orientation === 'number') {
-                printDebug('[URL EFFECT] Setting orientation:', normalizedData.orientation);
-                dispatchAppState({ type: ACTION_TYPES.SET_ORIENTATION, payload: { orientation: normalizedData.orientation } });
+              if (typeof hydratedData.compassVisible === 'boolean') {
+                dispatchAppState({ type: ACTION_TYPES.SET_COMPASS_VISIBLE, payload: { visible: hydratedData.compassVisible } });
               }
-              if (typeof normalizedData.compassVisible === 'boolean') {
-                printDebug('[URL EFFECT] Setting compass visible:', normalizedData.compassVisible);
-                dispatchAppState({ type: ACTION_TYPES.SET_COMPASS_VISIBLE, payload: { visible: normalizedData.compassVisible } });
-              }
-              
-              // Reset camera and fit to view
-              printDebug('[URL EFFECT] Resetting camera...');
+              // Reset camera + fit
               dispatchAppState({ type: ACTION_TYPES.SET_ZOOM, payload: { zoom: 1 } });
               dispatchAppState({ type: ACTION_TYPES.SET_CAMERA_POSITION, payload: { position: { x: 0, y: 0 } } });
               dispatchAppState({ type: ACTION_TYPES.SET_SHOULD_FIT, payload: { shouldFit: true } });
-              
-              // Clear selections and undo state
-              printDebug('[URL EFFECT] Clearing selections...');
+              // Clear selections and undo state (loading clears undo)
               clearCytoscapeSelections();
               dispatchAppState({ type: ACTION_TYPES.CLEAR_ALL_SELECTIONS });
               clearUndoState();
-              
-              printDebug('[URL EFFECT] Setting CDN loading state to success...');
               setCdnLoadingState({ isLoading: false, error: null });
-              
-              // Mark that we've successfully loaded from URL
-              hasLoadedFromUrl = true;
-              printDebug('[URL EFFECT] Marked hasLoadedFromUrl = true');
-              
-              // Clear the CDN loading flag after a short delay to allow state to settle
-              setTimeout(() => {
-                printDebug('[URL EFFECT] Clearing CDN loading flag');
-                setIsLoadingFromCDN(false);
-                currentCdnLoadRef.current = null;
-              }, 100);
+              setIsLoadingFromCDN(false);
+              currentCdnLoadRef.current = null;
             } else {
-              printDebug('[URL] Failed to load map from CDN:', result.error);
-              setCdnLoadingState({ isLoading: false, error: 'Failed to load map from CDN: ' + result.error });
+              setCdnLoadingState({ isLoading: false, error: result.error });
               setIsLoadingFromCDN(false);
               currentCdnLoadRef.current = null;
             }
