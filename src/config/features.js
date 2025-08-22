@@ -14,10 +14,6 @@ export const FEATURES = {
   // Debug logging for all app operations
   DEBUG_LOGGING: false,
   
-  // Enable editing/playing mode toggle
-  // When enabled, users can switch between editing mode (full functionality) and playing mode (view-only)
-  MODE_TOGGLE: false,
-  
   // Development mode - shows debug tools and features
   // Set to false in production to hide debug button and modal
   DEV_MODE: false,
@@ -28,7 +24,7 @@ export const FEATURES = {
   
   // Hide the camera info panel completely when enabled
   // When true, the camera info panel will not render at all
-  CAMERA_INFO_HIDDEN: true,
+  CAMERA_INFO_HIDDEN: false,
   
   // Future feature flags can be added here...
 };
@@ -37,7 +33,6 @@ export const FEATURES = {
 export const {
   ZOOM_TO_SELECTION,
   DEBUG_LOGGING,
-  MODE_TOGGLE,
   DEV_MODE,
   GRAYSCALE_IMAGES,
   CAMERA_INFO_HIDDEN
