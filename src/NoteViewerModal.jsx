@@ -1,5 +1,7 @@
 import React, { useEffect } from "react";
 
+const BLUE_OUTLINE_COLOR = "#5878b6";
+
 function NoteViewerModal({
   targetId,
   notes, // array of note strings for this target
@@ -31,50 +33,56 @@ function NoteViewerModal({
       onClick={(e) => e.stopPropagation()}
       style={{
         position: "fixed",
-        bottom: 0,
-        left: 0,
-        right: 0,
-        height: "50vh",
-        background: "rgba(0, 0, 0, 0.9)",
-        color: "#fff",
+        top: 10,
+        bottom: 10,
+        left: 10,
+        right: 10,
         zIndex: 1002,
+        // background: "rgba(0,0,0,0.4)", // semi-transparent overlay
         display: "flex",
-        flexDirection: "column",
-        borderTop: "2px solid #2196f3"
+        alignItems: "flex-end", // align modal to bottom
+        justifyContent: "center",
+        pointerEvents: "none" // ensure modal doesn't block clicks
       }}
     >
-      {/* Header with close button */}
       <div style={{
-        padding: "15px 20px",
-        borderBottom: "1px solid #444",
+        background: "rgba(0,0,0,0.9)",
+        border: `2px solid ${BLUE_OUTLINE_COLOR}`,
+        padding: "10px",
+        boxSizing: "border-box",
+        flexDirection: "column",
         display: "flex",
-        justifyContent: "flex-end",
-        alignItems: "center",
-        background: "rgba(0, 0, 0, 0.95)"
+        height: "50vh",
+        width: "100%",
+        position: "relative",
+        pointerEvents: "auto" // enable interaction within modal
       }}>
-        <button
+        {/*<button
           onClick={onClose}
           style={{
-            background: "#f44336",
-            color: "#fff",
+            background: "transparent",
+            color: BLUE_OUTLINE_COLOR,
             border: "none",
-            borderRadius: "4px",
             padding: "6px 12px",
             cursor: "pointer",
-            fontSize: "14px"
+            fontSize: "14px",
+            position: "absolute",
+            top: "10px",
+            right: "10px"
           }}
         >
           ✕
-        </button>
-      </div>
+        </button>*/}
 
       {/* Notes List */}
       <div style={{
         flex: 1,
         overflowY: "auto",
-        padding: "20px",
-        fontFamily: "monospace"
-      }}>
+        fontFamily: "monospace",
+        // marginTop: "36px" // space for button
+      }}
+        className="hide-scrollbar"
+      >
         {notes.length === 0 ? (
           <div style={{
             textAlign: "center",
@@ -103,6 +111,7 @@ function NoteViewerModal({
           </ul>
         )}
       </div>
+    </div>
     </div>
   );
 }
