@@ -77,6 +77,7 @@
 - [ ] Fix bug where refreshing the page with query params always resets the camera back to a fitted zoom and pan, when it should instead keep the current in-app camera position and zoom level, unless loading from an entirely new map
 - [x] Implement sharing where, in the sharing modal, the user can copy a second newly available link which will add a query param of "editing=true" which will enable editing mode for the map when it is loaded. Also, when there are no query params, the app will have editing mode (and mode switching) enabled. To reiterate, if the app is has query params and the editing query param is not set to true, then the app will load the map in playing mode only and will not allow mode switching.
 - [ ] Fix bug where, loading in a new map from the CDN doesn't appear to update the compass visibility/direction
+- [ ] Implement conflict resolution modal that informs the user if the graph data from CDN and the graph data (names, node locations, edge directions, node count, edge count, node color, node size, etc.) in local storage differ, and if so, which map would they like to continue with, and update local storage with CDN graph data if the user chooses the CDN graph as well as update the app visually the graph data from the CDN
 
 Notes for Future Features
 - Listing out "layers" which show things such as electrical lines, water lines, Internet, etc. that can be toggled on and off
