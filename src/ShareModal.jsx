@@ -15,8 +15,11 @@ function ShareModal({
   // Construct the full CDN JSON URL
   const cdnJsonUrl = cdnBaseUrl ? `${cdnBaseUrl.replace(/\/$/, '')}/${jsonFileName}` : '';
   
-  // Construct the shareable app URL
+  // Construct the shareable app URL (read-only)
   const shareUrl = cdnJsonUrl ? `${window.location.origin}${window.location.pathname}?map=${encodeURIComponent(cdnJsonUrl)}` : '';
+
+  // Construct the shareable app URL (editing mode)
+  const shareUrlEditing = cdnJsonUrl ? `${window.location.origin}${window.location.pathname}?map=${encodeURIComponent(cdnJsonUrl)}&editing=true` : '';
 
   const handleCopyUrl = useCallback(async () => {
     try {
@@ -180,6 +183,47 @@ function ShareModal({
                     {copyStatus}
                   </span>
                 )}
+              </div>
+              <hr style={{ margin: '18px 0', border: 'none', borderTop: '1px solid #444' }} />
+              <p style={{ margin: '0 0 8px 0', color: '#ccc' }}>
+                Or share this link to allow editing mode:
+              </p>
+              <div style={{ 
+                background: '#333', 
+                padding: '12px', 
+                borderRadius: '4px',
+                fontFamily: 'monospace',
+                fontSize: '14px',
+                wordBreak: 'break-all',
+                border: '1px solid #555',
+                color: '#fff'
+              }}>
+                {shareUrlEditing}
+              </div>
+              <div style={{ marginTop: '8px', display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <button
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(shareUrlEditing);
+                      setCopyStatus('✓ Editing URL copied!');
+                      setTimeout(() => setCopyStatus(''), 2000);
+                    } catch {
+                      setCopyStatus('❌ Failed to copy');
+                      setTimeout(() => setCopyStatus(''), 2000);
+                    }
+                  }}
+                  style={{
+                    padding: '8px 16px',
+                    background: '#1976d2',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontWeight: 'bold'
+                  }}
+                >
+                  📋 Copy Editing URL
+                </button>
               </div>
             </div>
 

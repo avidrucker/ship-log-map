@@ -13,7 +13,7 @@ import CameraInfo from "./CameraInfo";
 import ErrorDisplay from "./ErrorDisplay";
 import { useCytoscapeInstance } from "./useCytoscapeInstance";
 import { appStateReducer, initialAppState, ACTION_TYPES } from "./appStateReducer";
-import { ZOOM_TO_SELECTION, DEBUG_LOGGING, MODE_TOGGLE, DEV_MODE, GRAYSCALE_IMAGES, CAMERA_INFO_HIDDEN } from "./config/features.js";
+import { ZOOM_TO_SELECTION, DEBUG_LOGGING, DEV_MODE, GRAYSCALE_IMAGES, CAMERA_INFO_HIDDEN } from "./config/features.js";
 
 // 🚀 New imports: centralized persistence + edge id helper
 import { saveToLocal, loadFromLocal, saveModeToLocal, loadModeFromLocal, saveUndoStateToLocal, loadUndoStateFromLocal, saveMapNameToLocal, loadMapNameFromLocal, loadUniversalMenuCollapsed, loadGraphControlsCollapsed, loadCameraInfoCollapsed, saveUniversalMenuCollapsed, saveGraphControlsCollapsed, saveCameraInfoCollapsed } from "./persistence/index.js";
@@ -43,18 +43,6 @@ function getMapUrlFromQuery() {
   printDebug('[URL] Extracted map URL:', mapUrl);
   return mapUrl;
 }
-
-// Helper to update query parameters
-// function updateQueryParams(mapUrl) {
-//   const url = new URL(window.location);
-//   if (mapUrl) {
-//     url.searchParams.set('map', mapUrl);
-//   } else {
-//     url.searchParams.delete('map');
-//   }
-//   window.history.replaceState({}, '', url);
-//   printDebug('[URL] Updated query params:', url.search);
-// }
 
 // Helper to clear query parameters
 function clearQueryParams() {
@@ -150,6 +138,16 @@ function hydrateCoordsIfMissing(graph, defaultGraph) {
 }
 
 function App() {
+  function getEditingEnabledFromQuery() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const editing = urlParams.get('editing');
+    return editing === 'true';
+  }
+  function hasAnyQueryParams() {
+    return window.location.search && window.location.search.length > 1;
+  }
+  const editingEnabled = getEditingEnabledFromQuery() || !hasAnyQueryParams();
+
   const fileInputRef = useRef(null);
   // Guard to prevent multiple simultaneous close operations (avoids multi animation)
   const isClosingNoteViewRef = useRef(false);
@@ -200,8 +198,8 @@ function App() {
       })()
     },
     mode: (() => {
-      // If MODE_TOGGLE is disabled, force playing mode
-      if (!MODE_TOGGLE) {
+      // If editing is not enabled, force playing mode
+      if (!editingEnabled) {
         return 'playing';
       }
       // Try to get mode from loaded graph data first, then from localStorage
@@ -212,7 +210,6 @@ function App() {
       return loadModeFromLocal();
     })(),
     mapName: (() => {
-      // Try to get map name from loaded graph data first, then from localStorage
       const saved = loadFromLocal();
       if (saved && typeof saved.mapName === 'string') {
         return saved.mapName;
@@ -220,21 +217,19 @@ function App() {
       return loadMapNameFromLocal();
     })(),
     cdnBaseUrl: (() => {
-      // Try to get CDN base URL from loaded graph data first, then from imageLoader
       const saved = loadFromLocal();
       if (saved && typeof saved.cdnBaseUrl === 'string') {
         return saved.cdnBaseUrl;
       }
-      // Get from imageLoader localStorage
       return getCdnBaseUrl();
     })(),
     orientation: loadOrientationFromLocal(),
     ui: {
       shouldFitOnNextRender: false,
       loadError: null,
-      universalMenuCollapsed: !MODE_TOGGLE ? true : loadUniversalMenuCollapsed(),
-      graphControlsCollapsed: !MODE_TOGGLE ? true : loadGraphControlsCollapsed(),
-      cameraInfoCollapsed: !MODE_TOGGLE ? true : loadCameraInfoCollapsed(),
+      universalMenuCollapsed: !editingEnabled ? true : loadUniversalMenuCollapsed(),
+      graphControlsCollapsed: !editingEnabled ? true : loadGraphControlsCollapsed(),
+      cameraInfoCollapsed: !editingEnabled ? true : loadCameraInfoCollapsed(),
       compassVisible: loadCompassVisibleFromLocal()
     },
     undo: {
@@ -409,7 +404,7 @@ function App() {
               
               // Update app state with loaded data
               printDebug('[URL EFFECT] Updating app state...');
-              if (typeof normalizedData.mode === 'string' && MODE_TOGGLE) {
+              if (typeof normalizedData.mode === 'string') {
                 printDebug('[URL EFFECT] Setting mode:', normalizedData.mode);
                 dispatchAppState({ type: ACTION_TYPES.SET_MODE, payload: { mode: normalizedData.mode } });
               }
@@ -632,8 +627,8 @@ function App() {
         const g2 = hydrateCoordsIfMissing(g1, defaultShipLogData);
         setGraphData(g2);
 
-        // Set mode if it's included in the imported data and MODE_TOGGLE is enabled
-        if (typeof g1.mode === 'string' && MODE_TOGGLE) {
+        // Set mode if it's included in the imported data
+        if (typeof g1.mode === 'string') {
           dispatchAppState({ type: ACTION_TYPES.SET_MODE, payload: { mode: g1.mode } });
         }
 
@@ -685,7 +680,7 @@ function App() {
     setGraphData(normalizedDefault);
 
     // Reset mode, map name, and CDN URL to default values
-    if (typeof normalizedDefault.mode === 'string' && MODE_TOGGLE) {
+    if (typeof normalizedDefault.mode === 'string') {
       dispatchAppState({ type: ACTION_TYPES.SET_MODE, payload: { mode: normalizedDefault.mode } });
     }
     if (typeof normalizedDefault.mapName === 'string') {
@@ -1417,7 +1412,6 @@ function App() {
       features: {
         ZOOM_TO_SELECTION,
         DEBUG_LOGGING,
-        MODE_TOGGLE,
         DEV_MODE
       }
     };
@@ -1433,7 +1427,7 @@ function App() {
     <div
       style={{ position: "fixed", top: 0, left: 0, width: "100%", height: "100%", overflow: "hidden" }}
     >
-      {MODE_TOGGLE && (
+      {editingEnabled && (
         <GraphControls
           selectedNodes={selectedNodeIds}
           selectedEdges={selectedEdgeIds}
@@ -1462,7 +1456,7 @@ function App() {
         fileInputRef={fileInputRef}
         onImportFile={handleFileSelect}
         onFitToView={handleFitToView}
-        onModeToggle={MODE_TOGGLE ? handleModeToggle : undefined}
+        onModeToggle={editingEnabled ? handleModeToggle : undefined}
         mode={mode}
         showNoteCountOverlay={showNoteCountOverlay}
         onToggleNoteCountOverlay={handleToggleNoteCountOverlay}
@@ -1513,7 +1507,7 @@ function App() {
         cdnBaseUrl={cdnBaseUrl}
       />
 
-      {!CAMERA_INFO_HIDDEN && (
+      {(!CAMERA_INFO_HIDDEN && editingEnabled) && (
         <CameraInfo
           zoom={zoomLevel}
           pan={cameraPosition}
@@ -1636,7 +1630,7 @@ function App() {
       />
 
       {compassVisible && (
-        <div style={{ position: 'absolute', top: '10px', left: '10px', zIndex: 900, width: '60px', height: '60px', pointerEvents: 'none', opacity: 0.9 }}>
+        <div style={{ position: 'absolute', bottom: '10px', right: '10px', zIndex: 900, width: '60px', height: '60px', pointerEvents: 'none', opacity: 0.9 }}>
           <svg viewBox="0 0 100 100" style={{ width: '100%', height: '100%', transform: `rotate(${orientation}deg)` }}>
             <circle cx="50" cy="50" r="48" fill="rgba(0,0,0,0.4)" stroke="#fff" strokeWidth="2" />
             <polygon points="50,15 60,50 50,45 40,50" fill="#ff5252" />

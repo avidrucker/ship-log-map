@@ -108,7 +108,7 @@ function UniversalControls({
         onClick={onRotateNodesAndCompass}
         title={`Rotate entire map 90° clockwise (orientation: ${orientation}°)`}
       >
-        Rotate Map
+        Map ↻
       </button>
       <button
         style={{ padding: '6px 10px', background: compassVisible ? '#8d6e63' : '#666', color: '#fff', border: `1px solid ${compassVisible ? '#6d4c41' : '#555'}`, cursor: 'pointer' }}

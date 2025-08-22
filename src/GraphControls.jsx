@@ -100,13 +100,13 @@ function GraphControls({
         >
           Save
         </button>
-        <button
+        {/*<button
           style={{ padding: '8px 12px', background: '#d32f2f', color: '#fff', border: '1px solid #b71c1c', cursor: 'pointer' }}
           onClick={onResetMap}
           title="Reset Map to Initial State"
         >
           Reset
-        </button>
+        </button>*/}
         <button
           style={{ padding: '8px 12px', background: '#4caf50', color: '#fff', border: '1px solid #388e3c', cursor: 'pointer' }}
           onClick={onCreateNode}
@@ -124,9 +124,9 @@ function GraphControls({
         <button
           style={{ padding: '8px 12px', background: '#455a64', color: '#fff', border: '1px solid #37474f', cursor: 'pointer' }}
           onClick={onRotateCompass}
-          title="Rotate compass only 90° clockwise"
+          title="Rotate compass 90° clockwise"
         >
-          Rotate Compass
+          Comp ↻
         </button>
         <button
           style={{ padding: '8px 12px', background: '#2196f3', color: '#fff', border: '1px solid #1976d2', cursor: 'pointer' }}

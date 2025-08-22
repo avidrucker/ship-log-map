@@ -11,6 +11,7 @@ const GRAPH_CONTROLS_COLLAPSED_KEY = "ship_log_graph_controls_collapsed_v1";
 const CAMERA_INFO_COLLAPSED_KEY = "ship_log_camera_info_collapsed_v1";
 const ORIENTATION_KEY = "ship_log_orientation_v1";
 const COMPASS_VISIBLE_KEY = "ship_log_compass_visible_v1";
+const LAST_QUERY_PARAMS_KEY = "ship_log_last_query_params_v1";
 
 export function newBlankMap() {
   return { nodes: [], edges: [], notes: {}, mode: 'editing', __version: SCHEMA_VERSION };
@@ -191,4 +192,10 @@ export function saveCompassVisibleToLocal(visible) {
 }
 export function loadCompassVisibleFromLocal() {
   try { const v = localStorage.getItem(COMPASS_VISIBLE_KEY); return v ? JSON.parse(v) : true; } catch { return true; }
+}
+export function saveLastQueryParamsToLocal(queryParams) {
+  try { localStorage.setItem(LAST_QUERY_PARAMS_KEY, JSON.stringify(queryParams || {})); return true; } catch { return false; }
+}
+export function loadLastQueryParamsFromLocal() {
+  try { const v = localStorage.getItem(LAST_QUERY_PARAMS_KEY); return v ? JSON.parse(v) : {}; } catch { return {}; }
 }
