@@ -397,13 +397,13 @@ function App() {
               // --- MODE OVERRIDE LOGIC ---
               let forcedMode;
               if (editingEnabledFromQuery) {
-                // If editing=true, use mode from JSON or localStorage
-                forcedMode = hydratedData.mode || 'editing';
+                // Always force editing mode if editing=true in query params
+                forcedMode = 'editing';
               } else if (hasQueryParams) {
                 // If there are query params but NOT editing=true, force playing mode
                 forcedMode = 'playing';
               } else {
-                // No query params, allow editing
+                // No query params, use mode from JSON/localStorage
                 forcedMode = hydratedData.mode || 'editing';
               }
               const hydratedDataWithMode = { ...hydratedData, mode: forcedMode };
