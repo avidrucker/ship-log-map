@@ -80,3 +80,17 @@ button:focus-visible {
     background-color: #f9f9f9;
   }
 }
+
+ul {
+  list-style-type: none;
+}
+
+ul li::marker {
+  content: "― ";
+  font-weight: 600;
+  color: #5878b6;
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none; /* Chrome */
+}
