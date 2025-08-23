@@ -16,7 +16,7 @@ function GraphControls({
   // editing-only actions
   mode,
   onExportMap,
-  onResetMap,
+  // onResetMap,
   onCreateNode,
   onNewMap,
   onRotateCompass,
