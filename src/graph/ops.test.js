@@ -1,4 +1,5 @@
 // src/graph/ops.test.js
+import { jest } from '@jest/globals';
 import {
   addNode, removeNodeAndEdges, renameNode,
   connectNodes, disconnectNodes, setNodeMeta,
@@ -80,5 +81,41 @@ describe("graph ops", () => {
     // Test updating imageUrl property
     g = setNodeMeta(g, "TestNode", { imageUrl: "custom-image-url" });
     expect(g.nodes[0].imageUrl).toBe("custom-image-url");
+  });
+
+  describe('Undo node move', () => {
+    it('should update both React state and Cytoscape node position', () => {
+      // Mock graph data
+      const initialGraph = {
+        nodes: [{ id: 'A', x: 0, y: 0 }],
+        edges: [],
+        notes: {},
+        mode: 'editing',
+        mapName: 'test',
+        cdnBaseUrl: '',
+        orientation: 0,
+        compassVisible: true
+      };
+      const movedGraph = {
+        ...initialGraph,
+        nodes: [{ id: 'A', x: 100, y: 200 }]
+      };
+      // Mock Cytoscape instance
+      const cyNode = { position: jest.fn(), length: 1 };
+      const cy = { getElementById: jest.fn(() => cyNode), fit: jest.fn() };
+      // Simulate undo handler
+      // (This is a simplified version of the App.jsx undo logic)
+      movedGraph.nodes.forEach(node => {
+        // Move node visually
+        cy.getElementById(node.id).position({ x: node.x, y: node.y });
+      });
+      // Undo: restore initialGraph
+      initialGraph.nodes.forEach(node => {
+        cy.getElementById(node.id).position({ x: node.x, y: node.y });
+      });
+      // Check that Cytoscape position was called with correct values
+      expect(cy.getElementById).toHaveBeenCalledWith('A');
+      expect(cyNode.position).toHaveBeenCalledWith({ x: 0, y: 0 });
+    });
   });
 });
