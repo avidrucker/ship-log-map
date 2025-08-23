@@ -568,12 +568,21 @@ function App() {
       const prevState = lastUndoState; // capture for closures
       setGraphData(prevState);
       clearUndoState(); // Clear undo after using it
-      
       // Clear selections since they might reference nodes/edges that changed
       dispatchAppState({ type: ACTION_TYPES.CLEAR_ALL_SELECTIONS });
       clearCytoscapeSelections();
+      // --- NEW: update Cytoscape node positions to match undo state ---
+      const cy = getCytoscapeInstance();
+      if (cy && prevState.nodes) {
+        prevState.nodes.forEach(node => {
+          const cyNode = cy.getElementById(node.id);
+          if (cyNode && cyNode.length > 0) {
+            cyNode.position({ x: node.x, y: node.y });
+          }
+        });
+      }
     }
-  }, [lastUndoState, clearUndoState, clearCytoscapeSelections]);
+  }, [lastUndoState, clearUndoState, clearCytoscapeSelections, getCytoscapeInstance]);
 
   /** ---------- handlers ---------- **/
 
@@ -653,39 +662,39 @@ function App() {
     event.target.value = '';
   }, [clearCytoscapeSelections, clearUndoState]);
 
-  const handleResetToInitial = useCallback(() => {
-    // Show confirmation dialog
-    const confirmed = window.confirm("Are you sure you want to reset the map to its initial state? This will replace your current map with the default map.");
-    if (!confirmed) {
-      return; // User cancelled
-    }
+  // const handleResetToInitial = useCallback(() => {
+  //   // Show confirmation dialog
+  //   const confirmed = window.confirm("Are you sure you want to reset the map to its initial state? This will replace your current map with the default map.");
+  //   if (!confirmed) {
+  //     return; // User cancelled
+  //   }
 
-    // Reset to project defaults, normalized
-    const normalizedDefault = normalizeGraphData(defaultShipLogData);
-    setGraphData(normalizedDefault);
+  //   // Reset to project defaults, normalized
+  //   const normalizedDefault = normalizeGraphData(defaultShipLogData);
+  //   setGraphData(normalizedDefault);
 
-    // Reset mode, map name, and CDN URL to default values
-    if (typeof normalizedDefault.mode === 'string') {
-      dispatchAppState({ type: ACTION_TYPES.SET_MODE, payload: { mode: normalizedDefault.mode } });
-    }
-    if (typeof normalizedDefault.mapName === 'string') {
-      dispatchAppState({ type: ACTION_TYPES.SET_MAP_NAME, payload: { mapName: normalizedDefault.mapName } });
-    }
-    if (typeof normalizedDefault.cdnBaseUrl === 'string') {
-      dispatchAppState({ type: ACTION_TYPES.SET_CDN_BASE_URL, payload: { cdnBaseUrl: normalizedDefault.cdnBaseUrl } });
-    }
+  //   // Reset mode, map name, and CDN URL to default values
+  //   if (typeof normalizedDefault.mode === 'string') {
+  //     dispatchAppState({ type: ACTION_TYPES.SET_MODE, payload: { mode: normalizedDefault.mode } });
+  //   }
+  //   if (typeof normalizedDefault.mapName === 'string') {
+  //     dispatchAppState({ type: ACTION_TYPES.SET_MAP_NAME, payload: { mapName: normalizedDefault.mapName } });
+  //   }
+  //   if (typeof normalizedDefault.cdnBaseUrl === 'string') {
+  //     dispatchAppState({ type: ACTION_TYPES.SET_CDN_BASE_URL, payload: { cdnBaseUrl: normalizedDefault.cdnBaseUrl } });
+  //   }
 
-    // Camera reset
-    dispatchAppState({ type: ACTION_TYPES.SET_ZOOM, payload: { zoom: 1 } });
-    dispatchAppState({ type: ACTION_TYPES.SET_CAMERA_POSITION, payload: { position: { x: 0, y: 0 } } });
-    dispatchAppState({ type: ACTION_TYPES.SET_SHOULD_FIT, payload: { shouldFit: true } });
+  //   // Camera reset
+  //   dispatchAppState({ type: ACTION_TYPES.SET_ZOOM, payload: { zoom: 1 } });
+  //   dispatchAppState({ type: ACTION_TYPES.SET_CAMERA_POSITION, payload: { position: { x: 0, y: 0 } } });
+  //   dispatchAppState({ type: ACTION_TYPES.SET_SHOULD_FIT, payload: { shouldFit: true } });
 
-    // Clear errors & selections and undo state (reset clears undo)
-    dispatchAppState({ type: ACTION_TYPES.SET_LOAD_ERROR, payload: { error: null } });
-    clearCytoscapeSelections();
-    dispatchAppState({ type: ACTION_TYPES.CLEAR_ALL_SELECTIONS });
-    clearUndoState();
-  }, [clearCytoscapeSelections, clearUndoState]);
+  //   // Clear errors & selections and undo state (reset clears undo)
+  //   dispatchAppState({ type: ACTION_TYPES.SET_LOAD_ERROR, payload: { error: null } });
+  //   clearCytoscapeSelections();
+  //   dispatchAppState({ type: ACTION_TYPES.CLEAR_ALL_SELECTIONS });
+  //   clearUndoState();
+  // }, [clearCytoscapeSelections, clearUndoState]);
 
   const handleNewMap = useCallback(() => {
     // Check if there are any nodes in the current map
@@ -1422,7 +1431,7 @@ function App() {
           onEditSelected={handleEditSelected}
           onConnectNodes={handleConnectSelectedNodes}
           onExportMap={exportMap}
-          onResetMap={handleResetToInitial}
+          // onResetMap={handleResetToInitial}
           onNewMap={handleNewMap}
           onNodeColorChange={handleNodeColorChange}
           areNodesConnected={areNodesConnected}
