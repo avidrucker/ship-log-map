@@ -79,7 +79,10 @@
 - [ ] Fix bug where, loading in a new map from the CDN doesn't appear to update the compass visibility/direction
 - [ ] Implement conflict resolution modal that informs the user if the graph data from CDN and the graph data (names, node locations, edge directions, node count, edge count, node color, node size, etc.) in local storage differ, and if so, which map would they like to continue with, and update local storage with CDN graph data if the user chooses the CDN graph as well as update the app visually the graph data from the CDN
 - [ ] Fix bug where, for example, when working in local dev map http://localhost:5173/ship-log-map/?map=https%3A%2F%2Favidrucker.github.io%2Fimg-test-1%2FGaia%2520Yoga%2Fgaia_yoga.json&editing=true that, on page refresh, the app resets the camera to fit the map instead of keeping the current camera position and zoom level, and also reverts the compass display back to the CDN state instead of keeping the current (local storage saved) compass display state
-- [ ] Implement a "Reload" button in the Universal Controls that fully reloads the current map from the specified CDN URL, which can be used to discard any unsaved changes and revert to the last saved state in the CDN
+- [x] Implement a "Reload" button in the Universal Controls that fully reloads the current map from the specified CDN URL, which can be used to discard any unsaved changes and revert to the last saved state in the CDN
+- [ ] Create icon for the app
+  - [ ] Add new icon to the app
+- [ ] Enhance the app so it can work offline via service workers
 
 Notes for Future Features
 - Listing out "layers" which show things such as electrical lines, water lines, Internet, etc. that can be toggled on and off
