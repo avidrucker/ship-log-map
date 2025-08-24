@@ -14,7 +14,7 @@ import ErrorDisplay from "./ErrorDisplay";
 import { useCytoscapeInstance } from "./useCytoscapeInstance";
 import { appStateReducer, initialAppState, ACTION_TYPES } from "./appStateReducer";
 import { ZOOM_TO_SELECTION, DEBUG_LOGGING, DEV_MODE, GRAYSCALE_IMAGES, CAMERA_INFO_HIDDEN } from "./config/features.js";
-import { clearQueryParams, getMapUrlFromQuery, handleLoadFromCdn, setCdnBaseUrl, getCdnBaseUrl } from "./utils/cdnHelpers.js";
+import { clearQueryParams, handleLoadFromCdn, setCdnBaseUrl, getCdnBaseUrl } from "./utils/cdnHelpers.js"; // getMapUrlFromQuery, 
 
 // 🚀 New imports: centralized persistence + edge id helper
 import { saveToLocal, loadFromLocal, saveModeToLocal, loadModeFromLocal, saveUndoStateToLocal, loadUndoStateFromLocal, saveMapNameToLocal, loadMapNameFromLocal, loadUniversalMenuCollapsed, loadGraphControlsCollapsed, loadCameraInfoCollapsed, saveUniversalMenuCollapsed, saveGraphControlsCollapsed, saveCameraInfoCollapsed } from "./persistence/index.js";
@@ -218,7 +218,8 @@ function App() {
     },
     undo: {
       lastGraphState: loadUndoStateFromLocal()
-    }
+    },
+    lastLoadedMapUrl: localStorage.getItem('shipLogLastLoadedMapUrl') || '' // Track last loaded map URL for CDN
   });
 
   // Extract frequently used state for easier access
@@ -258,7 +259,8 @@ function App() {
   }, []);
 
   // CDN loading state
-  const [currentMapUrl, setCurrentMapUrl] = useState(null); // Initialize as null to force initial check
+  // const [currentMapUrl, setCurrentMapUrl] = useState(null); // Initialize as null to force initial check
+  
   const [cdnLoadingState, setCdnLoadingState] = useState({ 
     isLoading: false, 
     error: null 
@@ -321,152 +323,118 @@ function App() {
   }, []);
 
   // ---------- URL monitoring for CDN map loading ----------
-  useEffect(() => {
-    printDebug('🚨🚨🚨 [URL EFFECT] URL monitoring effect initialized - VERSION 3.0 🚨🚨🚨');
-    let hasLoadedFromUrl = false; // Flag to track if we've already loaded from URL
-    
-    const handleURLChange = async () => {
-      printDebug('🚨🚨🚨 [URL EFFECT] handleURLChange called - VERSION 3.0 🚨🚨🚨');
-      const newMapUrl = getMapUrlFromQuery();
-      printDebug('[URL EFFECT] newMapUrl:', JSON.stringify(newMapUrl));
-      printDebug('[URL EFFECT] currentMapUrl:', JSON.stringify(currentMapUrl));
-      printDebug('[URL EFFECT] Are they different?', newMapUrl !== currentMapUrl);
-      printDebug('[URL EFFECT] hasLoadedFromUrl:', hasLoadedFromUrl);
-      
-      // Helper: check editing mode from query
-      const editingEnabledFromQuery = getEditingEnabledFromQuery();
-      const hasQueryParams = hasAnyQueryParams();
-      
-      if (newMapUrl !== currentMapUrl) {
-        printDebug('[URL EFFECT] ✅ CONDITION MET - URL changed, new map URL:', newMapUrl || 'none');
-        printDebug('[URL] URL changed, new map URL:', newMapUrl || 'none');
-        setCurrentMapUrl(newMapUrl);
-        
-        if (newMapUrl) {
-          // Check if we're already loading this URL
-          if (currentCdnLoadRef.current === newMapUrl) {
-            printDebug('[URL EFFECT] ⏳ Already loading this URL, skipping duplicate request');
-            return;
+useEffect(() => {
+  printDebug('🚨🚨🚨 [URL EFFECT] URL monitoring effect initialized - VERSION 3.1 🚨🚨🚨');
+
+  // Helper: get only the map URL from query params
+  function getNormalizedMapUrlFromQuery() {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get('map') || '';
+  }
+
+  // Handler for initial load and popstate navigation
+  const handleURLChange = async () => {
+    const normalizedMapUrl = getNormalizedMapUrlFromQuery();
+    printDebug('[URL EFFECT] normalizedMapUrl:', JSON.stringify(normalizedMapUrl));
+    printDebug('[URL EFFECT] lastLoadedMapUrl:', JSON.stringify(appState.lastLoadedMapUrl));
+    printDebug('[URL EFFECT] Are they different?', normalizedMapUrl !== appState.lastLoadedMapUrl);
+
+    // Only load if the normalized map URL has changed and is non-empty
+    if (normalizedMapUrl && normalizedMapUrl !== appState.lastLoadedMapUrl) {
+      printDebug('[URL EFFECT] ✅ CONDITION MET - Map URL changed, loading from CDN:', normalizedMapUrl);
+
+      // Set loading state
+      setCdnLoadingState({ isLoading: true, error: null });
+      setIsLoadingFromCDN(true);
+      currentCdnLoadRef.current = normalizedMapUrl;
+
+      try {
+        const result = await loadMapFromCdn(normalizedMapUrl);
+
+        // Only proceed if this is still the current load operation
+        if (currentCdnLoadRef.current !== normalizedMapUrl) {
+          printDebug('[URL EFFECT] ⏭️ CDN load operation superseded, skipping state update');
+          return;
+        }
+
+        if (result.success) {
+          const normalizedData = normalizeGraphData(result.data);
+          const hydratedData = hydrateCoordsIfMissing(normalizedData, defaultShipLogData);
+
+          // --- MODE OVERRIDE LOGIC ---
+          const editingEnabledFromQuery = getEditingEnabledFromQuery();
+          const hasQueryParams = hasAnyQueryParams();
+          let forcedMode;
+          if (editingEnabledFromQuery) {
+            forcedMode = 'editing';
+          } else if (hasQueryParams) {
+            forcedMode = 'playing';
+          } else {
+            forcedMode = hydratedData.mode || 'editing';
           }
-          
-          currentCdnLoadRef.current = newMapUrl;
-          printDebug('[URL EFFECT] Starting CDN load for:', newMapUrl);
-          // Clear any previous CDN errors and set loading flags
-          setCdnLoadingState({ isLoading: true, error: null });
-          setIsLoadingFromCDN(true);
-          
-          try {
-            const result = await loadMapFromCdn(newMapUrl);
-            
-            // Only proceed if this is still the current load operation
-            if (currentCdnLoadRef.current !== newMapUrl) {
-              printDebug('[URL EFFECT] ⏭️ CDN load operation superseded, skipping state update');
-              return;
-            }
-            
-            printDebug('[URL EFFECT] CDN load completed, proceeding with state update');
-            
-            if (result.success) {
-              printDebug('[URL EFFECT] Successfully loaded map from CDN, updating app state');
-              printDebug('[URL EFFECT] Loaded data:', result.data);
-              printDebug('[URL] Successfully loaded map from CDN, updating app state');
-              
-              // Normalize and update graph data
-              printDebug('[URL EFFECT] Normalizing data...');
-              const normalizedData = normalizeGraphData(result.data);
-              printDebug('[URL EFFECT] Normalized data:', normalizedData);
-              const hydratedData = hydrateCoordsIfMissing(normalizedData, defaultShipLogData);
-              printDebug('[URL EFFECT] Hydrated data:', hydratedData);
-              
-              // --- MODE OVERRIDE LOGIC ---
-              let forcedMode;
-              if (editingEnabledFromQuery) {
-                // Always force editing mode if editing=true in query params
-                forcedMode = 'editing';
-              } else if (hasQueryParams) {
-                // If there are query params but NOT editing=true, force playing mode
-                forcedMode = 'playing';
-              } else {
-                // No query params, use mode from JSON/localStorage
-                forcedMode = hydratedData.mode || 'editing';
-              }
-              const hydratedDataWithMode = { ...hydratedData, mode: forcedMode };
-              setGraphData(hydratedDataWithMode);
-              dispatchAppState({ type: ACTION_TYPES.SET_MODE, payload: { mode: forcedMode } });
-              saveModeToLocal(forcedMode);
-              printDebug('[URL EFFECT] Forced mode set to:', forcedMode);
-              
-              // Update app state with loaded data
-              if (typeof hydratedData.mapName === 'string') {
-                dispatchAppState({ type: ACTION_TYPES.SET_MAP_NAME, payload: { mapName: hydratedData.mapName } });
-              }
-              if (typeof hydratedData.cdnBaseUrl === 'string') {
-                dispatchAppState({ type: ACTION_TYPES.SET_CDN_BASE_URL, payload: { cdnBaseUrl: hydratedData.cdnBaseUrl } });
-              }
-              if (typeof hydratedData.orientation === 'number') {
-                dispatchAppState({ type: ACTION_TYPES.SET_ORIENTATION, payload: { orientation: hydratedData.orientation } });
-              }
-              if (typeof hydratedData.compassVisible === 'boolean') {
-                dispatchAppState({ type: ACTION_TYPES.SET_COMPASS_VISIBLE, payload: { visible: hydratedData.compassVisible } });
-              }
-              // Reset camera + fit
-              dispatchAppState({ type: ACTION_TYPES.SET_ZOOM, payload: { zoom: 1 } });
-              dispatchAppState({ type: ACTION_TYPES.SET_CAMERA_POSITION, payload: { position: { x: 0, y: 0 } } });
-              dispatchAppState({ type: ACTION_TYPES.SET_SHOULD_FIT, payload: { shouldFit: true } });
-              // Clear selections and undo state (loading clears undo)
-              clearCytoscapeSelections();
-              dispatchAppState({ type: ACTION_TYPES.CLEAR_ALL_SELECTIONS });
-              clearUndoState();
-              setCdnLoadingState({ isLoading: false, error: null });
-              setIsLoadingFromCDN(false);
-              currentCdnLoadRef.current = null;
-            } else {
-              setCdnLoadingState({ isLoading: false, error: result.error });
-              setIsLoadingFromCDN(false);
-              currentCdnLoadRef.current = null;
-            }
-          } catch (error) {
-            printDebug('[URL EFFECT] Exception during CDN loading:', error.message);
-            printDebug('[URL] Exception during CDN loading:', error.message);
-            setCdnLoadingState({ isLoading: false, error: 'Unexpected error: ' + error.message });
-            setIsLoadingFromCDN(false);
-            currentCdnLoadRef.current = null;
+          const hydratedDataWithMode = { ...hydratedData, mode: forcedMode };
+          setGraphData(hydratedDataWithMode);
+          dispatchAppState({ type: ACTION_TYPES.SET_MODE, payload: { mode: forcedMode } });
+          saveModeToLocal(forcedMode);
+
+          // Update app state with loaded data
+          if (typeof hydratedData.mapName === 'string') {
+            dispatchAppState({ type: ACTION_TYPES.SET_MAP_NAME, payload: { mapName: hydratedData.mapName } });
           }
-        } else {
-          // No map URL, clear any CDN loading state
+          if (typeof hydratedData.cdnBaseUrl === 'string') {
+            dispatchAppState({ type: ACTION_TYPES.SET_CDN_BASE_URL, payload: { cdnBaseUrl: hydratedData.cdnBaseUrl } });
+          }
+          if (typeof hydratedData.orientation === 'number') {
+            dispatchAppState({ type: ACTION_TYPES.SET_ORIENTATION, payload: { orientation: hydratedData.orientation } });
+          }
+          if (typeof hydratedData.compassVisible === 'boolean') {
+            dispatchAppState({ type: ACTION_TYPES.SET_COMPASS_VISIBLE, payload: { visible: hydratedData.compassVisible } });
+          }
+          // Reset camera + fit
+          dispatchAppState({ type: ACTION_TYPES.SET_ZOOM, payload: { zoom: 1 } });
+          dispatchAppState({ type: ACTION_TYPES.SET_CAMERA_POSITION, payload: { position: { x: 0, y: 0 } } });
+          dispatchAppState({ type: ACTION_TYPES.SET_SHOULD_FIT, payload: { shouldFit: true } });
+          // Clear selections and undo state (loading clears undo)
+          clearCytoscapeSelections();
+          dispatchAppState({ type: ACTION_TYPES.CLEAR_ALL_SELECTIONS });
+          clearUndoState();
+
+          // Track the loaded map URL
+          dispatchAppState({ type: ACTION_TYPES.SET_LAST_LOADED_MAP_URL, payload: { url: normalizedMapUrl } });
+
           setCdnLoadingState({ isLoading: false, error: null });
           setIsLoadingFromCDN(false);
           currentCdnLoadRef.current = null;
+        } else {
+          setCdnLoadingState({ isLoading: false, error: result.error });
+          setIsLoadingFromCDN(false);
+          currentCdnLoadRef.current = null;
         }
-      } else {
-        printDebug('[URL EFFECT] ❌ CONDITION NOT MET - URLs are the same, skipping CDN load');
+      } catch (error) {
+        setCdnLoadingState({ isLoading: false, error: 'Unexpected error: ' + error.message });
+        setIsLoadingFromCDN(false);
+        currentCdnLoadRef.current = null;
       }
-    };
-    
-    // Initial check on mount
-    printDebug('[URL EFFECT] Running initial URL check');
-    const initialMapUrl = getMapUrlFromQuery();
-    printDebug('[URL EFFECT] Initial map URL from query:', initialMapUrl);
-    
-    if (initialMapUrl) {
-      printDebug('[URL EFFECT] Found query params, performing initial load');
-      handleURLChange();
     } else {
-      printDebug('[URL EFFECT] No query params found, skipping initial load');
-      setCurrentMapUrl(null); // Ensure currentMapUrl is set to null for consistency
+      printDebug('[URL EFFECT] ❌ CONDITION NOT MET - Map URL unchanged, skipping CDN load');
     }
-    
-    // Listen for popstate events (back/forward navigation) - always needed for navigation
-    window.addEventListener('popstate', handleURLChange);
-    printDebug('[URL EFFECT] Added popstate listener');
-    
-    // Clean up listener
-    return () => {
-      window.removeEventListener('popstate', handleURLChange);
-    };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  };
 
-  // ---------- persistence ----------
+  // Initial check on mount
+  printDebug('[URL EFFECT] Running initial URL check');
+  handleURLChange();
+
+  // Listen for popstate events (back/forward navigation)
+  window.addEventListener('popstate', handleURLChange);
+  printDebug('[URL EFFECT] Added popstate listener');
+
+  // Clean up listener
+  return () => {
+    window.removeEventListener('popstate', handleURLChange);
+  };
+}, [appState.lastLoadedMapUrl, clearCytoscapeSelections, clearUndoState]); // Only rerun if lastLoadedMapUrl changes
+  
+// ---------- persistence ----------
   useEffect(() => {
     // Don't persist while loading from CDN to avoid overwriting CDN data
     if (isLoadingFromCDN) {
@@ -1402,6 +1370,31 @@ function App() {
     clearUndoState,
     mapName
   ]);
+
+  useEffect(() => {
+  // Listen for TRIGGER_GRAPH_UPDATE action
+  // You can use a ref or a flag in appState if you want to avoid repeated triggers
+  // Here, we'll just listen for changes in appState and graphData
+  if (appState.lastActionType === ACTION_TYPES.TRIGGER_GRAPH_UPDATE) {
+    const cy = getCytoscapeInstance();
+    if (cy && graphData.nodes) {
+      printDebug('🔄 App: Forcing immediate position update in Cytoscape after loading from CDN');
+      graphData.nodes.forEach(node => {
+        const cyNode = cy.getElementById(node.id);
+        if (cyNode.length > 0) {
+          cyNode.position({ x: node.x, y: node.y });
+        }
+      });
+    }
+  }
+}, [appState.lastActionType, graphData.nodes, getCytoscapeInstance]);
+
+
+useEffect(() => {
+  if (appState.lastLoadedMapUrl) {
+    localStorage.setItem('shipLogLastLoadedMapUrl', appState.lastLoadedMapUrl);
+  }
+}, [appState.lastLoadedMapUrl]);
 
   /** ---------- render ---------- **/
   return (

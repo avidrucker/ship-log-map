@@ -82,7 +82,6 @@ export async function handleLoadFromCdn({
     const mapUrl = cdnBaseUrl.endsWith('/')
       ? cdnBaseUrl + mapJsonFileName
       : cdnBaseUrl + '/' + mapJsonFileName;
-      
     setCdnLoadingState({ isLoading: true, error: null });
   
     setIsLoadingFromCDN(true);
@@ -120,6 +119,11 @@ export async function handleLoadFromCdn({
       setCdnLoadingState({ isLoading: false, error: null });
       setIsLoadingFromCDN(false);
       currentCdnLoadRef.current = null;
+
+      console.log("cdnHelpers.js: Triggering a graph visual update after CDN load");
+      // trigger graph visual update if needed
+      dispatchAppState({ type: ACTION_TYPES.TRIGGER_GRAPH_UPDATE });
+      
     } else {
       setCdnLoadingState({ isLoading: false, error: result.error || 'Failed to load map from CDN.' });
       setIsLoadingFromCDN(false);
@@ -211,3 +215,4 @@ export function validateCdnUrl(url) {
   if (!urlPattern.test(url)) issues.push('Must start with http(s)://');
   return { isValid: issues.length === 0, suggestion: suggestion !== url ? suggestion : null, issues, originalUrl: url, suggestedUrl: suggestion };
 }
+

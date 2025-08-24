@@ -56,7 +56,12 @@ export const ACTION_TYPES = {
   SET_CDN_BASE_URL: 'SET_CDN_BASE_URL',
   // New orientation & compass actions
   SET_ORIENTATION: 'SET_ORIENTATION',
-  SET_COMPASS_VISIBLE: 'SET_COMPASS_VISIBLE'
+  SET_COMPASS_VISIBLE: 'SET_COMPASS_VISIBLE',
+
+  TRIGGER_GRAPH_UPDATE: 'TRIGGER_GRAPH_UPDATE',
+
+  // New action for tracking last loaded map URL
+  SET_LAST_LOADED_MAP_URL: 'SET_LAST_LOADED_MAP_URL'
 };
 
 // Initial state
@@ -102,7 +107,8 @@ export const initialAppState = {
   },
   undo: {
     lastGraphState: null
-  }
+  },
+  lastLoadedMapUrl: '' // Track last loaded map URL for CDN
 };
 
 // State reducer
@@ -357,6 +363,13 @@ export function appStateReducer(state, action) {
         }
       };
       
+    // New case for handling last loaded map URL
+    case ACTION_TYPES.SET_LAST_LOADED_MAP_URL:
+      return {
+        ...state,
+        lastLoadedMapUrl: action.payload.url
+      };
+      
     default:
       return state;
   }
@@ -471,5 +484,10 @@ export const actions = {
   setCompassVisible: (visible) => ({
     type: ACTION_TYPES.SET_COMPASS_VISIBLE,
     payload: { visible }
+  }),
+  // New action creator for setting last loaded map URL
+  setLastLoadedMapUrl: (url) => ({
+    type: ACTION_TYPES.SET_LAST_LOADED_MAP_URL,
+    payload: { url }
   }),
 };
