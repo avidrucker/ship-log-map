@@ -576,12 +576,31 @@ export function wireEvents(cy, handlers = {}, mode = 'editing') {
     if (onNodeMove) { const { x, y } = evt.target.position(); onNodeMove(evt.target.id(), { x, y }); }
   });
 
-  // Viewport
-  cy.on('viewport', () => {
-    const zoom = cy.zoom(); const pan = cy.pan();
-    if (onZoomChange) onZoomChange(zoom);
-    if (onCameraMove) onCameraMove({ x: pan.x, y: pan.y });
-  });
+  // Remove continuous camera update during pan/zoom
+  // cy.on('viewport', () => {
+  //   const zoom = cy.zoom(); const pan = cy.pan();
+  //   if (onZoomChange) onZoomChange(zoom);
+  //   if (onCameraMove) onCameraMove({ x: pan.x, y: pan.y });
+  // });
+
+  // Add mouseup listener to trigger camera update only after pan/zoom ends
+  const container = cy.container();
+  function handleCameraUpdate() {
+    if (onZoomChange) onZoomChange(cy.zoom());
+    if (onCameraMove) onCameraMove({ x: cy.pan().x, y: cy.pan().y });
+  }
+  container.addEventListener('mouseup', handleCameraUpdate);
+
+  // Add debounced wheel event listener to trigger camera update only after wheel interaction ends
+  let wheelTimer = null;
+  function handleWheel() {
+    if (wheelTimer) clearTimeout(wheelTimer);
+    wheelTimer = setTimeout(() => {
+      handleCameraUpdate();
+      wheelTimer = null;
+    }, 120); // 120ms debounce after last wheel event
+  }
+  container.addEventListener('wheel', handleWheel);
 
   cy.on('mouseover', 'node.entry-parent, edge', (evt) => { evt.cy.container().style.cursor = 'pointer'; });
   cy.on('mouseout', 'node.entry-parent, edge', (evt) => { evt.cy.container().style.cursor = 'default'; });
@@ -589,6 +608,9 @@ export function wireEvents(cy, handlers = {}, mode = 'editing') {
   return () => {
     printDebug('🧹 [cyAdapter] Removing event listeners');
     cy.removeListener('*');
+    container.removeEventListener('mouseup', handleCameraUpdate);
+    container.removeEventListener('wheel', handleWheel);
+    if (wheelTimer) clearTimeout(wheelTimer);
   };
 }
 

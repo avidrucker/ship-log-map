@@ -1,5 +1,5 @@
 // src/App.jsx
-import React, { useState, useEffect, useCallback, useRef, useReducer } from "react";
+import React, { useState, useEffect, useCallback, useRef, useReducer, useMemo } from "react";
 import CytoscapeGraph from "./CytoscapeGraph";
 import defaultShipLogData from "./default_ship_log.json";
 import { loadAndValidateRumorMapFromFile } from "./rumorMapValidation";
@@ -1418,6 +1418,14 @@ function App() {
     lastUndoState
   ]);
 
+  // Memoize props for CytoscapeGraph
+  const memoNodes = useMemo(() => graphData.nodes, [graphData.nodes]);
+  const memoEdges = useMemo(() => graphData.edges, [graphData.edges]);
+  const memoSelectedNodeIds = useMemo(() => selectedNodeIds, [selectedNodeIds]);
+  const memoSelectedEdgeIds = useMemo(() => selectedEdgeIds, [selectedEdgeIds]);
+  const memoCameraPosition = useMemo(() => cameraPosition, [cameraPosition]);
+  const memoNotes = useMemo(() => graphData.notes, [graphData.notes]);
+
   /** ---------- render ---------- **/
   return (
     <div
@@ -1585,25 +1593,20 @@ function App() {
       )}
 
       <CytoscapeGraph
-        // 🔁 pass nodes/edges (not graphData)
-        nodes={graphData.nodes}
-        edges={graphData.edges}
+        nodes={memoNodes}
+        edges={memoEdges}
         mode={mode}
         mapName={mapName}
         cdnBaseUrl={cdnBaseUrl}
-
-        // Selection state for synchronization
-        selectedNodeIds={selectedNodeIds}
-        selectedEdgeIds={selectedEdgeIds}
-
+        selectedNodeIds={memoSelectedNodeIds}
+        selectedEdgeIds={memoSelectedEdgeIds}
         onNodeMove={handleNodeMove}
         onZoomChange={setZoomLevel}
         onCameraMove={setCameraPosition}
         initialZoom={zoomLevel}
-        initialCameraPosition={cameraPosition}
+        initialCameraPosition={memoCameraPosition}
         shouldFitOnNextRender={shouldFitOnNextRender}
         onFitCompleted={handleFitCompleted}
-
         onEdgeSelectionChange={handleEdgeSelectionChange}
         onNodeSelectionChange={handleNodeSelectionChange}
         onNodeClick={handleNodeClick}
@@ -1615,14 +1618,10 @@ function App() {
         onDeleteSelectedEdges={handleDeleteSelectedEdges}
         onNodeSizeChange={handleNodeSizeChange}
         onNodeColorChange={handleNodeColorChange}
-
         onBackgroundClick={handleBackgroundClick}
-
         onCytoscapeInstanceReady={setCytoscapeInstance}
-
-        // Note count overlay
         showNoteCountOverlay={showNoteCountOverlay}
-        notes={graphData.notes}
+        notes={memoNotes}
       />
 
       {compassVisible && (

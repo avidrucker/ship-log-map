@@ -463,4 +463,4 @@ function CytoscapeGraph({
   );
 }
 
-export default CytoscapeGraph;
+export default React.memo(CytoscapeGraph);
