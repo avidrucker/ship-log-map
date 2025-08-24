@@ -583,41 +583,44 @@ export function wireEvents(cy, handlers = {}, mode = 'editing') {
   //   if (onCameraMove) onCameraMove({ x: pan.x, y: pan.y });
   // });
 
-  // Add mouseup listener to trigger camera update only after pan/zoom ends
+  // Add mouseup, wheel, touchend, and touchmove listeners to trigger camera update only after pan/zoom ends
   const container = cy.container();
-  function handleCameraUpdate() {
-    if (onZoomChange) onZoomChange(cy.zoom());
-    if (onCameraMove) onCameraMove({ x: cy.pan().x, y: cy.pan().y });
-  }
-  container.addEventListener('mouseup', handleCameraUpdate);
 
-  // Add debounced wheel event listener to trigger camera update only after wheel interaction ends
+  function handleCameraUpdate(source) {
+    printDebug(`Camera update triggered by: ${source}`);
+    if (handlers.onZoomChange) handlers.onZoomChange(cy.zoom());
+    if (handlers.onCameraMove) handlers.onCameraMove({ x: cy.pan().x, y: cy.pan().y });
+  }
+
+  function mouseupHandler() {
+    handleCameraUpdate('mouseup');
+  }
+  container.addEventListener('mouseup', mouseupHandler);
+
   let wheelTimer = null;
-  function handleWheel() {
+  function debouncedWheelHandler() {
     if (wheelTimer) clearTimeout(wheelTimer);
     wheelTimer = setTimeout(() => {
-      handleCameraUpdate();
+      handleCameraUpdate('wheel');
       wheelTimer = null;
-    }, 120); // 120ms debounce after last wheel event
+    }, 200); // 200ms debounce after last wheel event
   }
-  container.addEventListener('wheel', handleWheel);
+  container.addEventListener('wheel', debouncedWheelHandler);
 
-  // Add touchend listener for pan (single-finger drag)
-  function handleTouchEnd() {
-    handleCameraUpdate();
+  function touchEndHandler() {
+    handleCameraUpdate('touchend');
   }
-  container.addEventListener('touchend', handleTouchEnd);
+  container.addEventListener('touchend', touchEndHandler);
 
-  // Add debounced touchmove listener for pinch-zoom (multi-finger)
   let touchMoveTimer = null;
-  function handleTouchMove() {
+  function debouncedTouchMoveHandler() {
     if (touchMoveTimer) clearTimeout(touchMoveTimer);
     touchMoveTimer = setTimeout(() => {
-      handleCameraUpdate();
+      handleCameraUpdate('touchmove');
       touchMoveTimer = null;
     }, 120); // 120ms debounce after last touchmove
   }
-  container.addEventListener('touchmove', handleTouchMove);
+  container.addEventListener('touchmove', debouncedTouchMoveHandler);
 
   cy.on('mouseover', 'node.entry-parent, edge', (evt) => { evt.cy.container().style.cursor = 'pointer'; });
   cy.on('mouseout', 'node.entry-parent, edge', (evt) => { evt.cy.container().style.cursor = 'default'; });
@@ -625,10 +628,10 @@ export function wireEvents(cy, handlers = {}, mode = 'editing') {
   return () => {
     printDebug('🧹 [cyAdapter] Removing event listeners');
     cy.removeListener('*');
-    container.removeEventListener('mouseup', handleCameraUpdate);
-    container.removeEventListener('wheel', handleWheel);
-    container.removeEventListener('touchend', handleTouchEnd);
-    container.removeEventListener('touchmove', handleTouchMove);
+    container.removeEventListener('mouseup', mouseupHandler);
+    container.removeEventListener('wheel', debouncedWheelHandler);
+    container.removeEventListener('touchend', touchEndHandler);
+    container.removeEventListener('touchmove', debouncedTouchMoveHandler);
     if (wheelTimer) clearTimeout(wheelTimer);
     if (touchMoveTimer) clearTimeout(touchMoveTimer);
   };
