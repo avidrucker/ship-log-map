@@ -1,4 +1,6 @@
 import React, { useState, useCallback, useEffect } from "react";
+import { DEV_MODE } from "./config/features";
+import FpsCounter from "./FpsCounter";
 
 function HamburgerIcon({ color = '#fff', size = 18 }) {
   return (
@@ -273,6 +275,12 @@ function CameraInfo({ zoom, pan, selectedNodeIds, selectedEdgeIds, mode, mapName
       {selectedEdgeIds.length > 0 && (
         <div style={{ color: "#ff6b6b" }}>
           Edges: {selectedEdgeIds.length} selected
+        </div>
+      )}
+      {/* FPS Counter: Only show in DEV_MODE */}
+      {DEV_MODE && (
+        <div style={{ marginTop: "10px" }}>
+          <FpsCounter />
         </div>
       )}
     </div>
