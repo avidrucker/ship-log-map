@@ -394,7 +394,7 @@ export async function mountCy({ container, graph, styles = cytoscapeStyles, mode
       style: styles,
       elements,
       selectionType: mode === 'editing' ? "additive" : "single",
-      wheelSensitivity: 0.5,
+      // wheelSensitivity: 0.5,
       pixelRatio: 1,
       layout: { name: 'preset' }
     });
@@ -424,7 +424,7 @@ export async function mountCy({ container, graph, styles = cytoscapeStyles, mode
       style: styles,
       elements,
       selectionType: mode === 'editing' ? "additive" : "single",
-      wheelSensitivity: 0.5,
+      // wheelSensitivity: 0.5,
       pixelRatio: 1,
       layout: { name: 'preset' }
     });
