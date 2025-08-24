@@ -76,6 +76,8 @@ export function useCytoscapeInstance() {
   
   // Fit view to all nodes
   const fitToView = useCallback((padding = 50) => {
+    //// TODO: troubleshoot performance with fit calls
+    //// console.log("Fitting view to all nodes with padding:", padding);
     const cy = cytoscapeRef.current;
     if (cy) {
       cy.fit(cy.nodes(), padding);

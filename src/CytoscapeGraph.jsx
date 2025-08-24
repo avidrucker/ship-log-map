@@ -339,6 +339,8 @@ function CytoscapeGraph({
         syncElements(cyRef.current, { nodes, edges, mapName, cdnBaseUrl }, { mode });
       } else if (updatedCount > 0) {
         // For minor position changes, just trigger a layout refresh
+        //// TODO: troubleshoot performance with fit calls
+        //// console.log("Forcing Cytoscape layout refresh after position updates");
         cy.fit(cy.nodes(), 0); // Fit without padding to refresh layout
         cy.center(); // Re-center the view
       }
@@ -391,6 +393,8 @@ function CytoscapeGraph({
     const id = setTimeout(() => {
       try {
         const cy = cyRef.current;
+        //// TODO: troubleshoot performance with fit calls
+        //// console.log("Forcing Cytoscape layout refresh after fit request");
         cy.fit(cy.nodes(), 50);
         onFitCompleted && onFitCompleted();
       } catch {

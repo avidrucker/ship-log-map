@@ -1105,6 +1105,8 @@ function App() {
           }
         });
         // Force a layout refresh to ensure everything is properly positioned
+        //// TODO: troubleshoot performance with fit calls
+        //// console.log("Forcing Cytoscape layout refresh after map rotation");
         cy.fit(cy.nodes(), 50);
       }
       
