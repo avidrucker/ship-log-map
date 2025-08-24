@@ -14,6 +14,7 @@ import ErrorDisplay from "./ErrorDisplay";
 import { useCytoscapeInstance } from "./useCytoscapeInstance";
 import { appStateReducer, initialAppState, ACTION_TYPES } from "./appStateReducer";
 import { ZOOM_TO_SELECTION, DEBUG_LOGGING, DEV_MODE, GRAYSCALE_IMAGES, CAMERA_INFO_HIDDEN } from "./config/features.js";
+import { clearQueryParams, getMapUrlFromQuery, handleLoadFromCdn } from "./utils/urlHelpers.js";
 
 // 🚀 New imports: centralized persistence + edge id helper
 import { saveToLocal, loadFromLocal, saveModeToLocal, loadModeFromLocal, saveUndoStateToLocal, loadUndoStateFromLocal, saveMapNameToLocal, loadMapNameFromLocal, loadUniversalMenuCollapsed, loadGraphControlsCollapsed, loadCameraInfoCollapsed, saveUniversalMenuCollapsed, saveGraphControlsCollapsed, saveCameraInfoCollapsed } from "./persistence/index.js";
@@ -32,25 +33,6 @@ const SPINNER_CSS = `
 }`;
 
 /** ---------- URL/CDN helpers ---------- **/
-
-// Helper to get map URL from query parameters
-function getMapUrlFromQuery() {
-  const urlParams = new URLSearchParams(window.location.search);
-  const mapUrl = urlParams.get('map');
-  printDebug('[URL] Current window.location.search:', window.location.search);
-  printDebug('[URL] Extracted map URL:', mapUrl);
-  printDebug('[URL] Current window.location.search:', window.location.search);
-  printDebug('[URL] Extracted map URL:', mapUrl);
-  return mapUrl;
-}
-
-// Helper to clear query parameters
-function clearQueryParams() {
-  const url = new URL(window.location);
-  url.search = '';
-  window.history.replaceState({}, '', url);
-  printDebug('🔄 [URL] Cleared query parameters');
-}
 
 // Helper to load map from CDN
 async function loadMapFromCdn(mapUrl) {
@@ -293,31 +275,31 @@ function App() {
   }, [cameraInfoCollapsed]);
 
   // ---------- debug taps ----------
-  // useEffect(() => { printDebug('🏠 App: zoomLevel changed to:', zoomLevel); }, [zoomLevel]);
-  // useEffect(() => { printDebug('🏠 App: cameraPosition changed to:', cameraPosition); }, [cameraPosition]);
-  // useEffect(() => { printDebug('🏠 App: shouldFitOnNextRender changed to:', shouldFitOnNextRender); }, [shouldFitOnNextRender]);
-  // useEffect(() => { printDebug('🎮 App: mode changed to:', mode); }, [mode]);
-  // useEffect(() => { 
-  //   printDebug('📊 App: graphData changed - nodes:', graphData.nodes.length, 'edges:', graphData.edges.length, 'mapName:', graphData.mapName || 'default'); 
-  //   printDebug('📊 [App] graphData changed:', { 
-  //     nodeCount: graphData.nodes.length, 
-  //     edgeCount: graphData.edges.length, 
-  //     mapName: graphData.mapName || 'default',
-  //     firstNode: graphData.nodes[0] ? `${graphData.nodes[0].id} (${graphData.nodes[0].title})` : 'none'
-  //   });
-  // }, [graphData]);
+  useEffect(() => { printDebug('🏠 App: zoomLevel changed to:', zoomLevel); }, [zoomLevel]);
+  useEffect(() => { printDebug('🏠 App: cameraPosition changed to:', cameraPosition); }, [cameraPosition]);
+  useEffect(() => { printDebug('🏠 App: shouldFitOnNextRender changed to:', shouldFitOnNextRender); }, [shouldFitOnNextRender]);
+  useEffect(() => { printDebug('🎮 App: mode changed to:', mode); }, [mode]);
+  useEffect(() => { 
+    printDebug('📊 App: graphData changed - nodes:', graphData.nodes.length, 'edges:', graphData.edges.length, 'mapName:', graphData.mapName || 'default'); 
+    printDebug('📊 [App] graphData changed:', { 
+      nodeCount: graphData.nodes.length, 
+      edgeCount: graphData.edges.length, 
+      mapName: graphData.mapName || 'default',
+      firstNode: graphData.nodes[0] ? `${graphData.nodes[0].id} (${graphData.nodes[0].title})` : 'none'
+    });
+  }, [graphData]);
 
-  // // Add a special debug effect to track when graphData actually changes
-  // useEffect(() => {
-  //   printDebug('🔄 [App] graphData state updated! New data:', {
-  //     nodeCount: graphData.nodes.length,
-  //     edgeCount: graphData.edges.length,
-  //     mapName: graphData.mapName,
-  //     mode: graphData.mode,
-  //     cdnBaseUrl: graphData.cdnBaseUrl,
-  //     timestamp: new Date().toISOString()
-  //   });
-  // }, [graphData]);
+  // Add a special debug effect to track when graphData actually changes
+  useEffect(() => {
+    printDebug('🔄 [App] graphData state updated! New data:', {
+      nodeCount: graphData.nodes.length,
+      edgeCount: graphData.edges.length,
+      mapName: graphData.mapName,
+      mode: graphData.mode,
+      cdnBaseUrl: graphData.cdnBaseUrl,
+      timestamp: new Date().toISOString()
+    });
+  }, [graphData]);
 
   // Add CSS for spinner animation
   useEffect(() => {
@@ -661,40 +643,6 @@ function App() {
     // Clear the input so the same file can be selected again
     event.target.value = '';
   }, [clearCytoscapeSelections, clearUndoState]);
-
-  // const handleResetToInitial = useCallback(() => {
-  //   // Show confirmation dialog
-  //   const confirmed = window.confirm("Are you sure you want to reset the map to its initial state? This will replace your current map with the default map.");
-  //   if (!confirmed) {
-  //     return; // User cancelled
-  //   }
-
-  //   // Reset to project defaults, normalized
-  //   const normalizedDefault = normalizeGraphData(defaultShipLogData);
-  //   setGraphData(normalizedDefault);
-
-  //   // Reset mode, map name, and CDN URL to default values
-  //   if (typeof normalizedDefault.mode === 'string') {
-  //     dispatchAppState({ type: ACTION_TYPES.SET_MODE, payload: { mode: normalizedDefault.mode } });
-  //   }
-  //   if (typeof normalizedDefault.mapName === 'string') {
-  //     dispatchAppState({ type: ACTION_TYPES.SET_MAP_NAME, payload: { mapName: normalizedDefault.mapName } });
-  //   }
-  //   if (typeof normalizedDefault.cdnBaseUrl === 'string') {
-  //     dispatchAppState({ type: ACTION_TYPES.SET_CDN_BASE_URL, payload: { cdnBaseUrl: normalizedDefault.cdnBaseUrl } });
-  //   }
-
-  //   // Camera reset
-  //   dispatchAppState({ type: ACTION_TYPES.SET_ZOOM, payload: { zoom: 1 } });
-  //   dispatchAppState({ type: ACTION_TYPES.SET_CAMERA_POSITION, payload: { position: { x: 0, y: 0 } } });
-  //   dispatchAppState({ type: ACTION_TYPES.SET_SHOULD_FIT, payload: { shouldFit: true } });
-
-  //   // Clear errors & selections and undo state (reset clears undo)
-  //   dispatchAppState({ type: ACTION_TYPES.SET_LOAD_ERROR, payload: { error: null } });
-  //   clearCytoscapeSelections();
-  //   dispatchAppState({ type: ACTION_TYPES.CLEAR_ALL_SELECTIONS });
-  //   clearUndoState();
-  // }, [clearCytoscapeSelections, clearUndoState]);
 
   const handleNewMap = useCallback(() => {
     // Check if there are any nodes in the current map
@@ -1470,6 +1418,8 @@ function App() {
         onToggleCompass={handleToggleCompass}
         collapsed={universalMenuCollapsed}
         onToggleCollapsed={toggleUniversalMenu}
+        cdnBaseUrl={cdnBaseUrl}
+        onLoadFromCdn={handleLoadFromCdn}
       />
 
       <NoteEditorModal

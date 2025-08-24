@@ -18,24 +18,24 @@ function UniversalControls({
   mode,
   showNoteCountOverlay,
   onToggleNoteCountOverlay,
-  // orientation
   onRotateNodesAndCompass,
   orientation,
   compassVisible,
   onToggleCompass,
-  // collapse state
   collapsed,
-  onToggleCollapsed
+  onToggleCollapsed,
+  cdnBaseUrl,
+  onLoadFromCdn
 }) {
   if (collapsed) {
     return (
       <div style={{ position: 'absolute', left: '10px', bottom: '10px', zIndex: 1000 }}>
         <button
           onClick={onToggleCollapsed}
-            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 12px', background: 'rgba(0,0,0,0.55)', border: '1px solid #444', borderRadius: '6px', cursor: 'pointer', color: '#fff', fontWeight: 'bold' }}
-            aria-label="Open universal menu"
-            title="Open universal menu"
-          >
+          style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 12px', background: 'rgba(0,0,0,0.55)', border: '1px solid #444', borderRadius: '6px', cursor: 'pointer', color: '#fff', fontWeight: 'bold' }}
+          aria-label="Open universal menu"
+          title="Open universal menu"
+        >
           <HamburgerIcon />
           <span>Menu</span>
         </button>
@@ -87,8 +87,18 @@ function UniversalControls({
         onClick={() => fileInputRef.current?.click()}
         title="Load Map JSON"
       >
-        Load
+        Load JSON
       </button>
+      {/* Load CDN button, only if cdnBaseUrl is set and not empty */}
+      {cdnBaseUrl && cdnBaseUrl.trim() !== '' && (
+        <button
+          style={{ padding: '6px 10px', background: '#009688', color: '#fff', border: '1px solid #00695c', cursor: 'pointer', fontWeight: 'bold' }}
+          onClick={onLoadFromCdn}
+          title="Reload map and state from CDN"
+        >
+          Load CDN
+        </button>
+      )}
       <button
         style={{ padding: '6px 10px', background: '#222', color: '#fff', border: '1px solid #444', cursor: 'pointer' }}
         onClick={onFitToView}
