@@ -602,6 +602,23 @@ export function wireEvents(cy, handlers = {}, mode = 'editing') {
   }
   container.addEventListener('wheel', handleWheel);
 
+  // Add touchend listener for pan (single-finger drag)
+  function handleTouchEnd() {
+    handleCameraUpdate();
+  }
+  container.addEventListener('touchend', handleTouchEnd);
+
+  // Add debounced touchmove listener for pinch-zoom (multi-finger)
+  let touchMoveTimer = null;
+  function handleTouchMove() {
+    if (touchMoveTimer) clearTimeout(touchMoveTimer);
+    touchMoveTimer = setTimeout(() => {
+      handleCameraUpdate();
+      touchMoveTimer = null;
+    }, 120); // 120ms debounce after last touchmove
+  }
+  container.addEventListener('touchmove', handleTouchMove);
+
   cy.on('mouseover', 'node.entry-parent, edge', (evt) => { evt.cy.container().style.cursor = 'pointer'; });
   cy.on('mouseout', 'node.entry-parent, edge', (evt) => { evt.cy.container().style.cursor = 'default'; });
 
@@ -610,7 +627,10 @@ export function wireEvents(cy, handlers = {}, mode = 'editing') {
     cy.removeListener('*');
     container.removeEventListener('mouseup', handleCameraUpdate);
     container.removeEventListener('wheel', handleWheel);
+    container.removeEventListener('touchend', handleTouchEnd);
+    container.removeEventListener('touchmove', handleTouchMove);
     if (wheelTimer) clearTimeout(wheelTimer);
+    if (touchMoveTimer) clearTimeout(touchMoveTimer);
   };
 }
 
