@@ -1400,6 +1400,7 @@ function App() {
     dispatchAppState,
     clearCytoscapeSelections,
     clearUndoState,
+    mapName
   ]);
 
   /** ---------- render ---------- **/
