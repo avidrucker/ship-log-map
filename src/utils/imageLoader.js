@@ -1,9 +1,9 @@
 // src/utils/imageLoader.js
 import { printDebug, printWarn } from "../utils/debug.js";
+import { getCdnBaseUrl, buildCdnUrl, buildAlternativeBaseUrls } from './cdnHelpers.js';
 
 // Storage keys
 const IMAGE_CACHE_KEY = 'shipLogImageCache';
-const CDN_BASE_URL_KEY = 'shipLogCdnBaseUrl';
 // Optional CDN placeholder filename
 const DEFAULT_PLACEHOLDER_FILENAME = 'default_image.svg';
 
@@ -102,43 +102,9 @@ class ImageCache {
 // Global image cache instance
 const imageCache = new ImageCache();
 
-// CDN base URL management
-export function setCdnBaseUrl(url) {
-  try {
-    if (typeof url !== 'string') return;
-    localStorage.setItem(CDN_BASE_URL_KEY, url);
-    printDebug(`🌐 [ImageLoader] setCdnBaseUrl='${url}'`);
-  } catch (error) {
-    console.warn('Failed to set CDN base URL:', error);
-  }
-}
-export function getCdnBaseUrl() {
-  try { return localStorage.getItem(CDN_BASE_URL_KEY) || ''; } catch { return ''; }
-}
-
 // Helpers
-function encodeImageFileName(fileName) { return encodeURIComponent(fileName); }
-function buildCdnUrl(cdnBaseUrl, mapName, imagePath) {
-  if (!cdnBaseUrl) return null;
-  const trimmedBase = cdnBaseUrl.replace(/\/+$/, '');
-  const encodedMap = encodeURIComponent(mapName || 'default_map');
-  // Detect if base already ends with the map segment (encoded or raw) to avoid duplication
-  const lastSegment = trimmedBase.substring(trimmedBase.lastIndexOf('/') + 1);
-  const baseAlreadyIncludesMap = lastSegment === encodedMap || decodeURIComponent(lastSegment) === (mapName || 'default_map');
-  if (baseAlreadyIncludesMap) {
-    // Only log once per session per map duplication scenario (simple guard via symbol on function)
-    try {
-      if (!buildCdnUrl._warned) buildCdnUrl._warned = new Set();
-      const key = trimmedBase + '|' + mapName;
-      if (!buildCdnUrl._warned.has(key)) {
-        printDebug(`🛠️ [ImageLoader] Base URL already contains map segment; preventing duplicate: base='${trimmedBase}', map='${mapName}'`);
-        buildCdnUrl._warned.add(key);
-      }
-    } catch { /* noop */ }
-    return `${trimmedBase}/${encodeImageFileName(imagePath)}`;
-  }
-  return `${trimmedBase}/${encodedMap}/${encodeImageFileName(imagePath)}`;
-}
+// Remove duplicate encodeImageFileName, buildCdnUrl, buildAlternativeBaseUrls, validateCdnUrl, setCdnBaseUrl, getCdnBaseUrl
+// All CDN helpers are now imported from cdnHelpers.js
 
 // Placeholder state tracking per mapName
 const placeholderLoadPromises = new Map(); // mapName -> Promise
@@ -163,35 +129,6 @@ async function fetchAsDataUrl(url, options = {}) {
     });
   }
   return blob; // future extension
-}
-
-// Build alternative CDN URLs for retry (raw.githubusercontent <-> jsdelivr)
-function buildAlternativeBaseUrls(cdnBaseUrl) {
-  const alts = [];
-  try {
-    const u = new URL(cdnBaseUrl);
-    // raw.githubusercontent.com -> cdn.jsdelivr.net/gh
-    if (u.hostname === 'raw.githubusercontent.com') {
-      // raw: /user/repo/branch/path
-      const [user, repo, branch, ...rest] = u.pathname.slice(1).split('/');
-      if (user && repo && branch) {
-        alts.push(`https://cdn.jsdelivr.net/gh/${user}/${repo}@${branch}/${rest.join('/')}`.replace(/\/$/, ''));
-      }
-    }
-    // jsdelivr -> raw.githubusercontent.com
-    if (u.hostname === 'cdn.jsdelivr.net' && u.pathname.startsWith('/gh/')) {
-      // /gh/user/repo@branch/path
-      const parts = u.pathname.split('/'); // ['', 'gh', 'user', 'repo@branch', 'path', ...]
-      const user = parts[2];
-      const repoBranch = parts[3];
-      const after = parts.slice(4).join('/');
-      if (repoBranch && repoBranch.includes('@')) {
-        const [repo, branch] = repoBranch.split('@');
-        alts.push(`https://raw.githubusercontent.com/${user}/${repo}/${branch}/${after}`.replace(/\/$/, ''));
-      }
-    }
-  } catch { /* noop */ }
-  return alts;
 }
 
 // Diagnostics tracking for image load attempts (in-memory only)
@@ -360,23 +297,6 @@ export function getImageCacheStats(mapName = 'default_map') {
 }
 
 export { imageCache };
-
-// Validate and suggest correct CDN URLs
-export function validateCdnUrl(url) {
-  if (!url) return { isValid: false, suggestion: null, issues: ['URL empty'], originalUrl: url, suggestedUrl: null };
-  const issues = [];
-  let suggestion = url;
-  if (url.includes('github.com') && url.includes('/tree/')) {
-    issues.push('GitHub tree URL will not serve raw assets.');
-    suggestion = url.replace('/tree/', '/raw/');
-  }
-  if (url.endsWith('/')) {
-    suggestion = suggestion.replace(/\/+$/, '');
-  }
-  const urlPattern = /^https?:\/\/.+/;
-  if (!urlPattern.test(url)) issues.push('Must start with http(s)://');
-  return { isValid: issues.length === 0, suggestion: suggestion !== url ? suggestion : null, issues, originalUrl: url, suggestedUrl: suggestion };
-}
 
 function getLocalStorageUsage() {
   try {

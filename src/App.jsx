@@ -14,14 +14,13 @@ import ErrorDisplay from "./ErrorDisplay";
 import { useCytoscapeInstance } from "./useCytoscapeInstance";
 import { appStateReducer, initialAppState, ACTION_TYPES } from "./appStateReducer";
 import { ZOOM_TO_SELECTION, DEBUG_LOGGING, DEV_MODE, GRAYSCALE_IMAGES, CAMERA_INFO_HIDDEN } from "./config/features.js";
-import { clearQueryParams, getMapUrlFromQuery, handleLoadFromCdn } from "./utils/urlHelpers.js";
+import { clearQueryParams, getMapUrlFromQuery, handleLoadFromCdn, setCdnBaseUrl, getCdnBaseUrl } from "./utils/cdnHelpers.js";
 
 // 🚀 New imports: centralized persistence + edge id helper
 import { saveToLocal, loadFromLocal, saveModeToLocal, loadModeFromLocal, saveUndoStateToLocal, loadUndoStateFromLocal, saveMapNameToLocal, loadMapNameFromLocal, loadUniversalMenuCollapsed, loadGraphControlsCollapsed, loadCameraInfoCollapsed, saveUniversalMenuCollapsed, saveGraphControlsCollapsed, saveCameraInfoCollapsed } from "./persistence/index.js";
 // Add new persistence imports
 import { loadOrientationFromLocal, saveOrientationToLocal, loadCompassVisibleFromLocal, saveCompassVisibleToLocal } from './persistence/index.js';
 import { edgeId, renameNode } from "./graph/ops.js";
-import { setCdnBaseUrl, getCdnBaseUrl } from "./utils/imageLoader.js";
 import { printDebug } from "./utils/debug.js";
 import { rotateCompassOnly, rotateNodesAndCompass } from './utils/rotation.js';
 
@@ -120,14 +119,17 @@ function hydrateCoordsIfMissing(graph, defaultGraph) {
 }
 
 function App() {
+
   function getEditingEnabledFromQuery() {
     const urlParams = new URLSearchParams(window.location.search);
     const editing = urlParams.get('editing');
     return editing === 'true';
   }
+
   function hasAnyQueryParams() {
     return window.location.search && window.location.search.length > 1;
   }
+  
   const editingEnabled = getEditingEnabledFromQuery() || !hasAnyQueryParams();
 
   const fileInputRef = useRef(null);
@@ -1374,6 +1376,32 @@ function App() {
   const memoCameraPosition = useMemo(() => cameraPosition, [cameraPosition]);
   const memoNotes = useMemo(() => graphData.notes, [graphData.notes]);
 
+  const handleLoadFromCdnButton = useCallback((cdnBaseUrlArg) => {
+  handleLoadFromCdn({
+      cdnBaseUrl: cdnBaseUrlArg,
+      mapName,
+      setCdnLoadingState,
+      setIsLoadingFromCDN,
+      currentCdnLoadRef,
+      normalizeGraphData,
+      hydrateCoordsIfMissing,
+      setGraphData,
+      dispatchAppState,
+      clearCytoscapeSelections,
+      clearUndoState,
+      defaultShipLogData,
+      ACTION_TYPES
+    });
+  }, [
+    setCdnLoadingState,
+    setIsLoadingFromCDN,
+    currentCdnLoadRef,
+    setGraphData,
+    dispatchAppState,
+    clearCytoscapeSelections,
+    clearUndoState,
+  ]);
+
   /** ---------- render ---------- **/
   return (
     <div
@@ -1419,7 +1447,7 @@ function App() {
         collapsed={universalMenuCollapsed}
         onToggleCollapsed={toggleUniversalMenu}
         cdnBaseUrl={cdnBaseUrl}
-        onLoadFromCdn={handleLoadFromCdn}
+        onLoadFromCdn={handleLoadFromCdnButton}
       />
 
       <NoteEditorModal

@@ -5,7 +5,8 @@ import { deserializeGraph } from "./ops.js";
 import { TEST_ICON_SVG } from "../constants/testAssets.js";
 import { GRAYSCALE_IMAGES } from "../config/features.js";
 import { convertImageToGrayscale } from "../utils/grayscaleUtils.js";
-import { loadImageWithFallback, getCdnBaseUrl, imageCache, getDefaultPlaceholderSvg, ensureDefaultPlaceholderLoaded, onDefaultPlaceholderLoaded } from "../utils/imageLoader.js";
+import { getCdnBaseUrl } from "../utils/cdnHelpers.js";
+import { loadImageWithFallback, imageCache, getDefaultPlaceholderSvg, ensureDefaultPlaceholderLoaded, onDefaultPlaceholderLoaded } from "../utils/imageLoader.js";
 import { printDebug } from "../utils/debug.js"; // printWarn
 
 // Cache for grayscale images to avoid reprocessing
@@ -575,13 +576,6 @@ export function wireEvents(cy, handlers = {}, mode = 'editing') {
     syncParentStateToChild(evt.target);
     if (onNodeMove) { const { x, y } = evt.target.position(); onNodeMove(evt.target.id(), { x, y }); }
   });
-
-  // Remove continuous camera update during pan/zoom
-  // cy.on('viewport', () => {
-  //   const zoom = cy.zoom(); const pan = cy.pan();
-  //   if (onZoomChange) onZoomChange(zoom);
-  //   if (onCameraMove) onCameraMove({ x: pan.x, y: pan.y });
-  // });
 
   // Add mouseup, wheel, touchend, and touchmove listeners to trigger camera update only after pan/zoom ends
   const container = cy.container();

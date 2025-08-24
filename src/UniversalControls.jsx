@@ -93,7 +93,7 @@ function UniversalControls({
       {cdnBaseUrl && cdnBaseUrl.trim() !== '' && (
         <button
           style={{ padding: '6px 10px', background: '#009688', color: '#fff', border: '1px solid #00695c', cursor: 'pointer', fontWeight: 'bold' }}
-          onClick={onLoadFromCdn}
+          onClick={() => onLoadFromCdn(cdnBaseUrl)}
           title="Reload map and state from CDN"
         >
           Load CDN
