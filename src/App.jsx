@@ -145,7 +145,7 @@ function App() {
     getCytoscapeInstance,
     updateNodeInPlace,
     clearCytoscapeSelections,
-    fitToView,
+    // fitToView,
     getViewportCenter,
     exportNodePositions,
     // Camera state management for zoom-to-selection
