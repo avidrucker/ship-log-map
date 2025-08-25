@@ -74,27 +74,31 @@ function GraphControls({
 
   return (
     <div style={{ position: 'absolute', top: '10px', right: '10px', zIndex: 1000, display: 'flex', flexDirection: 'column', gap: '14px' }}>
-      {/* Collapse button (open state) */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <button
-          onClick={onToggleCollapsed}
-          style={{ padding: '4px 8px', background: 'rgba(0,0,0,0.55)', color: '#fff', border: '1px solid #444', borderRadius: '4px', cursor: 'pointer', fontSize: '16px', lineHeight: 1 }}
-          aria-label="Collapse graph controls"
-          title="Collapse graph controls"
-        >
-          ✕
-        </button>
-      </div>
       {/* Editing-only primary buttons */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: 'rgba(0,0,0,0.55)', padding: '10px', borderRadius: '6px' }}>
-        <button
-          style={{ padding: '8px 12px', background: canUndo ? '#ff9800' : '#666', color: canUndo ? '#fff' : '#999', border: `1px solid ${canUndo ? '#f57c00' : '#555'}`, cursor: canUndo ? 'pointer' : 'not-allowed', opacity: canUndo ? 1 : 0.6 }}
-          onClick={canUndo ? onUndo : undefined}
-          disabled={!canUndo}
-          title={canUndo ? 'Undo last action' : 'No action to undo'}
-        >
-          Undo
-        </button>
+        {/* Collapse button (open state) */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <button
+            onClick={onToggleCollapsed}
+            style={{ padding: '4px 8px', background: 'rgba(0,0,0,0.55)', color: '#fff', border: '1px solid #444', borderRadius: '4px', cursor: 'pointer', fontSize: '16px', lineHeight: 1 }}
+            aria-label="Collapse graph controls"
+            title="Collapse graph controls"
+          >
+            ✕
+          </button>
+        </div>
+        {/* Primary action buttons */}
+        {/* Undo button is disabled if no undo available */}
+        {canUndo && 
+          <button
+            style={{ padding: '8px 12px', background: canUndo ? '#ff9800' : '#666', color: canUndo ? '#fff' : '#999', border: `1px solid ${canUndo ? '#f57c00' : '#555'}`, cursor: canUndo ? 'pointer' : 'not-allowed', opacity: canUndo ? 1 : 0.6 }}
+            onClick={canUndo ? onUndo : undefined}
+            disabled={!canUndo}
+            title={canUndo ? 'Undo last action' : 'No action to undo'}
+          >
+            Undo
+          </button>
+        }
         <button
           style={{ padding: '8px 12px', background: '#222', color: '#fff', border: '1px solid #444', cursor: 'pointer' }}
           onClick={onExportMap}
@@ -102,13 +106,6 @@ function GraphControls({
         >
           Save
         </button>
-        {/*<button
-          style={{ padding: '8px 12px', background: '#d32f2f', color: '#fff', border: '1px solid #b71c1c', cursor: 'pointer' }}
-          onClick={onResetMap}
-          title="Reset Map to Initial State"
-        >
-          Reset
-        </button>*/}
         <button
           style={{ padding: '8px 12px', background: '#4caf50', color: '#fff', border: '1px solid #388e3c', cursor: 'pointer' }}
           onClick={onCreateNode}
