@@ -25,7 +25,9 @@ function UniversalControls({
   collapsed,
   onToggleCollapsed,
   cdnBaseUrl,
-  onLoadFromCdn
+  onLoadFromCdn,
+  bgImage,
+  onToggleBgImageVisible
 }) {
   if (collapsed) {
     return (
@@ -127,6 +129,9 @@ function UniversalControls({
       >
         Comp {compassVisible ? 'ON' : 'OFF'}
       </button>
+      {
+        (bgImage.imageUrl !== null &&
+        bgImage.imageUrl !== "") &&
       <button
         style={{ padding: '6px 10px', background: bgImage.visible ? '#4caf50' : '#666', color: '#fff', border: `1px solid ${bgImage.visible ? '#388e3c' : '#555'}`, cursor: 'pointer' }}
         onClick={onToggleBgImageVisible}
@@ -134,6 +139,7 @@ function UniversalControls({
       >
         Show Img {bgImage.visible ? 'ON' : 'OFF'}
       </button>
+      }
     </div>
   );
 }

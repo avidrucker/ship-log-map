@@ -35,7 +35,9 @@ function GraphControls({
   areNodesConnected,
   // collapse state
   collapsed,
-  onToggleCollapsed
+  onToggleCollapsed,
+  // background image
+  onOpenBgImageModal
 }) {
   if (mode !== 'editing') return null; // Only render in editing mode
 
