@@ -1458,15 +1458,21 @@ useEffect(() => {
           alt="Background"
           style={{
             position: 'absolute',
-            left: bgImage.x + cameraPosition.x + 'px', //////
-            top: bgImage.y + cameraPosition.y + 'px',
-            width: `calc(100% * ${(bgImage.scale / 100) * zoomLevel})`,
-            height: `calc(100% * ${(bgImage.scale / 100) * zoomLevel})`,
+            left: '0',
+            top: '0',
+            width: '100%',
+            height: '100%',
             opacity: bgImage.opacity / 100,
             zIndex: 0,
             pointerEvents: 'none',
             objectFit: 'contain',
-            transition: 'opacity 0.2s, left 0.2s, top 0.2s, width 0.2s, height 0.2s'
+            transition: 'opacity 0.2s, transform 0.2s',
+            // Center at (0,0), then apply pan and user offset, then scale
+            transform: `
+              translate(-50%, -50%)
+              translate(${cameraPosition.x + bgImage.x}px, ${cameraPosition.y + bgImage.y}px)
+              scale(${(bgImage.scale / 100) * zoomLevel})
+            `
           }}
         />
       )}
