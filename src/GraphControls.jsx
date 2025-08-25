@@ -135,6 +135,13 @@ function GraphControls({
         >
           📤 Share
         </button>
+        <button
+          style={{ padding: '8px 12px', background: '#607d8b', color: '#fff', border: '1px solid #455a64', cursor: 'pointer' }}
+          onClick={onOpenBgImageModal}
+          title="Background Image Settings"
+        >
+          BG Img
+        </button>
         {DEV_MODE && onOpenDebugModal && (
           <button
             style={{ padding: '8px 12px', background: '#795548', color: '#fff', border: '1px solid #5d4037', cursor: 'pointer', fontWeight: 'bold' }}

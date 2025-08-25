@@ -15,6 +15,7 @@ import { useCytoscapeInstance } from "./useCytoscapeInstance";
 import { appStateReducer, initialAppState, ACTION_TYPES } from "./appStateReducer";
 import { ZOOM_TO_SELECTION, DEBUG_LOGGING, DEV_MODE, GRAYSCALE_IMAGES, CAMERA_INFO_HIDDEN } from "./config/features.js";
 import { clearQueryParams, handleLoadFromCdn, setCdnBaseUrl, getCdnBaseUrl } from "./utils/cdnHelpers.js"; // getMapUrlFromQuery, 
+import BgImageModal from "./BgImageModal";
 
 // 🚀 New imports: centralized persistence + edge id helper
 import { saveToLocal, loadFromLocal, saveModeToLocal, loadModeFromLocal, saveUndoStateToLocal, loadUndoStateFromLocal, saveMapNameToLocal, loadMapNameFromLocal, loadUniversalMenuCollapsed, loadGraphControlsCollapsed, loadCameraInfoCollapsed, saveUniversalMenuCollapsed, saveGraphControlsCollapsed, saveCameraInfoCollapsed } from "./persistence/index.js";
@@ -1396,11 +1397,80 @@ useEffect(() => {
   }
 }, [appState.lastLoadedMapUrl]);
 
+  // ---------- bgImage state & modal ----------
+  const [bgImage, setBgImage] = useState(() => {
+    try {
+      const saved = localStorage.getItem('shipLogBgImage');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return {
+      imageUrl: '',
+      x: 0,
+      y: 0,
+      scale: 100,
+      opacity: 100,
+      visible: false
+    };
+  });
+  const [bgImageModalOpen, setBgImageModalOpen] = useState(false);
+
+  // Persist bgImage state to localStorage
+  useEffect(() => {
+    localStorage.setItem('shipLogBgImage', JSON.stringify(bgImage));
+  }, [bgImage]);
+
+  // ---------- bgImage modal handlers ----------
+  const onOpenBgImageModal = useCallback(() => setBgImageModalOpen(true), []);
+  const onCloseBgImageModal = useCallback(() => setBgImageModalOpen(false), []);
+  const onChangeBgImage = useCallback((newBgImage) => setBgImage(newBgImage), []);
+  const onLoadImage = useCallback((file) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setBgImage(bg => ({
+        ...bg,
+        imageUrl: e.target.result,
+        visible: true
+      }));
+    };
+    reader.readAsDataURL(file);
+  }, []);
+  const onDeleteImage = useCallback(() => {
+    setBgImage(bg => ({
+      ...bg,
+      imageUrl: '',
+      visible: false
+    }));
+  }, []);
+  const onToggleBgImageVisible = useCallback(() => {
+    setBgImage(bg => ({
+      ...bg,
+      visible: !bg.visible
+    }));
+  }, []);
+
   /** ---------- render ---------- **/
   return (
-    <div
-      style={{ position: "fixed", top: 0, left: 0, width: "100%", height: "100%", overflow: "hidden" }}
-    >
+    <div className="App">
+      {/* Background image underlay */}
+      {bgImage.imageUrl && bgImage.visible && (
+        <img
+          src={bgImage.imageUrl}
+          alt="Background"
+          style={{
+            position: 'absolute',
+            left: bgImage.x + 'px',
+            top: bgImage.y + 'px',
+            width: `calc(100% * ${bgImage.scale / 100})`,
+            height: `calc(100% * ${bgImage.scale / 100})`,
+            opacity: bgImage.opacity / 100,
+            zIndex: 0,
+            pointerEvents: 'none',
+            objectFit: 'contain',
+            transition: 'opacity 0.2s, left 0.2s, top 0.2s, width 0.2s, height 0.2s'
+          }}
+        />
+      )}
+
       {editingEnabled && (
         <GraphControls
           selectedNodes={selectedNodeIds}
@@ -1423,6 +1493,7 @@ useEffect(() => {
           onUndo={handleUndo}
           canUndo={!!lastUndoState}
           onRotateCompass={handleRotateMap}
+          onOpenBgImageModal={onOpenBgImageModal}
         />
       )}
 
@@ -1442,6 +1513,8 @@ useEffect(() => {
         onToggleCollapsed={toggleUniversalMenu}
         cdnBaseUrl={cdnBaseUrl}
         onLoadFromCdn={handleLoadFromCdnButton}
+        bgImage={bgImage}
+        onToggleBgImageVisible={onToggleBgImageVisible}
       />
 
       <NoteEditorModal
@@ -1609,6 +1682,15 @@ useEffect(() => {
           </svg>
         </div>
       )}
+
+      <BgImageModal
+        isOpen={bgImageModalOpen}
+        onClose={onCloseBgImageModal}
+        bgImage={bgImage}
+        onChange={onChangeBgImage}
+        onLoadImage={onLoadImage}
+        onDeleteImage={onDeleteImage}
+      />
     </div>
   );
 }
