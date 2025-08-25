@@ -84,6 +84,8 @@
   - [ ] Add new icon to the app
 - [ ] Enhance the app so it can work offline via service workers
 - [x] Add to dev mode debug modal two buttons, one to load the Outer Wilds map from the CDN and one to load the Gaia Yoga map from the CDN, which will update the CDN URL field in the UI and load the selected map from the CDN
+- [x] Conditionally hide "Load CDN" button in Universal Controls when there is no CDN URL specified
+- [ ] Fix "New" map button not clearing the image underlay data if one is set
 
 Notes for Future Features
 - Listing out "layers" which show things such as electrical lines, water lines, Internet, etc. that can be toggled on and off
