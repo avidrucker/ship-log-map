@@ -554,8 +554,8 @@ useEffect(() => {
   }, [saveUndoState]);
 
   const handleFitToView = useCallback(() => {
-    fitToView(50);
-  }, [fitToView]);
+    dispatchAppState({ type: ACTION_TYPES.SET_SHOULD_FIT, payload: { shouldFit: true } });
+  }, []);
 
   const handleFitCompleted = useCallback(() => {
     dispatchAppState({ type: ACTION_TYPES.SET_SHOULD_FIT, payload: { shouldFit: false } });
@@ -1458,10 +1458,10 @@ useEffect(() => {
           alt="Background"
           style={{
             position: 'absolute',
-            left: bgImage.x + 'px',
-            top: bgImage.y + 'px',
-            width: `calc(100% * ${bgImage.scale / 100})`,
-            height: `calc(100% * ${bgImage.scale / 100})`,
+            left: bgImage.x + cameraPosition.x + 'px', //////
+            top: bgImage.y + cameraPosition.y + 'px',
+            width: `calc(100% * ${(bgImage.scale / 100) * zoomLevel})`,
+            height: `calc(100% * ${(bgImage.scale / 100) * zoomLevel})`,
             opacity: bgImage.opacity / 100,
             zIndex: 0,
             pointerEvents: 'none',

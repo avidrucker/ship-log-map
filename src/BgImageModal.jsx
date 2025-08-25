@@ -81,6 +81,7 @@ function BgImageModal({
         </div>
         <div style={{ marginTop: "18px", display: "flex", justifyContent: "flex-end", gap: "10px" }}>
           <button onClick={onClose} style={{ padding: "6px 16px" }}>Close</button>
+          <button onClick={() => onChange({ ...bgImage, x: 0, y: 0, scale: 100, opacity: 100 })} style={{ padding: "6px 16px", background: '#607d8b', color: '#fff', border: 'none', borderRadius: '4px' }}>Reset BG</button>
         </div>
       </div>
     </div>

@@ -389,20 +389,22 @@ function CytoscapeGraph({
 
   // Fit request
   useEffect(() => {
-    if (!cyRef.current || !shouldFitOnNextRender) return;
+  if (!cyRef.current || !shouldFitOnNextRender) return;
     const id = setTimeout(() => {
       try {
         const cy = cyRef.current;
-        //// TODO: troubleshoot performance with fit calls
-        //// console.log("Forcing Cytoscape layout refresh after fit request");
         cy.fit(cy.nodes(), 50);
-        onFitCompleted && onFitCompleted();
+        // Emit updated zoom and pan to parent
+        if (onZoomChange) onZoomChange(cy.zoom());
+        if (onCameraMove) onCameraMove(cy.pan());
+        if (onFitCompleted) onFitCompleted();
       } catch {
         printWarn("Failed to fit Cytoscape instance");
       }
     }, 50);
     return () => clearTimeout(id);
-  }, [shouldFitOnNextRender, onFitCompleted]);
+  }, [shouldFitOnNextRender, onFitCompleted, onZoomChange, onCameraMove]);
+
 
   // Periodic check for completed grayscale image conversions
   useEffect(() => {
