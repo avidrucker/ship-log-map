@@ -5,7 +5,7 @@
       "title": "untitled1",
       "size": "regular",
       "color": "gray",
-      "x": 547,
+      "x": 287,
       "y": 264,
       "imageUrl": "unspecified"
     }
@@ -16,5 +16,11 @@
   "mapName": "default_map",
   "cdnBaseUrl": "",
   "orientation": 0,
-  "compassVisible": true
+  "compassVisible": true,
+  "bgImage": {
+    "x": 0,
+    "y": 0,
+    "scale": 100,
+    "opacity": 100
+  }
 }
