@@ -16,6 +16,7 @@ import { appStateReducer, initialAppState, ACTION_TYPES } from "./appStateReduce
 import { ZOOM_TO_SELECTION, DEBUG_LOGGING, DEV_MODE, GRAYSCALE_IMAGES, CAMERA_INFO_HIDDEN } from "./config/features.js";
 import { clearQueryParams, handleLoadFromCdn, setCdnBaseUrl, getCdnBaseUrl } from "./utils/cdnHelpers.js"; // getMapUrlFromQuery, 
 import BgImageModal from "./BgImageModal";
+import BgImageLayer from "./bg/BgImageLayer";
 
 // 🚀 New imports: centralized persistence + edge id helper
 import { saveToLocal, loadFromLocal, saveModeToLocal, loadModeFromLocal, saveUndoStateToLocal, loadUndoStateFromLocal, saveMapNameToLocal, loadMapNameFromLocal, loadUniversalMenuCollapsed, loadGraphControlsCollapsed, loadCameraInfoCollapsed, saveUniversalMenuCollapsed, saveGraphControlsCollapsed, saveCameraInfoCollapsed } from "./persistence/index.js";
@@ -1453,26 +1454,17 @@ useEffect(() => {
     <div className="App">
       {/* Background image underlay */}
       {bgImage.imageUrl && bgImage.visible && (
-        <img
-          src={bgImage.imageUrl}
-          alt="Background"
-          style={{
-            position: 'absolute',
-            left: '0',
-            top: '0',
-            width: '100%',
-            height: '100%',
-            opacity: bgImage.opacity / 100,
-            zIndex: 0,
-            pointerEvents: 'none',
-            objectFit: 'contain',
-            transition: 'opacity 0.2s, transform 0.2s',
-            // Center at (0,0), then apply pan and user offset, then scale
-            transform: `
-              translate(-50%, -50%)
-              translate(${cameraPosition.x + bgImage.x}px, ${cameraPosition.y + bgImage.y}px)
-              scale(${(bgImage.scale / 100) * zoomLevel})
-            `
+        <BgImageLayer
+          url={bgImage.imageUrl}
+          visible={bgImage.visible}
+          opacity={bgImage.opacity}
+          pan={cameraPosition}              // { x, y } from Cytoscape
+          zoom={zoomLevel}                  // number from Cytoscape
+          calibration={{
+            // keep your existing semantics: scale is a percentage
+            tx: bgImage.x,                  // world offset X (same units as node positions)
+            ty: bgImage.y,                  // world offset Y
+            s: (bgImage.scale ?? 100) / 100 // world units per image pixel
           }}
         />
       )}
