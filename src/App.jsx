@@ -1,21 +1,21 @@
 // src/App.jsx
 import React, { useState, useEffect, useCallback, useRef, useReducer, useMemo } from "react";
-import CytoscapeGraph from "./CytoscapeGraph";
+import CytoscapeGraph from "./components/CytoscapeGraph.jsx";
 import defaultShipLogData from "./default_ship_log.json";
 import { loadAndValidateRumorMapFromFile } from "./rumorMapValidation";
-import GraphControls from "./GraphControls";
-import UniversalControls from "./UniversalControls";
-import NoteEditorModal from "./NoteEditorModal";
-import NoteViewerModal from "./NoteViewerModal";
-import DebugModal from "./DebugModal";
-import ShareModal from "./ShareModal";
-import CameraInfo from "./CameraInfo";
-import ErrorDisplay from "./ErrorDisplay";
+import GraphControls from "./components/GraphControls.jsx";
+import UniversalControls from "./components/UniversalControls.jsx";
+import NoteEditorModal from "./components/NoteEditorModal.jsx";
+import NoteViewerModal from "./components/NoteViewerModal.jsx";
+import DebugModal from "./components/DebugModal.jsx";
+import ShareModal from "./components/ShareModal.jsx";
+import CameraInfo from "./components/CameraInfo.jsx";
+import ErrorDisplay from "./components/ErrorDisplay.jsx";
 import { useCytoscapeInstance } from "./useCytoscapeInstance";
 import { appStateReducer, initialAppState, ACTION_TYPES } from "./appStateReducer";
 import { ZOOM_TO_SELECTION, DEBUG_LOGGING, DEV_MODE, GRAYSCALE_IMAGES, CAMERA_INFO_HIDDEN } from "./config/features.js";
 import { clearQueryParams, handleLoadFromCdn, setCdnBaseUrl, getCdnBaseUrl } from "./utils/cdnHelpers.js"; // getMapUrlFromQuery, 
-import BgImageModal from "./BgImageModal";
+import BgImageModal from "./components/BgImageModal.jsx";
 import BgImageLayer from "./bg/BgImageLayer";
 import { useBgImageState } from "./bg/useBgImageState";
 

@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect } from "react";
-import { processImageFile, saveImageFiles } from "./utils/imageUtils.js";
-import { printDebug, printError, printWarn } from "./utils/debug.js";
+import { processImageFile, saveImageFiles } from "../utils/imageUtils.js";
+import { printDebug, printError, printWarn } from "../utils/debug.js";
 
 function NoteEditorModal({
   targetId,

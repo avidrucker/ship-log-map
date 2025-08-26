@@ -1,6 +1,6 @@
 import React from "react";
 import NodeColorPicker from "./NodeColorPicker";
-import { DEV_MODE } from "./config/features";
+import { DEV_MODE } from "../config/features";
 
 function HamburgerIcon({ color = '#fff', size = 18 }) {
   return (

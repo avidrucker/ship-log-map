@@ -1,7 +1,7 @@
 import React, { useState } from "react";
-import { GRAYSCALE_IMAGES } from "./config/features.js";
-import { printDebug } from "./utils/debug.js";
-import { clearAllImageCaches, getImageCacheStats } from "./utils/imageLoader.js";
+import { GRAYSCALE_IMAGES } from "../config/features.js";
+import { printDebug } from "../utils/debug.js";
+import { clearAllImageCaches, getImageCacheStats } from "../utils/imageLoader.js";
 
 function DebugModal({ isOpen, onClose, debugData, getCytoscapeInstance }) {
   const [copySuccess, setCopySuccess] = useState(false);
@@ -18,7 +18,7 @@ function DebugModal({ isOpen, onClose, debugData, getCytoscapeInstance }) {
 
   const handleClearGrayscaleCache = async () => {
     try {
-      const { clearGrayscaleCache } = await import('./graph/cyAdapter.js');
+      const { clearGrayscaleCache } = await import('../graph/cyAdapter.js');
       clearGrayscaleCache();
       setCacheClearSuccess(true);
       setTimeout(() => setCacheClearSuccess(false), 2000);
@@ -45,7 +45,7 @@ function DebugModal({ isOpen, onClose, debugData, getCytoscapeInstance }) {
       }
       
       const cy = getCytoscapeInstance();
-      const { debugPrintEntireGraph } = await import('./graph/cyAdapter.js');
+      const { debugPrintEntireGraph } = await import('../graph/cyAdapter.js');
       debugPrintEntireGraph(cy);
       setDebugGraphSuccess(true);
       setTimeout(() => setDebugGraphSuccess(false), 2000);
@@ -81,7 +81,7 @@ function DebugModal({ isOpen, onClose, debugData, getCytoscapeInstance }) {
 
   const handleToggleDiagnostics = async () => {
     try {
-      const { getImageLoadDiagnostics } = await import('./utils/imageLoader.js');
+      const { getImageLoadDiagnostics } = await import('../utils/imageLoader.js');
       const diag = getImageLoadDiagnostics();
       setDiagnosticsJson(JSON.stringify(diag, null, 2));
       setShowDiagnostics(!showDiagnostics);
@@ -89,7 +89,7 @@ function DebugModal({ isOpen, onClose, debugData, getCytoscapeInstance }) {
   };
   const handleClearDiagnostics = async () => {
     try {
-      const { clearImageLoadDiagnostics } = await import('./utils/imageLoader.js');
+      const { clearImageLoadDiagnostics } = await import('../utils/imageLoader.js');
       clearImageLoadDiagnostics();
       setClearedDiagnostics(true);
       setTimeout(()=> setClearedDiagnostics(false), 1500);

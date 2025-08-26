@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from "react";
-import { DEV_MODE } from "./config/features";
+import { DEV_MODE } from "../config/features";
 import FpsCounter from "./FpsCounter";
 
 function HamburgerIcon({ color = '#fff', size = 18 }) {
