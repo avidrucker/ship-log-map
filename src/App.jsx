@@ -17,6 +17,7 @@ import { ZOOM_TO_SELECTION, DEBUG_LOGGING, DEV_MODE, GRAYSCALE_IMAGES, CAMERA_IN
 import { clearQueryParams, handleLoadFromCdn, setCdnBaseUrl, getCdnBaseUrl } from "./utils/cdnHelpers.js"; // getMapUrlFromQuery, 
 import BgImageModal from "./BgImageModal";
 import BgImageLayer from "./bg/BgImageLayer";
+import { useBgImageState } from "./bg/useBgImageState";
 
 // 🚀 New imports: centralized persistence + edge id helper
 import { saveToLocal, loadFromLocal, saveModeToLocal, loadModeFromLocal, saveUndoStateToLocal, loadUndoStateFromLocal, saveMapNameToLocal, loadMapNameFromLocal, loadUniversalMenuCollapsed, loadGraphControlsCollapsed, loadCameraInfoCollapsed, saveUniversalMenuCollapsed, saveGraphControlsCollapsed, saveCameraInfoCollapsed } from "./persistence/index.js";
@@ -155,6 +156,19 @@ function App() {
     fitToSelection,
     hasOriginalCamera
   } = useCytoscapeInstance();
+
+  // ---------- Background image (encapsulated) ----------
+  const {
+    bgImage,
+    bgImageModalOpen,
+    openBgImageModal,
+    closeBgImageModal,
+    changeBgImage,
+    loadImageFile,
+    deleteImage,
+    toggleVisible: toggleBgImageVisible,
+    calibration: bgCalibration
+  } = useBgImageState();
 
   // ---------- graph (nodes/edges/notes/mode) ----------
   const [graphData, setGraphData] = useState(() => {
@@ -1398,57 +1412,6 @@ useEffect(() => {
   }
 }, [appState.lastLoadedMapUrl]);
 
-  // ---------- bgImage state & modal ----------
-  const [bgImage, setBgImage] = useState(() => {
-    try {
-      const saved = localStorage.getItem('shipLogBgImage');
-      if (saved) return JSON.parse(saved);
-    } catch {}
-    return {
-      imageUrl: '',
-      x: 0,
-      y: 0,
-      scale: 100,
-      opacity: 100,
-      visible: false
-    };
-  });
-  const [bgImageModalOpen, setBgImageModalOpen] = useState(false);
-
-  // Persist bgImage state to localStorage
-  useEffect(() => {
-    localStorage.setItem('shipLogBgImage', JSON.stringify(bgImage));
-  }, [bgImage]);
-
-  // ---------- bgImage modal handlers ----------
-  const onOpenBgImageModal = useCallback(() => setBgImageModalOpen(true), []);
-  const onCloseBgImageModal = useCallback(() => setBgImageModalOpen(false), []);
-  const onChangeBgImage = useCallback((newBgImage) => setBgImage(newBgImage), []);
-  const onLoadImage = useCallback((file) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      setBgImage(bg => ({
-        ...bg,
-        imageUrl: e.target.result,
-        visible: true
-      }));
-    };
-    reader.readAsDataURL(file);
-  }, []);
-  const onDeleteImage = useCallback(() => {
-    setBgImage(bg => ({
-      ...bg,
-      imageUrl: '',
-      visible: false
-    }));
-  }, []);
-  const onToggleBgImageVisible = useCallback(() => {
-    setBgImage(bg => ({
-      ...bg,
-      visible: !bg.visible
-    }));
-  }, []);
-
   /** ---------- render ---------- **/
   return (
     <div className="App">
@@ -1460,12 +1423,12 @@ useEffect(() => {
           opacity={bgImage.opacity}
           pan={cameraPosition}              // { x, y } from Cytoscape
           zoom={zoomLevel}                  // number from Cytoscape
-          calibration={{
+          calibration={ bgCalibration
             // keep your existing semantics: scale is a percentage
-            tx: bgImage.x,                  // world offset X (same units as node positions)
-            ty: bgImage.y,                  // world offset Y
-            s: (bgImage.scale ?? 100) / 100 // world units per image pixel
-          }}
+            // tx: bgImage.x,                  // world offset X (same units as node positions)
+            // ty: bgImage.y,                  // world offset Y
+            // s: (bgImage.scale ?? 100) / 100 // world units per image pixel
+          }
         />
       )}
 
@@ -1491,7 +1454,7 @@ useEffect(() => {
           onUndo={handleUndo}
           canUndo={!!lastUndoState}
           onRotateCompass={handleRotateMap}
-          onOpenBgImageModal={onOpenBgImageModal}
+          onOpenBgImageModal={openBgImageModal}
         />
       )}
 
@@ -1512,7 +1475,7 @@ useEffect(() => {
         cdnBaseUrl={cdnBaseUrl}
         onLoadFromCdn={handleLoadFromCdnButton}
         bgImage={bgImage}
-        onToggleBgImageVisible={onToggleBgImageVisible}
+        onToggleBgImageVisible={toggleBgImageVisible}
       />
 
       <NoteEditorModal
@@ -1683,11 +1646,11 @@ useEffect(() => {
 
       <BgImageModal
         isOpen={bgImageModalOpen}
-        onClose={onCloseBgImageModal}
+        onClose={closeBgImageModal}
         bgImage={bgImage}
-        onChange={onChangeBgImage}
-        onLoadImage={onLoadImage}
-        onDeleteImage={onDeleteImage}
+        onChange={changeBgImage}
+        onLoadImage={loadImageFile}
+        onDeleteImage={deleteImage}
       />
     </div>
   );
