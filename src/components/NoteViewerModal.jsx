@@ -88,7 +88,8 @@ function NoteViewerModal({
             textAlign: "center",
             color: "#888",
             fontStyle: "italic",
-            margin: "20px 0"
+            margin: "20px 0",
+            fontSize: "14px"
           }}>
             No notes for this item.
           </div>
@@ -103,7 +104,8 @@ function NoteViewerModal({
                 marginBottom: "10px",
                 lineHeight: "1.4",
                 whiteSpace: "pre-wrap",
-                wordBreak: "break-word"
+                wordBreak: "break-word",
+                fontSize: "14px",
               }}>
                 {note}
               </li>
