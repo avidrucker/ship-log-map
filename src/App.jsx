@@ -18,6 +18,7 @@ import { clearQueryParams, handleLoadFromCdn, setCdnBaseUrl, getCdnBaseUrl } fro
 import BgImageModal from "./components/BgImageModal.jsx";
 import BgImageLayer from "./bg/BgImageLayer";
 import { useBgImageState } from "./bg/useBgImageState";
+import { loadImageWithFallback } from "./utils/imageLoader.js";
 
 // 🚀 New imports: centralized persistence + edge id helper
 import { saveToLocal, loadFromLocal, saveModeToLocal, loadModeFromLocal, saveUndoStateToLocal, loadUndoStateFromLocal, saveMapNameToLocal, loadMapNameFromLocal, loadUniversalMenuCollapsed, loadGraphControlsCollapsed, loadCameraInfoCollapsed, saveUniversalMenuCollapsed, saveGraphControlsCollapsed, saveCameraInfoCollapsed } from "./persistence/index.js";
@@ -80,6 +81,11 @@ function normalizeGraphData(data) {
   const orientation = Number.isFinite(data?.orientation) ? ((data.orientation % 360) + 360) % 360 : 0;
   const compassVisible = typeof data?.compassVisible === 'boolean' ? data.compassVisible : true;
 
+  const bgImage =
+    data && typeof data.bgImage === 'object' && data.bgImage !== null
+      ? data.bgImage
+      : { included: false, imageUrl: "", x: 0, y: 0, scale: 100, opacity: 100, visible: false };
+
   const normNodes = nodes.map(n => {
     const imageUrl = n.imageUrl || "unspecified";
     return {
@@ -102,7 +108,24 @@ function normalizeGraphData(data) {
     direction: e.direction ?? "forward"
   }));
 
-  return { nodes: normNodes, edges: normEdges, notes, mode, mapName, cdnBaseUrl, orientation, compassVisible };
+  // const bgImage = data?.bgImage && typeof data.bgImage === "object" ? {
+  //   // imageUrl: typeof data.bgImage.imageUrl === "string" ? data.bgImage.imageUrl : "",
+  //   x: Number.isFinite(data.bgImage.x) ? data.bgImage.x : 0,
+  //   y: Number.isFinite(data.bgImage.y) ? data.bgImage.y : 0,
+  //   scale: Number.isFinite(data.bgImage.scale) ? data.bgImage.scale : 100,
+  //   opacity: Number.isFinite(data.bgImage.opacity) ? data.bgImage.opacity : 100,
+  //   visible: typeof data.bgImage.visible === "boolean" ? data.bgImage.visible : false,
+  //   included: typeof data.bgImage.included === "boolean" ? data.bgImage.included : false
+  // } : {
+  //   imageUrl: "",
+  //   x: 0,
+  //   y: 0,
+  //   scale: 100,
+  //   opacity: 100,
+  //   visible: false
+  // };
+
+  return { nodes: normNodes, edges: normEdges, notes, mode, mapName, cdnBaseUrl, orientation, compassVisible, bgImage };
 }
 
 // if any node lacks coords, hydrate from default by id
@@ -160,6 +183,7 @@ function App() {
   // ---------- Background image (encapsulated) ----------
   const {
     bgImage,
+    setBgImage,
     bgImageModalOpen,
     openBgImageModal,
     closeBgImageModal,
@@ -406,6 +430,36 @@ useEffect(() => {
           if (typeof hydratedData.compassVisible === 'boolean') {
             dispatchAppState({ type: ACTION_TYPES.SET_COMPASS_VISIBLE, payload: { visible: hydratedData.compassVisible } });
           }
+          // After you get hydratedData (from CDN or JSON)
+          if (typeof hydratedData.bgImage === 'object' && hydratedData.bgImage !== null) {
+            let bgImageToSet = { ...hydratedData.bgImage };
+            bgImageToSet.included = !!bgImageToSet.imageUrl;
+            console.log(`App.jsx: Attempting to load background image ${ bgImageToSet.imageUrl ? 'from URL' : 'as empty' } for map ${hydratedData.mapName}`);
+            // If imageUrl is a CDN path (not a data URL), fetch and convert it
+            if (
+              bgImageToSet.included
+            ) {
+              try {
+                console.log("URL CHANGE: Attempting to load BG image:", bgImageToSet.imageUrl);
+                const dataUrl = await loadImageWithFallback(
+                  bgImageToSet.imageUrl,
+                  hydratedData.mapName,
+                  hydratedData.cdnBaseUrl
+                );
+                bgImageToSet = { ...bgImageToSet, imageUrl: dataUrl };
+                console.log("URL CHANGE: Loaded BG image dataUrl:", dataUrl);
+              } catch {
+                console.log("URL CHANGE: Failed to load BG image, setting to empty");
+                // fallback: keep imageUrl as-is or set to ""
+                bgImageToSet = { ...bgImageToSet, imageUrl: "" };
+              }
+            } else {
+              console.log('App.jsx: No background image URL provided, skipping load.');
+            }
+            dispatchAppState({ type: ACTION_TYPES.SET_BG_IMAGE, payload: { bgImage: bgImageToSet } });
+          } else {
+            console.log('App.jsx: No background image URL provided, skipping load.');
+          }
           // Reset camera + fit
           dispatchAppState({ type: ACTION_TYPES.SET_ZOOM, payload: { zoom: 1 } });
           dispatchAppState({ type: ACTION_TYPES.SET_CAMERA_POSITION, payload: { position: { x: 0, y: 0 } } });
@@ -459,14 +513,17 @@ useEffect(() => {
     }
     
     // persist graph (nodes/edges/notes), mode, map name, and CDN base URL
-    const dataWithModeAndName = { ...graphData, mode, mapName, cdnBaseUrl, orientation };
+    const dataWithModeAndName = { ...graphData, mode, mapName, cdnBaseUrl, orientation, bgImage };
     printDebug('[PERSISTENCE] Saving to local:', {
       nodeCount: dataWithModeAndName.nodes.length,
       mapName: dataWithModeAndName.mapName,
-      mode: dataWithModeAndName.mode
+      mode: dataWithModeAndName.mode,
+      cdnBaseUrl: dataWithModeAndName.cdnBaseUrl,
+      orientation: dataWithModeAndName.orientation,
+      bgImage: dataWithModeAndName.bgImage
     });
     saveToLocal(dataWithModeAndName);
-  }, [graphData, mode, mapName, cdnBaseUrl, orientation, isLoadingFromCDN]);
+  }, [graphData, mode, mapName, cdnBaseUrl, orientation, bgImage, isLoadingFromCDN]);
 
   // Save CDN base URL to imageLoader storage
   useEffect(() => {
@@ -609,6 +666,35 @@ useEffect(() => {
         if (typeof g1.compassVisible === 'boolean') {
           dispatchAppState({ type: ACTION_TYPES.SET_COMPASS_VISIBLE, payload: { visible: g1.compassVisible } });
         }
+        // --- FIX: Load bgImage as data URL if needed ---
+      if (typeof g1.bgImage === 'object' && g1.bgImage !== null) {
+        let bgImageToSet = { ...g1.bgImage };
+        bgImageToSet.included = !!bgImageToSet.imageUrl;
+        console.log(`App.jsx: Attempting to load background image ${ bgImageToSet.imageUrl ? 'from URL' : 'as empty' } for map ${g1.mapName}`);
+        if (
+          bgImageToSet.included
+        ) {
+          try {
+            console.log("FILE LOAD: Attempting to load BG image:", bgImageToSet.imageUrl);
+            const dataUrl = await loadImageWithFallback(
+              bgImageToSet.imageUrl,
+              g1.mapName,
+              g1.cdnBaseUrl
+            );
+            bgImageToSet = { ...bgImageToSet, imageUrl: dataUrl };
+            console.log("FILE LOAD: Loaded BG image dataUrl:", dataUrl);
+          } catch {
+            console.log("FILE LOAD: Failed to load BG image, setting to empty.");
+            bgImageToSet = { ...bgImageToSet, imageUrl: "" };
+          }
+        } else {
+          console.log('App.jsx: No background image URL provided, setting to empty.');
+          bgImageToSet = { ...bgImageToSet, imageUrl: "" };
+        }
+        dispatchAppState({ type: ACTION_TYPES.SET_BG_IMAGE, payload: { bgImage: bgImageToSet } });
+      } else {
+        console.log('App.jsx: No background image URL provided, skipping load.');
+      }
 
         // Reset camera + fit
         dispatchAppState({ type: ACTION_TYPES.SET_ZOOM, payload: { zoom: 1 } });
@@ -620,9 +706,11 @@ useEffect(() => {
         dispatchAppState({ type: ACTION_TYPES.CLEAR_ALL_SELECTIONS });
         clearUndoState();
       } else {
+        console.log('App: File load errors:', result.errors);
         dispatchAppState({ type: ACTION_TYPES.SET_LOAD_ERROR, payload: { error: 'Invalid map file: ' + result.errors.join('; ') } });
       }
     } catch (error) {
+      console.error('App: Failed to load file:', error);
       dispatchAppState({ type: ACTION_TYPES.SET_LOAD_ERROR, payload: { error: 'Failed to load file: ' + error.message } });
     }
 
@@ -953,6 +1041,17 @@ useEffect(() => {
         }))
       : graphData.nodes;
 
+    // --- Fix: Only export filename for bgImage ---
+    let exportedBgImage = { ...bgImage };
+    if (exportedBgImage.imageUrl && exportedBgImage.imageUrl.startsWith("data:image/jpeg")) {
+      exportedBgImage.imageUrl = "underlay.jpeg";
+    } else if (exportedBgImage.imageUrl && exportedBgImage.imageUrl.startsWith("data:image/png")) {
+      exportedBgImage.imageUrl = "underlay.png";
+    } else {
+      console.log("⚠️ App: Background image is not a recognized data URL, exporting as empty");
+      exportedBgImage = { included: false, imageUrl: "" };
+    }
+
     const updatedGraph = {
       ...graphData,
       nodes: updatedNodes,
@@ -960,7 +1059,8 @@ useEffect(() => {
       mapName,
       cdnBaseUrl,
       orientation,
-      compassVisible
+      compassVisible,
+      bgImage: exportedBgImage
     };
 
     // Generate filename from map name: lowercase, spaces to underscores
@@ -1374,7 +1474,8 @@ useEffect(() => {
       clearCytoscapeSelections,
       clearUndoState,
       defaultShipLogData,
-      ACTION_TYPES
+      ACTION_TYPES,
+      setBgImage
     });
   }, [
     setCdnLoadingState,
@@ -1384,7 +1485,8 @@ useEffect(() => {
     dispatchAppState,
     clearCytoscapeSelections,
     clearUndoState,
-    mapName
+    mapName,
+    setBgImage
   ]);
 
   useEffect(() => {

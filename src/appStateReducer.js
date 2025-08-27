@@ -61,7 +61,10 @@ export const ACTION_TYPES = {
   TRIGGER_GRAPH_UPDATE: 'TRIGGER_GRAPH_UPDATE',
 
   // New action for tracking last loaded map URL
-  SET_LAST_LOADED_MAP_URL: 'SET_LAST_LOADED_MAP_URL'
+  SET_LAST_LOADED_MAP_URL: 'SET_LAST_LOADED_MAP_URL',
+
+  // New actions for background image
+  SET_BG_IMAGE: 'SET_BG_IMAGE'
 };
 
 // Initial state
@@ -108,7 +111,15 @@ export const initialAppState = {
   undo: {
     lastGraphState: null
   },
-  lastLoadedMapUrl: '' // Track last loaded map URL for CDN
+  lastLoadedMapUrl: '', // Track last loaded map URL for CDN
+  bgImage: {
+    imageUrl: "",
+    x: 0,
+    y: 0,
+    scale: 100,
+    opacity: 100,
+    visible: false
+  }
 };
 
 // State reducer
@@ -369,6 +380,16 @@ export function appStateReducer(state, action) {
         ...state,
         lastLoadedMapUrl: action.payload.url
       };
+
+    case ACTION_TYPES.SET_BG_IMAGE:
+      return {
+        ...state,
+        bgImage: {
+          ...state.bgImage,
+          ...action.payload.bgImage,
+          included: action.payload.bgImage.included
+        }
+      };
       
     default:
       return state;
@@ -489,5 +510,10 @@ export const actions = {
   setLastLoadedMapUrl: (url) => ({
     type: ACTION_TYPES.SET_LAST_LOADED_MAP_URL,
     payload: { url }
+  }),
+
+  setBgImage: (bgImage) => ({
+    type: ACTION_TYPES.SET_BG_IMAGE,
+    payload: { bgImage }
   }),
 };

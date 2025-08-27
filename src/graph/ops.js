@@ -15,7 +15,10 @@ export function normalizeGraph(graph) {
   const mode = typeof graph?.mode === "string" ? graph.mode : "editing";
   const mapName = typeof graph?.mapName === "string" ? graph.mapName : "default_map";
   const cdnBaseUrl = typeof graph?.cdnBaseUrl === "string" ? graph.cdnBaseUrl : "";
-  return { nodes, edges, notes, mode, mapName, cdnBaseUrl };
+  const bgImage = (graph && typeof graph.bgImage === 'object' && graph.bgImage !== null)
+    ? graph.bgImage
+    : { included: false, imageUrl: "", x: 0, y: 0, scale: 100, opacity: 100, visible: false };
+  return { nodes, edges, notes, mode, mapName, cdnBaseUrl, bgImage };
 }
 
 // Add node
@@ -213,7 +216,20 @@ export function serializeGraph(graph) {
     notes: g.notes, 
     mode: g.mode, 
     mapName: g.mapName, 
-    cdnBaseUrl: g.cdnBaseUrl 
+    cdnBaseUrl: g.cdnBaseUrl,
+        ...(g.bgImage ? {
+      bgImage: {
+        included: !!g.bgImage.included,
+        imageUrl: (typeof g.bgImage.imageUrl === 'string' && g.bgImage.imageUrl.startsWith('data:'))
+          ? ""  // don’t write huge data URLs
+          : (g.bgImage.imageUrl || ""),
+        x: g.bgImage.x ?? 0,
+        y: g.bgImage.y ?? 0,
+        scale: g.bgImage.scale ?? 100,
+        opacity: g.bgImage.opacity ?? 100,
+        visible: typeof g.bgImage.visible === 'boolean' ? g.bgImage.visible : !!g.bgImage.included
+      }
+    } : {})
   }, null, 2);
 }
 

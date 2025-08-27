@@ -5,9 +5,10 @@
       "title": "untitled1",
       "size": "regular",
       "color": "gray",
-      "x": 287,
+      "x": 304,
       "y": 264,
-      "imageUrl": "unspecified"
+      "imageUrl": "unspecified",
+      "originalImageUrl": "unspecified"
     }
   ],
   "edges": [],
@@ -18,9 +19,7 @@
   "orientation": 0,
   "compassVisible": true,
   "bgImage": {
-    "x": 0,
-    "y": 0,
-    "scale": 100,
-    "opacity": 100
+    "included": false,
+    "imageUrl": ""
   }
 }

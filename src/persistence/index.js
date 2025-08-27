@@ -153,7 +153,23 @@ export function loadFromFile(file) {
         if (typeof parsed.cdnBaseUrl === 'string') {
           graph.cdnBaseUrl = parsed.cdnBaseUrl;
         }
-        
+
+        if (typeof parsed.orientation === 'number') {
+          graph.orientation = parsed.orientation;
+        }
+
+        if (typeof parsed.bgImage === 'object' && parsed.bgImage !== null) {
+          graph.bgImage = {
+            included: typeof parsed.bgImage.included === "boolean" ? parsed.bgImage.included : false,
+            imageUrl: typeof parsed.bgImage.imageUrl === 'string' ? parsed.bgImage.imageUrl : "",
+            x: Number.isFinite(parsed.bgImage.x) ? parsed.bgImage.x : 0,
+            y: Number.isFinite(parsed.bgImage.y) ? parsed.bgImage.y : 0,
+            scale: Number.isFinite(parsed.bgImage.scale) ? parsed.bgImage.scale : 100,
+            opacity: Number.isFinite(parsed.bgImage.opacity) ? parsed.bgImage.opacity : 100,
+            visible: typeof parsed.bgImage.visible === 'boolean' ? parsed.bgImage.visible : false
+          };
+        }
+
         resolve(graph);
       } catch (e) {
         reject(e);

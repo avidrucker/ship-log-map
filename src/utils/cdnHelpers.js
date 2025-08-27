@@ -3,6 +3,8 @@
 // Import printDebug from utils/debug.js
 import { printDebug } from '../utils/debug.js';
 
+import { loadImageWithFallback } from './imageLoader.js';
+
 // Helper to get map URL from query parameters
 export function getMapUrlFromQuery() {
   const urlParams = new URLSearchParams(window.location.search);
@@ -66,11 +68,20 @@ export async function handleLoadFromCdn({
   clearCytoscapeSelections,
   clearUndoState,
   defaultShipLogData,
-  ACTION_TYPES
+  ACTION_TYPES,
+  setBgImage,
 }) {
     console.log('handleLoadFromCdn called with cdnBaseUrl:', cdnBaseUrl, 'mapName:', mapName);
   
-    if (!cdnBaseUrl) return;
+    if (!cdnBaseUrl) {
+      console.log('cdnHelpers.js: No CDN base URL provided, skipping load.');
+      return;
+    }
+
+    if (currentCdnLoadRef?.current) {
+      console.debug('🛑 [CDN] Load ignored: already in-flight.');
+      return;
+    }
   
     // Sanitize map name to match CDN file naming convention
     const sanitizedMapName = (mapName || 'default_map')
@@ -87,7 +98,7 @@ export async function handleLoadFromCdn({
     setIsLoadingFromCDN(true);
   
     currentCdnLoadRef.current = mapUrl;
-  
+
     try {
     const result = await loadMapFromCdn(mapUrl);
     if (currentCdnLoadRef.current !== mapUrl) return;
@@ -95,6 +106,43 @@ export async function handleLoadFromCdn({
       const g1 = normalizeGraphData(result.data);
       const g2 = hydrateCoordsIfMissing(g1, defaultShipLogData);
       setGraphData(g2);
+
+    // 🖼️ Background image: honor JSON + default filename
+    try {
+      const b = g1.bgImage;
+      if (b && typeof b === 'object' && b.included) {
+        const fileName =
+          (typeof b.imageUrl === 'string' && b.imageUrl.trim() !== '')
+            ? b.imageUrl.trim()
+            : 'overlay.png'; // default fallback name
+        console.debug('🖼️ [CDN] Attempting BG load:', { fileName, mapName: g1.mapName, cdnBaseUrl: g1.cdnBaseUrl || cdnBaseUrl });
+        const dataUrl = await loadImageWithFallback(
+          fileName,
+          g1.mapName,
+          g1.cdnBaseUrl || cdnBaseUrl
+        );
+        // Safely set into the BG state (preserve authored transforms)
+        setBgImage?.({
+          imageUrl: dataUrl,
+          x: Number.isFinite(b.x) ? b.x : 0,
+          y: Number.isFinite(b.y) ? b.y : 0,
+          scale: Number.isFinite(b.scale) ? b.scale : 100,
+          opacity: Number.isFinite(b.opacity) ? b.opacity : 100,
+          visible: (typeof b.visible === 'boolean') ? b.visible : true
+        });
+      } else {
+        // Explicitly off
+        console.log("🖼️ [CDN] No BG image to load from CDN data");
+        setBgImage?.({
+          imageUrl: "",
+          x: 0, y: 0, scale: 100, opacity: 100, visible: false
+        });
+      }
+    } catch (e) {
+      console.warn('🛑 [CDN] BG image failed to load:', e);
+      setBgImage?.({ imageUrl: "", x: 0, y: 0, scale: 100, opacity: 100, visible: false });
+    }
+
       if (typeof g1.mode === 'string') {
         dispatchAppState({ type: ACTION_TYPES.SET_MODE, payload: { mode: g1.mode } });
       }
@@ -109,6 +157,11 @@ export async function handleLoadFromCdn({
       }
       if (typeof g1.compassVisible === 'boolean') {
         dispatchAppState({ type: ACTION_TYPES.SET_COMPASS_VISIBLE, payload: { visible: g1.compassVisible } });
+      }
+      if (typeof g1.bgImage === 'object' && g1.bgImage !== null) {
+        dispatchAppState({ type: ACTION_TYPES.SET_BG_IMAGE, payload: { bgImage: g1.bgImage } });
+      } else {
+        console.log("cdnHelpers.js: No bgImage data found in loaded map");
       }
       dispatchAppState({ type: ACTION_TYPES.SET_ZOOM, payload: { zoom: 1 } });
       dispatchAppState({ type: ACTION_TYPES.SET_CAMERA_POSITION, payload: { position: { x: 0, y: 0 } } });
@@ -133,6 +186,13 @@ export async function handleLoadFromCdn({
     setCdnLoadingState({ isLoading: false, error: error.message || 'Unexpected error.' });
     setIsLoadingFromCDN(false);
     currentCdnLoadRef.current = null;
+  } finally {
+    if (currentCdnLoadRef) {
+      console.log("cdnHelpers.js: finally block, resetting currentCdnLoadRef.current to false");
+      currentCdnLoadRef.current = false;
+    } else {
+      console.log('cdnHelpers.js: currentCdnLoadRef is not defined in finally block.');
+    }
   }
 }
 

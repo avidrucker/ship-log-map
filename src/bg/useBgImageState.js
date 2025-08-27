@@ -22,6 +22,7 @@ function loadFromLocal() {
     const parsed = JSON.parse(raw);
     // basic defensive defaults
     return {
+      included: typeof parsed.included === "boolean" ? parsed.included : false,
       imageUrl: parsed.imageUrl ?? "",
       x: Number.isFinite(parsed.x) ? parsed.x : 0,
       y: Number.isFinite(parsed.y) ? parsed.y : 0,
@@ -51,6 +52,7 @@ function saveToLocal(bg) {
 export function useBgImageState() {
   const [bgImage, setBgImage] = useState(() => loadFromLocal() ?? ({
     imageUrl: "",
+    included: false,
     x: 0,
     y: 0,
     scale: 100,
@@ -75,6 +77,7 @@ export function useBgImageState() {
     reader.onload = (e) => {
       setBgImage((bg) => ({
         ...bg,
+        included: true,
         imageUrl: e.target.result,
         visible: true
       }));
@@ -82,7 +85,7 @@ export function useBgImageState() {
     reader.readAsDataURL(file);
   }, []);
   const deleteImage = useCallback(() => {
-    setBgImage((bg) => ({ ...bg, imageUrl: "", visible: false }));
+    setBgImage((bg) => ({ ...bg, included: false, imageUrl: "", visible: false }));
   }, []);
   const toggleVisible = useCallback(() => {
     setBgImage((bg) => ({ ...bg, visible: !bg.visible }));
