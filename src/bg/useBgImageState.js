@@ -1,5 +1,6 @@
 // src/bg/useBgImageState.js
 import { useCallback, useEffect, useState } from "react";
+import { printDebug } from "../utils/debug";
 
 /** LocalStorage key */
 const LS_KEY = "shipLogBgImage";
@@ -39,7 +40,7 @@ function saveToLocal(bg) {
   try {
     localStorage.setItem(LS_KEY, JSON.stringify(bg));
   } catch {
-    console.log("Failed to save bg image to localStorage")
+    printDebug("Failed to save bg image to localStorage")
   }
 }
 

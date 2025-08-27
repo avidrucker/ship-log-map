@@ -4,6 +4,7 @@
 import { printDebug } from '../utils/debug.js';
 
 import { loadImageWithFallback } from './imageLoader.js';
+import { dataUrlOrBlobToWebpDataUrl } from './imageUtils.js';
 
 // Helper to get map URL from query parameters
 export function getMapUrlFromQuery() {
@@ -71,10 +72,10 @@ export async function handleLoadFromCdn({
   ACTION_TYPES,
   setBgImage,
 }) {
-    console.log('handleLoadFromCdn called with cdnBaseUrl:', cdnBaseUrl, 'mapName:', mapName);
+    printDebug('handleLoadFromCdn called with cdnBaseUrl:', cdnBaseUrl, 'mapName:', mapName);
   
     if (!cdnBaseUrl) {
-      console.log('cdnHelpers.js: No CDN base URL provided, skipping load.');
+      printDebug('cdnHelpers.js: No CDN base URL provided, skipping load.');
       return;
     }
 
@@ -114,16 +115,24 @@ export async function handleLoadFromCdn({
         const fileName =
           (typeof b.imageUrl === 'string' && b.imageUrl.trim() !== '')
             ? b.imageUrl.trim()
-            : 'overlay.png'; // default fallback name
+            : 'underlay.png'; // default fallback name
         console.debug('🖼️ [CDN] Attempting BG load:', { fileName, mapName: g1.mapName, cdnBaseUrl: g1.cdnBaseUrl || cdnBaseUrl });
-        const dataUrl = await loadImageWithFallback(
+        
+        // ⬇️ fullSize=true (do not cache, no thumb)
+        const rawDataUrl = await loadImageWithFallback(
           fileName,
           g1.mapName,
-          g1.cdnBaseUrl || cdnBaseUrl
+          g1.cdnBaseUrl || cdnBaseUrl,
+          { fullSize: true }
         );
+
+        // ⬇️ convert heavy PNG/JPEG to WebP, clamp size to 2048px
+        const webpDataUrl = await dataUrlOrBlobToWebpDataUrl(rawDataUrl, 2048, 0.82);
+
         // Safely set into the BG state (preserve authored transforms)
         setBgImage?.({
-          imageUrl: dataUrl,
+          imageUrl: webpDataUrl,         // store compact WebP
+          included: true,
           x: Number.isFinite(b.x) ? b.x : 0,
           y: Number.isFinite(b.y) ? b.y : 0,
           scale: Number.isFinite(b.scale) ? b.scale : 100,
@@ -132,15 +141,15 @@ export async function handleLoadFromCdn({
         });
       } else {
         // Explicitly off
-        console.log("🖼️ [CDN] No BG image to load from CDN data");
+        printDebug("🖼️ [CDN] No BG image to load from CDN data");
         setBgImage?.({
           imageUrl: "",
-          x: 0, y: 0, scale: 100, opacity: 100, visible: false
+          x: 0, y: 0, scale: 100, opacity: 100, visible: false, included: false
         });
       }
     } catch (e) {
-      console.warn('🛑 [CDN] BG image failed to load:', e);
-      setBgImage?.({ imageUrl: "", x: 0, y: 0, scale: 100, opacity: 100, visible: false });
+      printDebug('🛑 [CDN] BG image failed to load:', e);
+      setBgImage?.({ imageUrl: "", x: 0, y: 0, scale: 100, opacity: 100, visible: false, included: false });
     }
 
       if (typeof g1.mode === 'string') {
@@ -161,7 +170,7 @@ export async function handleLoadFromCdn({
       if (typeof g1.bgImage === 'object' && g1.bgImage !== null) {
         dispatchAppState({ type: ACTION_TYPES.SET_BG_IMAGE, payload: { bgImage: g1.bgImage } });
       } else {
-        console.log("cdnHelpers.js: No bgImage data found in loaded map");
+        printDebug("cdnHelpers.js: No bgImage data found in loaded map");
       }
       dispatchAppState({ type: ACTION_TYPES.SET_ZOOM, payload: { zoom: 1 } });
       dispatchAppState({ type: ACTION_TYPES.SET_CAMERA_POSITION, payload: { position: { x: 0, y: 0 } } });
@@ -173,7 +182,7 @@ export async function handleLoadFromCdn({
       setIsLoadingFromCDN(false);
       currentCdnLoadRef.current = null;
 
-      console.log("cdnHelpers.js: Triggering a graph visual update after CDN load");
+      printDebug("cdnHelpers.js: Triggering a graph visual update after CDN load");
       // trigger graph visual update if needed
       dispatchAppState({ type: ACTION_TYPES.TRIGGER_GRAPH_UPDATE });
       
@@ -188,10 +197,10 @@ export async function handleLoadFromCdn({
     currentCdnLoadRef.current = null;
   } finally {
     if (currentCdnLoadRef) {
-      console.log("cdnHelpers.js: finally block, resetting currentCdnLoadRef.current to false");
+      printDebug("cdnHelpers.js: finally block, resetting currentCdnLoadRef.current to false");
       currentCdnLoadRef.current = false;
     } else {
-      console.log('cdnHelpers.js: currentCdnLoadRef is not defined in finally block.');
+      printDebug('cdnHelpers.js: currentCdnLoadRef is not defined in finally block.');
     }
   }
 }
@@ -203,7 +212,7 @@ export function setCdnBaseUrl(url) {
     localStorage.setItem('shipLogCdnBaseUrl', url);
     printDebug(`🌐 [CDNHelpers] setCdnBaseUrl='${url}'`);
   } catch (error) {
-    console.warn('Failed to set CDN base URL:', error);
+    printDebug('Failed to set CDN base URL:', error);
   }
 }
 export function getCdnBaseUrl() {

@@ -1,5 +1,6 @@
 import React from "react";
 import { bgCssTransform } from "./math.js";
+import { printDebug } from "../utils/debug.js";
 
 /**
  * Renders the background image in the same transform space as Cytoscape:
@@ -21,7 +22,7 @@ export default function BgImageLayer({
   calibration = { tx: 0, ty: 0, s: 1 },
   style = {}
 }) {
-    console.log("BgImageLayer render", { url, visible, opacity, pan, zoom, calibration, style });
+    printDebug("BgImageLayer render", { url, visible, opacity, pan, zoom, calibration, style });
   if (!url || !visible) return null;
 
   const { tx = 0, ty = 0, s = 1 } = calibration;

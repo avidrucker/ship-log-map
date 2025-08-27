@@ -19,6 +19,7 @@ import BgImageModal from "./components/BgImageModal.jsx";
 import BgImageLayer from "./bg/BgImageLayer";
 import { useBgImageState } from "./bg/useBgImageState";
 import { loadImageWithFallback } from "./utils/imageLoader.js";
+import { dataUrlOrBlobToWebpDataUrl } from "./utils/imageUtils.js"
 
 // 🚀 New imports: centralized persistence + edge id helper
 import { saveToLocal, loadFromLocal, saveModeToLocal, loadModeFromLocal, saveUndoStateToLocal, loadUndoStateFromLocal, saveMapNameToLocal, loadMapNameFromLocal, loadUniversalMenuCollapsed, loadGraphControlsCollapsed, loadCameraInfoCollapsed, saveUniversalMenuCollapsed, saveGraphControlsCollapsed, saveCameraInfoCollapsed } from "./persistence/index.js";
@@ -434,31 +435,39 @@ useEffect(() => {
           if (typeof hydratedData.bgImage === 'object' && hydratedData.bgImage !== null) {
             let bgImageToSet = { ...hydratedData.bgImage };
             bgImageToSet.included = !!bgImageToSet.imageUrl;
-            console.log(`App.jsx: Attempting to load background image ${ bgImageToSet.imageUrl ? 'from URL' : 'as empty' } for map ${hydratedData.mapName}`);
+            printDebug(`App.jsx: Attempting to load background image ${ bgImageToSet.imageUrl ? 'from URL' : 'as empty' } for map ${hydratedData.mapName}`);
             // If imageUrl is a CDN path (not a data URL), fetch and convert it
             if (
               bgImageToSet.included
             ) {
               try {
-                console.log("URL CHANGE: Attempting to load BG image:", bgImageToSet.imageUrl);
-                const dataUrl = await loadImageWithFallback(
+                printDebug("!!! URL CHANGE: Attempting to load BG image:", bgImageToSet.imageUrl);
+ 
+                // ⬇️ fullSize=true (do not cache, no thumb)
+                const rawDataUrl = await loadImageWithFallback(
                   bgImageToSet.imageUrl,
                   hydratedData.mapName,
-                  hydratedData.cdnBaseUrl
+                  hydratedData.cdnBaseUrl || cdnBaseUrl,
+                  { fullSize: true }
                 );
-                bgImageToSet = { ...bgImageToSet, imageUrl: dataUrl };
-                console.log("URL CHANGE: Loaded BG image dataUrl:", dataUrl);
+
+                // ⬇️ convert heavy PNG/JPEG to WebP, clamp size to 2048px
+                const webpDataUrl = await dataUrlOrBlobToWebpDataUrl(rawDataUrl, 2048, 0.82);
+
+                bgImageToSet = { ...bgImageToSet, imageUrl: webpDataUrl, included: true };
+                printDebug("URL CHANGE: Loaded BG image dataUrl:", webpDataUrl);
               } catch {
-                console.log("URL CHANGE: Failed to load BG image, setting to empty");
+                printDebug("URL CHANGE: Failed to load BG image, setting to empty");
                 // fallback: keep imageUrl as-is or set to ""
-                bgImageToSet = { ...bgImageToSet, imageUrl: "" };
+                bgImageToSet = { ...bgImageToSet, imageUrl: "", included: false };
               }
             } else {
-              console.log('App.jsx: No background image URL provided, skipping load.');
+              printDebug('App.jsx: No background image URL provided, skipping load.');
             }
+            setBgImage(bgImageToSet);
             dispatchAppState({ type: ACTION_TYPES.SET_BG_IMAGE, payload: { bgImage: bgImageToSet } });
           } else {
-            console.log('App.jsx: No background image URL provided, skipping load.');
+            printDebug('App.jsx: No background image URL provided, skipping load.');
           }
           // Reset camera + fit
           dispatchAppState({ type: ACTION_TYPES.SET_ZOOM, payload: { zoom: 1 } });
@@ -670,30 +679,38 @@ useEffect(() => {
       if (typeof g1.bgImage === 'object' && g1.bgImage !== null) {
         let bgImageToSet = { ...g1.bgImage };
         bgImageToSet.included = !!bgImageToSet.imageUrl;
-        console.log(`App.jsx: Attempting to load background image ${ bgImageToSet.imageUrl ? 'from URL' : 'as empty' } for map ${g1.mapName}`);
+        printDebug(`App.jsx: Attempting to load background image ${ bgImageToSet.imageUrl ? 'from URL' : 'as empty' } for map ${g1.mapName}`);
         if (
           bgImageToSet.included
         ) {
           try {
-            console.log("FILE LOAD: Attempting to load BG image:", bgImageToSet.imageUrl);
-            const dataUrl = await loadImageWithFallback(
+            printDebug("??? FILE LOAD: Attempting to load BG image:", bgImageToSet.imageUrl);
+
+            // ⬇️ fullSize=true (do not cache, no thumb)
+            const rawDataUrl = await loadImageWithFallback(
               bgImageToSet.imageUrl,
               g1.mapName,
-              g1.cdnBaseUrl
+              g1.cdnBaseUrl || cdnBaseUrl,
+              { fullSize: true }
             );
-            bgImageToSet = { ...bgImageToSet, imageUrl: dataUrl };
-            console.log("FILE LOAD: Loaded BG image dataUrl:", dataUrl);
+
+            // ⬇️ convert heavy PNG/JPEG to WebP, clamp size to 2048px
+            const webpDataUrl = await dataUrlOrBlobToWebpDataUrl(rawDataUrl, 2048, 0.82);
+
+            bgImageToSet = { ...bgImageToSet, imageUrl: webpDataUrl, included: true };
+            printDebug("FILE LOAD: Loaded BG image dataUrl:", webpDataUrl);
           } catch {
-            console.log("FILE LOAD: Failed to load BG image, setting to empty.");
-            bgImageToSet = { ...bgImageToSet, imageUrl: "" };
+            printDebug("FILE LOAD: Failed to load BG image, setting to empty.");
+            bgImageToSet = { ...bgImageToSet, imageUrl: "", included: false };
           }
         } else {
-          console.log('App.jsx: No background image URL provided, setting to empty.');
+          printDebug('App.jsx: No background image URL provided, setting to empty.');
           bgImageToSet = { ...bgImageToSet, imageUrl: "" };
         }
+        setBgImage(bgImageToSet);
         dispatchAppState({ type: ACTION_TYPES.SET_BG_IMAGE, payload: { bgImage: bgImageToSet } });
       } else {
-        console.log('App.jsx: No background image URL provided, skipping load.');
+        printDebug('App.jsx: No background image URL provided, skipping load.');
       }
 
         // Reset camera + fit
@@ -706,7 +723,7 @@ useEffect(() => {
         dispatchAppState({ type: ACTION_TYPES.CLEAR_ALL_SELECTIONS });
         clearUndoState();
       } else {
-        console.log('App: File load errors:', result.errors);
+        printDebug('App: File load errors:', result.errors);
         dispatchAppState({ type: ACTION_TYPES.SET_LOAD_ERROR, payload: { error: 'Invalid map file: ' + result.errors.join('; ') } });
       }
     } catch (error) {
@@ -1048,7 +1065,8 @@ useEffect(() => {
     } else if (exportedBgImage.imageUrl && exportedBgImage.imageUrl.startsWith("data:image/png")) {
       exportedBgImage.imageUrl = "underlay.png";
     } else {
-      console.log("⚠️ App: Background image is not a recognized data URL, exporting as empty");
+      printDebug("⚠️ App: Background image is not a recognized data URL, exporting as empty");
+      printDebug(`exportedBgImage.imageUrl: ${exportedBgImage.imageUrl}`);
       exportedBgImage = { included: false, imageUrl: "" };
     }
 
@@ -1140,7 +1158,7 @@ useEffect(() => {
         });
         // Force a layout refresh to ensure everything is properly positioned
         //// TODO: troubleshoot performance with fit calls
-        //// console.log("Forcing Cytoscape layout refresh after map rotation");
+        //// printDebug("Forcing Cytoscape layout refresh after map rotation");
         cy.fit(cy.nodes(), 50);
       }
       

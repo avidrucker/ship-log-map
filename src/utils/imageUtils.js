@@ -5,102 +5,125 @@ import { printDebug } from '../utils/debug.js';
  * Generates a simple hash from a file buffer using browser APIs
  */
 async function generateFileHash(buffer) {
-  // Use Web Crypto API for hashing
   const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-  return hashHex.substring(0, 12); // Use first 12 characters
+  return hashHex.substring(0, 12);
 }
 
-/**
- * Validates that an image has valid dimensions (not 0x0)
- */
 function validateImageDimensions(img) {
   return img.width > 0 && img.height > 0;
 }
 
-/**
- * Crops an image to a square by taking the center portion
- * If the image is wider than tall, crops horizontally
- * If the image is taller than wide, crops vertically
- */
 function cropToSquare(img) {
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
-  
-  // Determine the size of the square (smallest dimension)
   const squareSize = Math.min(img.width, img.height);
-  
-  // Calculate crop positions to center the crop
   const cropX = (img.width - squareSize) / 2;
   const cropY = (img.height - squareSize) / 2;
-  
   printDebug(`✂️ Cropping: taking ${squareSize}x${squareSize} square from center (offset: ${cropX}, ${cropY})`);
-  
-  // Set canvas to square dimensions
   canvas.width = squareSize;
   canvas.height = squareSize;
-  
-  // Draw the cropped image onto the canvas
-  // drawImage(source, sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight)
-  ctx.drawImage(
-    img,                    // source image
-    cropX, cropY,           // source x, y (crop start position)
-    squareSize, squareSize, // source width, height (crop size)
-    0, 0,                   // destination x, y
-    squareSize, squareSize  // destination width, height
-  );
-  
+  ctx.drawImage(img, cropX, cropY, squareSize, squareSize, 0, 0, squareSize, squareSize);
   return canvas;
 }
 
-/**
- * Creates a canvas and resizes an image or canvas to specified dimensions
- */
 function resizeImage(source, width, height) {
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
-  
   canvas.width = width;
   canvas.height = height;
-  
-  // Draw the source (could be an image or canvas) scaled to fit the canvas
   ctx.drawImage(source, 0, 0, width, height);
-  
   return canvas;
 }
 
-/**
- * Converts a canvas to a Blob with specified format and quality
- */
 function canvasToBlob(canvas, format = 'image/webp', quality = 0.85) {
   return new Promise((resolve) => {
     canvas.toBlob(resolve, format, quality);
   });
 }
 
-/**
- * Processes an image file: crops to square (center crop), creates thumbnail and full-size versions
- * - For wide images: crops horizontally to take the center square
- * - For tall images: crops vertically to take the center square
- * - For square images: no cropping needed
- * - Only errors if image is corrupted or has 0x0 dimensions
- */
+/** ⬇️ NEW: export these helpers so other modules can reuse them */
+export function blobToDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+/** Create a thumbnail data URL (square) from a Blob */
+export async function blobToThumbnailDataUrl(blob, size = 100, mimeOut = 'image/webp', quality = 0.85) {
+  const imgUrl = URL.createObjectURL(blob);
+  try {
+    const img = await new Promise((res, rej) => {
+      const i = new Image();
+      i.onload = () => res(i);
+      i.onerror = rej;
+      i.src = imgUrl;
+    });
+    const squareCanvas = cropToSquare(img);
+    const thumbCanvas = resizeImage(squareCanvas, size, size);
+    const outBlob = await canvasToBlob(thumbCanvas, mimeOut, quality);
+    return await blobToDataUrl(outBlob);
+  } finally {
+    URL.revokeObjectURL(imgUrl);
+  }
+}
+
+/** Transcode a data URL (or Blob) to WebP with max dimension clamped */
+export async function dataUrlOrBlobToWebpDataUrl(src, maxDim = 2048, quality = 0.82) {
+  let blob;
+  if (typeof src === 'string' && src.startsWith('data:')) {
+    // Convert data URL -> Blob
+    const byteString = atob(src.split(',')[1]);
+    const mimeString = src.split(',')[0].split(':')[1].split(';')[0];
+    const ab = new ArrayBuffer(byteString.length);
+    const ia = new Uint8Array(ab);
+    for (let i = 0; i < byteString.length; i++) ia[i] = byteString.charCodeAt(i);
+    blob = new Blob([ab], { type: mimeString });
+  } else if (src instanceof Blob) {
+    blob = src;
+  } else {
+    return src; // unknown – just pass through
+  }
+
+  const imgUrl = URL.createObjectURL(blob);
+  try {
+    const img = await new Promise((res, rej) => {
+      const i = new Image();
+      i.onload = () => res(i);
+      i.onerror = rej;
+      i.src = imgUrl;
+    });
+
+    const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+    const outW = Math.max(1, Math.round(img.width * scale));
+    const outH = Math.max(1, Math.round(img.height * scale));
+
+    const canvas = document.createElement('canvas');
+    canvas.width = outW; canvas.height = outH;
+    canvas.getContext('2d').drawImage(img, 0, 0, outW, outH);
+
+    const outBlob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/webp', quality));
+    return await blobToDataUrl(outBlob);
+  } finally {
+    URL.revokeObjectURL(imgUrl);
+  }
+}
+
+/** (existing) */
 export async function processImageFile(file) {
   return new Promise((resolve, reject) => {
     const img = new Image();
-    
     img.onload = async () => {
       try {
-        // Validate image has valid dimensions (not 0x0)
         if (!validateImageDimensions(img)) {
           reject(new Error('Invalid image: Image has zero width or height.'));
           return;
         }
-
         printDebug(`📐 Processing image: ${img.width}x${img.height} pixels`);
-
-        // Determine crop strategy
         if (img.width === img.height) {
           printDebug(`✅ Image is already square, no cropping needed`);
         } else if (img.width > img.height) {
@@ -109,31 +132,26 @@ export async function processImageFile(file) {
           printDebug(`📏 Image is taller than wide (${img.width}x${img.height}), will crop vertically to ${img.width}x${img.width}`);
         }
 
-        // Read file as array buffer to generate hash
         const arrayBuffer = await file.arrayBuffer();
         const fileHash = await generateFileHash(new Uint8Array(arrayBuffer));
-        
-        // Determine file extension
+
         const originalFormat = file.type;
-        let extension = 'webp'; // Default to webp
+        let extension = 'webp';
         if (originalFormat === 'image/png') extension = 'png';
         if (originalFormat === 'image/jpeg') extension = 'jpeg';
-        
-        // Crop image to square (center crop)
+
         const squareCanvas = cropToSquare(img);
-        const squareSize = squareCanvas.width; // Now it's square, so width === height
-        
+        const squareSize = squareCanvas.width;
+
         printDebug(`✂️ Cropped to square: ${squareSize}x${squareSize} pixels`);
-        
-        // Create thumbnail (100x100) from the cropped square
+
         const thumbnailCanvas = resizeImage(squareCanvas, 100, 100);
         const thumbnailBlob = await canvasToBlob(thumbnailCanvas, file.type);
-        
-        // Create full-size (max 500x500, but maintain square) from the cropped square
+
         const maxSize = Math.min(squareSize, 500);
         const fullSizeCanvas = resizeImage(squareCanvas, maxSize, maxSize);
         const fullSizeBlob = await canvasToBlob(fullSizeCanvas, file.type);
-        
+
         resolve({
           fileHash,
           extension,
@@ -146,102 +164,52 @@ export async function processImageFile(file) {
         reject(error);
       }
     };
-    
-    img.onerror = () => {
-      reject(new Error('Failed to load image file. The file may be corrupted or not a valid image format.'));
-    };
-    
+    img.onerror = () => reject(new Error('Failed to load image file. The file may be corrupted or not a valid image format.'));
     img.src = URL.createObjectURL(file);
   });
 }
 
-/**
- * Gets the current map name from app state or localStorage
- * This function is designed to be called with a map name parameter when available
- */
 export function getCurrentMapName(mapName = null) {
-  if (mapName) {
-    return mapName;
-  }
-  
-  // Fallback to localStorage
-  try {
-    const mapNameFromStorage = localStorage.getItem('ship_log_map_name_v1');
-    return mapNameFromStorage || 'default_map';
-  } catch (e) {
-    console.warn('Could not access localStorage for map name:', e);
-    return 'default_map';
-  }
+  if (mapName) return mapName;
+  try { return localStorage.getItem('ship_log_map_name_v1') || 'default_map'; }
+  catch { return 'default_map'; }
 }
 
-/**
- * Generates the image filename based on nodeId and hash
- */
 export function generateImageFilename(nodeId, fileHash, extension, type = 'full') {
   const suffix = type === 'thumbnail' ? '_thumb' : '';
   return `${nodeId}_${fileHash}${suffix}.${extension}`;
 }
 
-/**
- * Generates the full path for storing images
- */
 export function generateImagePath(mapName, filename) {
   return `${mapName}/${filename}`;
 }
 
-/**
- * Converts a blob to a data URL
- */
-function blobToDataUrl(blob) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
-}
+/** (old internal) now exported above as blobToDataUrl */
+// function blobToDataUrl(...) { ... }
 
-/**
- * Saves processed image files to the public directory using File System Access API
- * Note: This is a development-only feature for prototyping
- * Returns data URLs for immediate use while also saving files for reference
- */
 export async function saveImageFiles(nodeId, processedImage, mapName = null, directoryHandle = null) {
   try {
     const actualMapName = getCurrentMapName(mapName);
-    
-    // Generate logical filename for the image
     const imageFilename = generateImageFilename(nodeId, processedImage.fileHash, processedImage.extension, 'full');
-    
+
     // Convert blobs to data URLs - but only cache the thumbnail to save localStorage space
     const thumbnailDataUrl = await blobToDataUrl(processedImage.thumbnailBlob);
     const fullSizeDataUrl = await blobToDataUrl(processedImage.fullSizeBlob);
-    
     printDebug(`📊 Image sizes - Thumbnail: ${thumbnailDataUrl.length} chars, Full: ${fullSizeDataUrl.length} chars`);
-    
-    // Cache only the THUMBNAIL (100x100) to conserve localStorage space
-    // The full-size image will be generated on-demand or loaded from CDN
+
     const { imageCache } = await import('./imageLoader.js');
     const cacheKey = `${actualMapName}:${imageFilename}`;
-    
-    // For immediate display, we'll use the full-size but only cache the thumbnail
     imageCache.set(cacheKey, thumbnailDataUrl);
     printDebug(`💾 Cached thumbnail for: ${cacheKey} (${thumbnailDataUrl.length} chars)`);
 
-    // Return the logical filename (not the data URL) to store in JSON
     const result = {
-      imagePath: imageFilename, // This will be stored in the JSON
+      imagePath: imageFilename,
       success: true,
-      // Include the full-size data URL for immediate use (but don't cache it)
       immediateImageUrl: fullSizeDataUrl
     };
 
-    // Optionally, still save to filesystem for reference (but don't block on it)
-    try {
-      await saveToFileSystem(nodeId, processedImage, actualMapName, directoryHandle);
-    } catch (fsError) {
-      console.warn('Could not save to filesystem (this is optional for development):', fsError.message);
-    }
+    try { await saveToFileSystem(nodeId, processedImage, actualMapName, directoryHandle); }
+    catch (fsError) { console.warn('Could not save to filesystem (this is optional for development):', fsError.message); }
 
     return result;
   } catch (error) {
@@ -250,52 +218,32 @@ export async function saveImageFiles(nodeId, processedImage, mapName = null, dir
   }
 }
 
-/**
- * Helper function to save files to filesystem (optional for development)
- */
 async function saveToFileSystem(nodeId, processedImage, mapName = null, directoryHandle = null) {
-  // Check if File System Access API is available and we have a directory handle
   if (!window.showDirectoryPicker || !directoryHandle) {
     throw new Error('File System Access API is not supported or directory access not granted.');
   }
-
   const actualMapName = getCurrentMapName(mapName);
   const thumbnailFilename = generateImageFilename(nodeId, processedImage.fileHash, processedImage.extension, 'thumbnail');
   const fullSizeFilename = generateImageFilename(nodeId, processedImage.fileHash, processedImage.extension, 'full');
 
-  // Navigate to public directory
   let publicDirHandle;
-  try {
-    publicDirHandle = await directoryHandle.getDirectoryHandle('public', { create: true });
-  } catch {
-    throw new Error('Could not access public directory. Please select the project root directory.');
-  }
+  try { publicDirHandle = await directoryHandle.getDirectoryHandle('public', { create: true }); }
+  catch { throw new Error('Could not access public directory. Please select the project root directory.'); }
 
-  // Create/get map directory
   const mapDirHandle = await publicDirHandle.getDirectoryHandle(actualMapName, { create: true });
 
-  // Save thumbnail
   const thumbnailFileHandle = await mapDirHandle.getFileHandle(thumbnailFilename, { create: true });
   const thumbnailWritable = await thumbnailFileHandle.createWritable();
   await thumbnailWritable.write(processedImage.thumbnailBlob);
   await thumbnailWritable.close();
 
-  // Save full-size image
   const fullSizeFileHandle = await mapDirHandle.getFileHandle(fullSizeFilename, { create: true });
   const fullSizeWritable = await fullSizeFileHandle.createWritable();
   await fullSizeWritable.write(processedImage.fullSizeBlob);
   await fullSizeWritable.close();
 }
 
-/**
- * Checks if a custom image exists for a node
- */
 export function getNodeImageUrl(nodeId, imageUrl) {
-  // If imageUrl is a data URL or starts with a map path, it's a custom image
-  if (imageUrl && (imageUrl.startsWith('data:') || imageUrl.startsWith('/'))) {
-    return imageUrl;
-  }
-  
-  // Otherwise return the default/provided imageUrl
+  if (imageUrl && (imageUrl.startsWith('data:') || imageUrl.startsWith('/'))) return imageUrl;
   return imageUrl;
 }
