@@ -1062,12 +1062,16 @@ useEffect(() => {
     let exportedBgImage = { ...bgImage };
     if (exportedBgImage.imageUrl && exportedBgImage.imageUrl.startsWith("data:image/jpeg")) {
       exportedBgImage.imageUrl = "underlay.jpeg";
+    } else if (exportedBgImage.imageUrl && exportedBgImage.imageUrl.startsWith("data:image/jpg")) {
+      exportedBgImage.imageUrl = "underlay.jpg";
     } else if (exportedBgImage.imageUrl && exportedBgImage.imageUrl.startsWith("data:image/png")) {
       exportedBgImage.imageUrl = "underlay.png";
+    } else if (exportedBgImage.imageUrl && exportedBgImage.imageUrl.startsWith("data:image/webp")) {
+      exportedBgImage.imageUrl = "underlay.webp";
     } else {
-      printDebug("⚠️ App: Background image is not a recognized data URL, exporting as empty");
+      printDebug("⚠️ App: Background image is not a recognized data URL, exporting anyway");
       printDebug(`exportedBgImage.imageUrl: ${exportedBgImage.imageUrl}`);
-      exportedBgImage = { included: false, imageUrl: "" };
+      exportedBgImage = { ...exportedBgImage, included: false, imageUrl: "" };
     }
 
     const updatedGraph = {
