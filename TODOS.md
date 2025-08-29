@@ -65,7 +65,7 @@
 - [ ] Implement a "manage tags" modal that allows users to create, edit, and delete tags
 - [ ] Implement a "manage icons" modal that allows users to select from a set of icons for tags, which can be used to visually represent a given tag (e.g. a bed icon for the "sleep" tag, a shower icon for the "showers" tag, etc.)
 - [ ] IDEA: Implement deselecting of nodes and edges when clicking on the close modal button as well as pressing the Esc key when the note editor modal is open, so that the user can close the modal *and* deselect the node without having to click on the background
-- [ ] **Move rotate button to the bottom left panel because it is useful in all modes, not just editing mode**
+- [x] Move rotate button to the bottom left panel because it is useful in all modes, not just editing mode
 - [x] Add a compass rose to the map that shows the cardinal directions (N, S, E, W) and can be toggled on and off
 - ~~IDEA: Temporarily add map nodes which indicate the cardinal directions (north point of map, east point, etc.)~~
 - [x] Implement sharable maps via query params, where, the map can be shared via a URL that points at the map's JSON file in the CDN and will load the map from that URL when the app is opened with those query params, for example, the CDN https://avidrucker.github.io/img-test-1/Gaia%20Yoga will be accessed by the app when the user opens the app with the URL https://avidrucker.github.io/ship-log-map/?map=https://avidrucker.github.io/img-test-1/Gaia%20Yoga/gaia_yoga.json where the map query param is the URL of the map's JSON file in the CDN constructed by the app address (https://avidrucker.github.io/ship-log-map/) and the map's CDN file URL (https://avidrucker.github.io/img-test-1/Gaia%20Yoga/) plus the map's JSON file name (gaia_yoga.json). If a map query param is not provided, the app will default to loading the map from the hard-coded example map JSON file in the app (e.g. https://avidrucker.github.io/ship-log-map/example_map.json). Changing the CDN, or the map name, or loading in a new map from a JSON file, will update the map query param in the URL to reflect the new map's JSON file URL in the CDN.
@@ -86,6 +86,8 @@
 - [x] Add to dev mode debug modal two buttons, one to load the Outer Wilds map from the CDN and one to load the Gaia Yoga map from the CDN, which will update the CDN URL field in the UI and load the selected map from the CDN
 - [x] Conditionally hide "Load CDN" button in Universal Controls when there is no CDN URL specified
 - [ ] Fix "New" map button not clearing the image underlay data if one is set
+- [ ] Fix "Zooming In To Node/Edge" not yet scaling & panning the background (but it should)
+- [ ] Fix issue where FF7 bg image settings are not correctly saved to JSON and thus not reloaded properly from JSON
 
 Notes for Future Features
 - Listing out "layers" which show things such as electrical lines, water lines, Internet, etc. that can be toggled on and off
