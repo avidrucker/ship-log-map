@@ -85,9 +85,9 @@
 - [ ] Enhance the app so it can work offline via service workers
 - [x] Add to dev mode debug modal two buttons, one to load the Outer Wilds map from the CDN and one to load the Gaia Yoga map from the CDN, which will update the CDN URL field in the UI and load the selected map from the CDN
 - [x] Conditionally hide "Load CDN" button in Universal Controls when there is no CDN URL specified
-- [ ] Fix "New" map button not clearing the image underlay data if one is set
-- [ ] Fix "Zooming In To Node/Edge" not yet scaling & panning the background (but it should)
-- [ ] Fix issue where FF7 bg image settings are not correctly saved to JSON and thus not reloaded properly from JSON
+- [x] Fix "Create New Map" (just called "New" in the app) button not deleting, clearing, and reseting the background image underlay data if one is set
+- [ ] Fix "Zooming In To Node/Edge" not yet scaling & panning the background image (but it should)
+- [x] Fix issue where FF7 bg image settings are not correctly saved to JSON and thus not reloaded properly from JSON
 
 Notes for Future Features
 - Listing out "layers" which show things such as electrical lines, water lines, Internet, etc. that can be toggled on and off
