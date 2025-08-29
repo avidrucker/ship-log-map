@@ -512,7 +512,7 @@ useEffect(() => {
   return () => {
     window.removeEventListener('popstate', handleURLChange);
   };
-}, [appState.lastLoadedMapUrl, clearCytoscapeSelections, clearUndoState]); // Only rerun if lastLoadedMapUrl changes
+}, [appState.lastLoadedMapUrl, clearCytoscapeSelections, clearUndoState, cdnBaseUrl, setBgImage]); // Only rerun if lastLoadedMapUrl changes
   
 // ---------- persistence ----------
   useEffect(() => {
@@ -734,7 +734,7 @@ useEffect(() => {
 
     // Clear the input so the same file can be selected again
     event.target.value = '';
-  }, [clearCytoscapeSelections, clearUndoState]);
+  }, [clearCytoscapeSelections, clearUndoState, setBgImage, cdnBaseUrl]);
 
   const handleNewMap = useCallback(() => {
     // Check if there are any nodes in the current map
@@ -758,6 +758,19 @@ useEffect(() => {
     dispatchAppState({ type: ACTION_TYPES.SET_MAP_NAME, payload: { mapName: 'default_map' } });
     dispatchAppState({ type: ACTION_TYPES.SET_CDN_BASE_URL, payload: { cdnBaseUrl: '' } });
 
+    // Reset background image underlay data
+    const emptyBgImage = {
+      imageUrl: "",
+      x: 0,
+      y: 0,
+      scale: 100,
+      opacity: 100,
+      visible: false,
+      included: false
+    };
+    setBgImage(emptyBgImage);
+    dispatchAppState({ type: ACTION_TYPES.SET_BG_IMAGE, payload: { bgImage: emptyBgImage } });
+
     // Camera reset - update both app state and Cytoscape instance
     dispatchAppState({ type: ACTION_TYPES.SET_ZOOM, payload: { zoom: 1 } });
     dispatchAppState({ type: ACTION_TYPES.SET_CAMERA_POSITION, payload: { position: { x: 0, y: 0 } } });
@@ -779,7 +792,7 @@ useEffect(() => {
     
     // Clear query params from the browser address bar
     clearQueryParams();
-  }, [graphData.nodes.length, mode, getCytoscapeInstance, clearCytoscapeSelections, clearUndoState]);
+  }, [graphData.nodes.length, mode, getCytoscapeInstance, clearCytoscapeSelections, clearUndoState, setBgImage]);
 
   const clearError = useCallback(() => {
     dispatchAppState({ type: ACTION_TYPES.SET_LOAD_ERROR, payload: { error: null } });
