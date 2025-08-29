@@ -88,7 +88,16 @@
 - [x] Fix "Create New Map" (just called "New" in the app) button not deleting, clearing, and reseting the background image underlay data if one is set
 - [ ] Fix "Zooming In To Node/Edge" not yet scaling & panning the background image (but it should)
 - [x] Fix issue where FF7 bg image settings are not correctly saved to JSON and thus not reloaded properly from JSON
+- [ ] Fix bug where first load of the page doesn't load in the image assets, but it should
+- [ ] Implement showing of Note Counts on edges too (right now, edges can hold notes, but when in "Notes ON" mode, numbers are not yet shown)
+- [ ] Switch from using 100x100 jpeg thumbnails to larger 500x500 webp images
+- [ ] Experiment with using composite images as tilesheets/spritesheets to improve performance and loading times
+- [ ] Create "update history" which, in editing mode, simply shows what changes have been made to the map since it was last loaded (e.g. moved "Node A" from (x,y) to (x',y') OR "added picture to node B").
 
 Notes for Future Features
 - Listing out "layers" which show things such as electrical lines, water lines, Internet, etc. that can be toggled on and off
 - Orientation layer/mode which shows the relevant info for orienting newcomers to the map, similar to a park map, and showing icons that will quickly orient the user to thing such as the entrance, exits, restrooms, kitchens, showers, etc.
+
+Ideas
+- Create "Guided Tours"
+- Allow "hash-tag" style navigation within the map via hash-tags in the notes, that further allow hyperlink clicking to jump visually from one node to another, and a back button to return to the previous node(s)
