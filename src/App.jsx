@@ -20,6 +20,7 @@ import BgImageLayer from "./bg/BgImageLayer";
 import { useBgImageState } from "./bg/useBgImageState";
 import { loadImageWithFallback } from "./utils/imageLoader.js";
 import { dataUrlOrBlobToWebpDataUrl } from "./utils/imageUtils.js"
+import { serializeGraph } from "./graph/ops.js";
 
 // 🚀 New imports: centralized persistence + edge id helper
 import { saveToLocal, loadFromLocal, saveModeToLocal, loadModeFromLocal, saveUndoStateToLocal, loadUndoStateFromLocal, saveMapNameToLocal, loadMapNameFromLocal, loadUniversalMenuCollapsed, loadGraphControlsCollapsed, loadCameraInfoCollapsed, saveUniversalMenuCollapsed, saveGraphControlsCollapsed, saveCameraInfoCollapsed } from "./persistence/index.js";
@@ -1094,7 +1095,8 @@ useEffect(() => {
     
     const filename = sanitizedMapName + '.json';
 
-    const blob = new Blob([JSON.stringify(updatedGraph, null, 2)], { type: "application/json" });
+    const json = serializeGraph(updatedGraph);
+    const blob = new Blob([json], { type: "application/json" });
     const url = URL.createObjectURL(blob);
 
     const a = document.createElement("a");
@@ -1104,7 +1106,7 @@ useEffect(() => {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-  }, [graphData, exportNodePositions, mode, mapName, cdnBaseUrl, orientation, compassVisible]);
+  }, [graphData, exportNodePositions, mode, mapName, cdnBaseUrl, orientation, compassVisible, bgImage]);
 
   const handleNodeColorChange = useCallback((nodeIds, newColor) => {
     printDebug('🏠 App: Change color:', nodeIds, '->', newColor);

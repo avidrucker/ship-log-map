@@ -15,10 +15,12 @@ export function normalizeGraph(graph) {
   const mode = typeof graph?.mode === "string" ? graph.mode : "editing";
   const mapName = typeof graph?.mapName === "string" ? graph.mapName : "default_map";
   const cdnBaseUrl = typeof graph?.cdnBaseUrl === "string" ? graph.cdnBaseUrl : "";
+  const orientation = Number.isFinite(graph?.orientation) ? ((graph.orientation % 360) + 360) % 360 : 0;
+  const compassVisible = typeof graph?.compassVisible === "boolean" ? graph.compassVisible : true;
   const bgImage = (graph && typeof graph.bgImage === 'object' && graph.bgImage !== null)
     ? graph.bgImage
     : { included: false, imageUrl: "", x: 0, y: 0, scale: 100, opacity: 100, visible: false };
-  return { nodes, edges, notes, mode, mapName, cdnBaseUrl, bgImage };
+  return { nodes, edges, notes, mode, mapName, cdnBaseUrl, orientation, compassVisible, bgImage };
 }
 
 // Add node
@@ -210,28 +212,35 @@ export function setEdgeMeta(graph, idOrPair, patch) {
 export function serializeGraph(graph) {
   const g = normalizeGraph(graph);
   // keep clean shape
-  return JSON.stringify({ 
-    nodes: g.nodes, 
-    edges: g.edges, 
-    notes: g.notes, 
-    mode: g.mode, 
-    mapName: g.mapName, 
+  const out = {
+    nodes: g.nodes,
+    edges: g.edges,
+    notes: g.notes,
+    mode: g.mode,
+    mapName: g.mapName,
     cdnBaseUrl: g.cdnBaseUrl,
-        ...(g.bgImage ? {
-      bgImage: {
-        included: !!g.bgImage.included,
-        imageUrl: (typeof g.bgImage.imageUrl === 'string' && g.bgImage.imageUrl.startsWith('data:'))
-          ? ""  // don’t write huge data URLs
+    orientation: g.orientation,
+    compassVisible: g.compassVisible
+  };
+  if (g.bgImage) {
+    out.bgImage = {
+      included: !!g.bgImage.included,
+      imageUrl:
+        (typeof g.bgImage.imageUrl === "string" && g.bgImage.imageUrl.startsWith("data:"))
+          ? "" // don’t write huge data URLs
           : (g.bgImage.imageUrl || ""),
-        x: g.bgImage.x ?? 0,
-        y: g.bgImage.y ?? 0,
-        scale: g.bgImage.scale ?? 100,
-        opacity: g.bgImage.opacity ?? 100,
-        visible: typeof g.bgImage.visible === 'boolean' ? g.bgImage.visible : !!g.bgImage.included
-      }
-    } : {})
-  }, null, 2);
+      x: Number.isFinite(g.bgImage.x) ? g.bgImage.x : 0,
+      y: Number.isFinite(g.bgImage.y) ? g.bgImage.y : 0,
+      scale: Number.isFinite(g.bgImage.scale) ? g.bgImage.scale : 100,
+      opacity: Number.isFinite(g.bgImage.opacity) ? g.bgImage.opacity : 100,
+      visible: typeof g.bgImage.visible === "boolean"
+        ? g.bgImage.visible
+        : !!g.bgImage.included
+    };
+  }
+  return JSON.stringify(out, null, 2);
 }
+
 
 // Accepts an object (already parsed) or a string
 export function deserializeGraph(input) {
@@ -260,6 +269,17 @@ export function deserializeGraph(input) {
   const mode = g.mode;
   const mapName = g.mapName;
   const cdnBaseUrl = g.cdnBaseUrl;
+  const orientation = g.orientation;
+  const compassVisible = g.compassVisible;
+  const bgImage = {
+    included: !!g.bgImage?.included,
+    imageUrl: typeof g.bgImage?.imageUrl === "string" ? g.bgImage.imageUrl : "",
+    x: Number.isFinite(g.bgImage?.x) ? g.bgImage.x : 0,
+    y: Number.isFinite(g.bgImage?.y) ? g.bgImage.y : 0,
+    scale: Number.isFinite(g.bgImage?.scale) ? g.bgImage.scale : 100,
+    opacity: Number.isFinite(g.bgImage?.opacity) ? g.bgImage.opacity : 100,
+    visible: typeof g.bgImage?.visible === "boolean" ? g.bgImage.visible : !!g.bgImage?.included
+  };
 
-  return { nodes, edges, notes, mode, mapName, cdnBaseUrl };
+  return { nodes, edges, notes, mode, mapName, cdnBaseUrl, orientation, compassVisible, bgImage };
 }
