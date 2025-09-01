@@ -1,5 +1,16 @@
 // src/utils/cdnHelpers.js
 
+/**
+ * CDN Helpers
+ *
+ * Responsibilities
+ * - Compute map-specific CDN paths for images/placeholders/test assets.
+ * - Handle base URL overrides and cache-busting query params.
+ *
+ * Exports
+ * - getMapCdnUrl(mapName, base), getPlaceholderUrl(mapName, base), etc.
+ */
+
 // Import printDebug from utils/debug.js
 import { printDebug } from '../utils/debug.js';
 

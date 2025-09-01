@@ -2,6 +2,17 @@
 import { printDebug } from '../utils/debug.js';
 
 /**
+ * Image Utilities
+ *
+ * Responsibilities
+ * - Pure helpers for working with image metadata (dimensions, square checks,
+ *   thumbnail generation hints, mime sniffing).
+ *
+ * Gotchas
+ * - Keep these pure; IO belongs in imageLoader.
+ */
+
+/**
  * Generates a simple hash from a file buffer using browser APIs
  */
 async function generateFileHash(buffer) {

@@ -1,5 +1,18 @@
+// src/components/NoteViewerModal.jsx
+
+/**
+ * NoteViewerModal — Read-only note viewer
+ *
+ * Responsibilities
+ * - Displays a node’s rendered note(s) for viewing mode.
+ *
+ * Props
+ * - isOpen, onClose(), nodeId, text
+ */
+
 import React, { useEffect } from "react";
 
+// TODO: refactor out color styles to CSS stylesheet
 const BLUE_OUTLINE_COLOR = "#5878b6";
 
 function NoteViewerModal({

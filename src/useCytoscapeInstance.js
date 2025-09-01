@@ -1,3 +1,20 @@
+// src/useCytoscapeInstance.js
+
+/**
+ * useCytoscapeInstance — Imperative bridge for graph viewport concerns
+ *
+ * Responsibilities
+ * - Create and cache a Cytoscape instance ref, exposing stable imperative
+ *   helpers (fit, resize, pan/zoom readouts) while keeping React declarative.
+ * - Debounce expensive operations and coordinate "fit on next render" flows.
+ *
+ * Returns
+ * - { cyRef, requestFit(), onResize(), getCameraInfo() }
+ *
+ * Gotchas
+ * - Never mutate domain data here; it’s purely for viewport/instance lifecycle.
+ */
+
 /**
  * **`useCytoscapeInstance.js`** 
  * - Custom hook for Cytoscape instance management

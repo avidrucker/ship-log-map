@@ -1,4 +1,25 @@
 // src/graph/cyAdapter.js
+
+/**
+ * Cytoscape Adapter (rendering + event wiring)
+ *
+ * Responsibilities
+ * - Mount/tear down Cytoscape with a provided container element.
+ * - Sync declarative domain `nodes`/`edges` to Cytoscape elements.
+ * - Wire pointer/selection/double-click/background events back to React.
+ * - Manage image placeholders + grayscale readiness for image nodes.
+ *
+ * Key Functions
+ * - mountCy(container, opts) -> cy
+ * - syncElements(cy, {nodes, edges})
+ * - wireEvents(cy, callbacks)
+ * - updateNoteCounts(cy, counts)
+ *
+ * Contracts
+ * - Receives dumb data (no Cytoscape instances); returns no domain mutations.
+ * - Emits IDs and minimal payloads via callbacks; App decides how to react.
+ */
+
 import cytoscape from "cytoscape";
 import cytoscapeStyles from "../cytoscapeStyles.js";
 import { deserializeGraph } from "./ops.js";

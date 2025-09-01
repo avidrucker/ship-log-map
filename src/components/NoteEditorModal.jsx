@@ -1,3 +1,19 @@
+// src/components/NoteEditorModal.jsx
+
+/**
+ * NoteEditorModal — Create/edit node notes
+ *
+ * Responsibilities
+ * - Provide a text/markdown editor for the selected node’s note(s).
+ * - Save/cancel actions that update domain state in the parent.
+ *
+ * Props
+ * - isOpen, onClose(), nodeId, initialText, onSave(text)
+ *
+ * Gotchas
+ * - Avoid storing heavy editor state globally; keep it local to the modal.
+ */
+
 import React, { useState, useCallback, useEffect } from "react";
 import { processImageFile, saveImageFiles } from "../utils/imageUtils.js";
 import { printDebug, printError, printWarn } from "../utils/debug.js";

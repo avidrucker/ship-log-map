@@ -1,3 +1,15 @@
+// src/components/FpsCounter.jsx
+
+/**
+ * FpsCounter — Lightweight FPS/perf indicator
+ *
+ * Responsibilities
+ * - Measures/draws current frame rate for animation/perf tuning.
+ *
+ * Notes
+ * - Intended for future animation work; safe to disable in production.
+ */
+
 import React, { useRef, useEffect, useState } from "react";
 
 /**

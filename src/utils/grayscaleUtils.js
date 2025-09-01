@@ -2,6 +2,17 @@
 import { printDebug } from "./debug.js";
 
 /**
+ * Grayscale Pipeline
+ *
+ * Responsibilities
+ * - Create and cache grayscale versions of node images for visual states.
+ * - Manage "pending grayscale" flags so rendering waits for assets.
+ *
+ * Gotchas
+ * - All functions are async-aware; guard against race conditions on rapid loads.
+ */
+
+/**
  * Converts an image to grayscale using canvas manipulation
  * Returns a data URL of the grayscale image
  */

@@ -1,4 +1,16 @@
 // src/utils/debug.js
+
+/**
+ * Debug Logging Utilities
+ *
+ * Responsibilities
+ * - Small wrapper around console with leveled helpers: printDebug/printWarn/
+ *   printError that can be silenced or formatted consistently.
+ *
+ * Tips
+ * - Prefer these over bare console.log so logs can be filtered in production.
+ */
+
 import { DEBUG_LOGGING } from "../config/features.js";
 
 /**

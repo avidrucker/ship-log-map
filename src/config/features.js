@@ -1,6 +1,14 @@
 // src/config/features.js
 
 /**
+ * Feature Flags
+ *
+ * Responsibilities
+ * - Toggle experimental/prototype features (e.g., planned animations).
+ * - Central place to flip defaults without touching UI logic.
+ */
+
+/**
  * Feature flags for the ship log map application
  * Set these to true/false to enable/disable features
  */

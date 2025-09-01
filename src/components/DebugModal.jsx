@@ -1,3 +1,16 @@
+// src/components/DebugModal.jsx
+
+/**
+ * DebugModal — Developer tooling & diagnostics
+ *
+ * Responsibilities
+ * - Surface raw state, event logs, performance counters, test assets loader.
+ * - Useful for troubleshooting import/load/caching/image-pipeline issues.
+ *
+ * Props
+ * - isOpen, onClose, state snapshots, test asset hooks.
+ */
+
 import React, { useState } from "react";
 import { GRAYSCALE_IMAGES } from "../config/features.js";
 import { printDebug } from "../utils/debug.js";

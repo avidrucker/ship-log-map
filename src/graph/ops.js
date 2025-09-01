@@ -1,4 +1,24 @@
 // src/graph/ops.js
+
+/**
+ * Graph Operations (pure data transforms)
+ *
+ * Responsibilities
+ * - CRUD and batch transforms for nodes/edges independent of rendering layer.
+ * - Spatial utilities (e.g., rotate, translate, align), id generation,
+ *   normalization helpers used by App/reducer and tests.
+ *
+ * Exports (examples)
+ * - addNode(nodes, newNode)
+ * - addEdge(edges, newEdge)
+ * - deleteNodes(nodes, edges, ids)
+ * - rotateNodes90Clockwise(nodes), incrementOrientationBy90(orientation)
+ *
+ * Gotchas
+ * - Functions are PURE; do not reach into Cytoscape or window.
+ * - Validate coordinates and skip malformed nodes gracefully.
+ */
+
 import { TEST_ICON_SVG } from "../constants/testAssets.js";
 import { printDebug } from "../utils/debug.js";
 

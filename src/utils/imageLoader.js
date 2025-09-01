@@ -1,4 +1,17 @@
 // src/utils/imageLoader.js
+
+/**
+ * Image Loader & Cache
+ *
+ * Responsibilities
+ * - Lazy-load images (regular + placeholder) with caching and error handling.
+ * - Report readiness to cyAdapter so nodes don’t flicker while loading.
+ *
+ * Exports
+ * - loadImage(url): Promise<HTMLImageElement>
+ * - primePlaceholder(mapName, cdnBaseUrl)
+ */
+
 import { printDebug, printWarn } from "../utils/debug.js";
 import { getCdnBaseUrl, buildCdnUrl, buildAlternativeBaseUrls } from './cdnHelpers.js';
 import { blobToDataUrl, blobToThumbnailDataUrl } from './imageUtils.js';

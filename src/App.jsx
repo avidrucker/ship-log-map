@@ -1,4 +1,35 @@
 // src/App.jsx
+
+/**
+ * Outer Wilds–style Rumor Map — Application Shell
+ *
+ * Responsibilities
+ * - Owns top-level application state (graph data, UI mode, selections, modals).
+ * - Coordinates data flow between domain logic (graph ops), Cytoscape rendering,
+ *   background image layer, import/export, and feature flags.
+ * - Bootstraps initial map from defaults, URL params, JSON file upload, or CDN.
+ *
+ * Key Interactions
+ * - Renders <CytoscapeGraph/> and wires its callbacks to reducer actions.
+ * - Hosts global controls: <UniversalControls/>, <GraphControls/>, modals
+ *   (NoteEditor/Viewer, Debug, Share, BgImage).
+ * - Uses useCytoscapeInstance() for lifecycle/sizing/fit control and camera info.
+ * - Validates loaded maps via loadAndValidateRumorMapFromFile().
+ *
+ * State & Data Shape
+ * - nodes: [{ id, label, x, y, color, image, noteCount, ... }]
+ * - edges: [{ id, source, target, ... }]
+ * - bgImage: { src, x, y, scale, opacity, included, visible }
+ * - selection: { nodeIds: Set, edgeIds: Set }
+ * - mode: 'editing' | 'viewing'
+ *
+ * Gotchas
+ * - Keep the graph as the single source of truth—Cytoscape does not mutate domain
+ *   state directly; all edits flow through reducer actions.
+ * - Avoid tight render loops: useMemo/useCallback where appropriate.
+ * - URL/query import and JSON import must update BOTH domain state and UI toggles.
+ */
+
 import React, { useState, useEffect, useCallback, useRef, useReducer, useMemo } from "react";
 import CytoscapeGraph from "./components/CytoscapeGraph.jsx";
 import defaultShipLogData from "./default_ship_log.json";

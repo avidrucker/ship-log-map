@@ -1,4 +1,17 @@
 // src/cytoscapeStyles.js
+
+/**
+ * Cytoscape Style Sheet
+ *
+ * Responsibilities
+ * - Defines node/edge CSS (sizes, label positioning, images, selection states).
+ * - Encodes visual vocabulary: note counts, colors, hover/selected outlines.
+ *
+ * Tips
+ * - Mirror tokens in styles/tokens.js so colors/spacing stay consistent.
+ * - Keep node label wrap/width aligned with NodeColorPicker/controls UX.
+ */
+
 import { COLORS, NODE_SIZES, BORDER } from "./styles/tokens.js";
 
 // Parent container (holder) – invisible, grabbable, carries the domain ID.

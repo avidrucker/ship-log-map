@@ -1,4 +1,20 @@
-// src/ShareModal.jsx
+// src/components/ShareModal.jsx
+
+/**
+ * ShareModal — Generate shareable URLs
+ *
+ * Responsibilities
+ * - Compose a minimal sharable representation of the current map:
+ *   - URL query params (for small maps) or copyable JSON blob (for large).
+ * - Optionally include background image metadata when `bgImage.included`.
+ *
+ * Props
+ * - isOpen, onClose, map data, onCopyUrl(), onCopyJson()
+ *
+ * Gotchas
+ * - Beware URL length limits; fall back to JSON when too long.
+ */
+
 import React, { useState, useCallback } from 'react';
 
 function ShareModal({ 

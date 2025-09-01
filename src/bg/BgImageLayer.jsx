@@ -1,3 +1,22 @@
+// src/bg/BgImageLayer.jsx
+
+/**
+ * Background Image Layer (canvas/DOM underlay)
+ *
+ * Responsibilities
+ * - Renders a panning/zooming-independent backdrop beneath the Cytoscape graph.
+ * - Applies user-controlled transforms: x/y translation, scale, opacity.
+ * - Can be toggled visible; treated as part of map state for import/export.
+ *
+ * Props
+ * - { src, x, y, scale, opacity, visible }
+ * - onTransformChange({ x, y, scale, opacity })
+ *
+ * Gotchas
+ * - Keep transforms independent from Cytoscape zoom to maintain predictable UX.
+ * - Only square assets are allowed upstream (UI enforces; this assumes validity).
+ */
+
 import React from "react";
 import { bgCssTransform } from "./math.js";
 import { printDebug } from "../utils/debug.js";

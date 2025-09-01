@@ -1,5 +1,16 @@
 // src/styles/tokens.js
 
+/**
+ * Design Tokens
+ *
+ * Responsibilities
+ * - Centralize colors, spacing, radii, font sizes used across components and
+ *   cytoscapeStyles for a consistent look.
+ *
+ * Notes
+ * - Keep in sync with README/screenshots to help newcomers map names to visuals.
+ */
+
 export const COLORS = {
   gray:   { base: "#7f807a", bright: "#e2e4da" },
   green:  { base: "#388a5d", bright: "#68ffac" },

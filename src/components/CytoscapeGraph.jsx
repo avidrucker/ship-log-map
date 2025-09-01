@@ -1,4 +1,25 @@
 // src/CytoscapeGraph.jsx
+
+/**
+ * CytoscapeGraph — Declarative wrapper around Cytoscape
+ *
+ * Responsibilities
+ * - Mounts a Cytoscape instance and keeps it in sync with `nodes`/`edges`.
+ * - Emits high-level events to the parent (clicks, double-clicks, selections,
+ *   background clicks) without mutating domain state.
+ * - Handles "fit on next render" and "shouldFitOnNextRender" acknowledgements.
+ * - Integrates grayscale/placeholder image readiness to avoid flicker.
+ *
+ * Props (selected)
+ * - nodes, edges, mode ('editing'|'viewing'), mapName, cdnBaseUrl
+ * - onNodeSelectionChange(ids), onEdgeSelectionChange(ids)
+ * - onNodeClick(id), onEdgeClick(id), onBackgroundClick()
+ * - shouldFitOnNextRender, onFitCompleted()
+ *
+ * Gotchas
+ * - Keep props stable (useCallback/memo) to avoid unnecessary full re-syncs.
+ */
+
 import React, { useEffect, useRef } from "react";
 import { mountCy, syncElements, wireEvents, hasPendingGrayscaleConversions, updateCompletedGrayscaleImages, ensureNoteCountNodes, updateNoteCounts } from "../graph/cyAdapter.js";
 import { printDebug, printError, printWarn } from "../utils/debug.js";

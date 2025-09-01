@@ -1,3 +1,15 @@
+// src/components/ErrorDisplay.jsx
+
+/**
+ * ErrorDisplay — User-facing inline error presenter
+ *
+ * Responsibilities
+ * - Presents validation or import failures with actionable guidance.
+ *
+ * Props
+ * - message, details, onDismiss
+ */
+
 import React from "react";
 
 function ErrorDisplay({ error, onClearError }) {

@@ -1,12 +1,33 @@
+// src/appStateReducer.js
+
 /**
- * **`appStateReducer.js`** 
+ * App State Reducer
+ *
+ * Responsibilities
+ * - Pure reducer for all app actions (node/edge CRUD, selection, mode changes,
+ *   background image toggles/transform, camera hints, import/export updates).
+ * - Centralizes state transitions so components remain declarative.
+ *
+ * Patterns
+ * - (state, action) => newState
+ * - Each action type is a small, predictable transformation; no side effects.
+ *
+ * Gotchas
+ * - Always return new references for changed branches (immutability).
+ * - Validate payload shapes—ignore or sanitize malformed updates.
+ */
+
+/** **`appStateReducer.js`**
  * - Complete state management solution
    - Unified state for selections, camera, and UI state
    - Action creators and reducer for consistent state updates
    - Eliminates multiple `useState` calls for related state
  */
 
+// *****************************
 // Action types
+// *****************************
+
 export const ACTION_TYPES = {
   // Selection actions
   SET_NODE_SELECTION: 'SET_NODE_SELECTION',
@@ -67,7 +88,10 @@ export const ACTION_TYPES = {
   SET_BG_IMAGE: 'SET_BG_IMAGE'
 };
 
+// *****************************
 // Initial state
+// *****************************
+
 export const initialAppState = {
   selections: {
     nodes: {
@@ -122,7 +146,10 @@ export const initialAppState = {
   }
 };
 
+// *****************************
 // State reducer
+// *****************************
+
 export function appStateReducer(state, action) {
   switch (action.type) {
     case ACTION_TYPES.SET_NODE_SELECTION:
@@ -396,7 +423,10 @@ export function appStateReducer(state, action) {
   }
 }
 
+// *****************************
 // Action creators
+// *****************************
+
 export const actions = {
   setNodeSelection: (nodeIds, selectionOrder) => ({
     type: ACTION_TYPES.SET_NODE_SELECTION,

@@ -1,4 +1,22 @@
 // src/persistence/index.js
+
+/**
+ * Persistence Bridge (localStorage / URL / CDN)
+ *
+ * Responsibilities
+ * - Read/write map state from:
+ *   - Local storage (draft autosave).
+ *   - URL query params (share small maps quickly).
+ *   - CDN helpers for hosted test assets and placeholder images.
+ *
+ * Exports
+ * - loadFromUrl(), loadFromLocalStorage(), saveToLocalStorage(state)
+ * - serializeToUrl(state), serializeToJson(state), parseFromJson(json)
+ *
+ * Gotchas
+ * - Keep schema versioning in mind; use rumorMapValidation on load paths.
+ */
+
 import { deserializeGraph, serializeGraph } from "../graph/ops.js";
 
 const STORAGE_KEY = "ship_log_map_v1";

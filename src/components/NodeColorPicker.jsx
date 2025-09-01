@@ -1,3 +1,15 @@
+// src/components/NodeColorPicker.jsx
+
+/**
+ * NodeColorPicker — Choose node color from design tokens
+ *
+ * Responsibilities
+ * - Provides a constrained palette tied to styles/tokens.js.
+ *
+ * Props
+ * - value, onChange(color)
+ */
+
 import React from "react";
 
 const NodeColorPicker = ({ selectedNodeIds, onNodeColorChange }) => {

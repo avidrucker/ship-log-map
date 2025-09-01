@@ -1,3 +1,21 @@
+// src/rumorMapValidation.js
+
+/**
+ * Rumor Map Schema Validation
+ *
+ * Responsibilities
+ * - Validate imported JSON against project’s expected graph schema.
+ * - Normalize/repair minor shape issues where safe (e.g., missing fields).
+ * - Surface actionable errors for users when import fails.
+ *
+ * Exports
+ * - loadAndValidateRumorMapFromFile(file): Promise<{nodes, edges, meta}>
+ * - validateRumorMap(obj): { valid, errors[], normalized }
+ *
+ * Gotchas
+ * - Never mutate caller data structures—return normalized copies.
+ */
+
 /**
  * Validation functions for Rumor Map data structures
  * These functions can be unit tested to ensure data integrity

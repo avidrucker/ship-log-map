@@ -1,3 +1,20 @@
+// src/components/BgImageModal.jsx
+
+/**
+ * BgImageModal — Manage background image asset & settings
+ *
+ * Responsibilities
+ * - Upload/replace/delete the background image.
+ * - Configure visibility, include-in-export, opacity, and transform nudges.
+ *
+ * Props
+ * - isOpen, onClose
+ * - bgImage, onChange(partial), onLoadImage(file|url), onDeleteImage()
+ *
+ * UX Notes
+ * - Non-square images are converted into square images by taking the center-most-square
+ */
+
 import React, { useRef } from "react";
 
 function BgImageModal({

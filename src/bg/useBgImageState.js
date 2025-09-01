@@ -1,4 +1,17 @@
 // src/bg/useBgImageState.js
+
+/**
+ * useBgImageState — Background image state + helpers
+ *
+ * Responsibilities
+ * - Encapsulates bg image metadata (src, x, y, scale, opacity, included, visible).
+ * - Exposes load/delete/toggle/transform helpers for App to compose.
+ *
+ * Returns
+ * - [bgImage, actions] where actions = { load(src), remove(), setVisible(bool),
+ *   setIncluded(bool), setTransform({x,y,scale,opacity}) }
+ */
+
 import { useCallback, useEffect, useState } from "react";
 import { printDebug } from "../utils/debug";
 

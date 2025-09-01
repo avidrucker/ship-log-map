@@ -1,6 +1,21 @@
 // src/utils/rotation.js
 import { printDebug } from '../utils/debug.js';
 
+/**
+ * Rotation Utilities (graph + compass)
+ *
+ * Responsibilities
+ * - Pure math for rotating points/nodes 90° steps and updating orientation.
+ *
+ * Exports
+ * - rotatePoint90Clockwise(x, y) -> {x, y}
+ * - rotateNodes90Clockwise(nodes) -> nodes
+ * - incrementOrientationBy90(deg) -> 0|90|180|270
+ *
+ * Guarantees
+ * - No side effects; safe for unit tests.
+ */
+
 // Utility helpers for rotating node coordinates and orientation
 // Rotation is around the origin (0,0). A 90° clockwise rotation maps (x, y) -> (-y, x)
 // NOTE: My coordinate system has inverted Y (screen coords).

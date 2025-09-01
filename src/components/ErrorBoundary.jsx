@@ -1,3 +1,13 @@
+// src/components/ErrorBoundary.jsx
+
+/**
+ * ErrorBoundary — Catch React render errors
+ *
+ * Responsibilities
+ * - Wraps critical UI to prevent white-screen on unexpected errors.
+ * - Renders a fallback UI and logs via utils/debug.
+ */
+
 import React from 'react';
 
 class ErrorBoundary extends React.Component {
