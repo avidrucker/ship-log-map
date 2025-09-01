@@ -1,16 +1,27 @@
+// src/components/GraphControls.jsx
+
+/**
+ * GraphControls — Toolbar for graph editing/viewing
+ *
+ * Responsibilities
+ * - Buttons/toggles for add/delete nodes/edges, layout, fit, rotate, selections,
+ *   background image visibility, compass, and import/export helpers.
+ * - Presents contextual controls based on current mode.
+ *
+ * Props (selected)
+ * - mode, onModeChange(mode)
+ * - selection info + callbacks (delete, rotate, fit)
+ * - bgImage + onToggleBgImageVisible
+ * - cdnBaseUrl + onLoadFromCdn
+ *
+ * UX Notes
+ * - Keep critical actions grouped and keyboard-accessible.
+ */
+
 import React from "react";
 import NodeColorPicker from "./NodeColorPicker";
 import { DEV_MODE } from "../config/features";
-
-function HamburgerIcon({ color = '#fff', size = 18 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <rect x="3" y="6" width="18" height="2" fill={color}></rect>
-      <rect x="3" y="11" width="18" height="2" fill={color}></rect>
-      <rect x="3" y="16" width="18" height="2" fill={color}></rect>
-    </svg>
-  );
-}
+import { HamburgerIcon } from "./HamburgerIcon";
 
 function GraphControls({
   // editing-only actions
