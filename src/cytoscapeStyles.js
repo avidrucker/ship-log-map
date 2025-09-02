@@ -228,6 +228,18 @@ const noteCountRules = [
       'text-margin-y': NODE_SIZES.small['background-position-y'] / 2
     } },
   { selector: 'node.note-count.hidden', 
+    style: { 'display': 'none' } },
+  
+    // EDGE NOTE COUNT NODES
+  { selector: 'node.edge-note-count', style: noteCountBase },
+  { selector: 'node.edge-note-count', 
+    style: { 'width': NODE_SIZES.regular.width, 
+      'height': NODE_SIZES.regular.height, 
+      'font-size': 80, 
+      'text-outline-width': 3,
+      'text-margin-y': NODE_SIZES.regular['background-position-y'] / 2
+    } },
+  { selector: 'node.edge-note-count.hidden', 
     style: { 'display': 'none' } }
 ];
 
