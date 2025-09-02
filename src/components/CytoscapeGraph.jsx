@@ -111,17 +111,24 @@ function CytoscapeGraph({
           onBackgroundClick,
           onNodeMove,
           onZoomChange,
-          onCameraMove
+          onCameraMove,
+          notes
         }, mode);
 
         // Store the cleanup function for later use
         cyRef.current._eventCleanup = off;
 
         if (onCytoscapeInstanceReady) onCytoscapeInstanceReady(cy);
-        // Initial note-count overlay creation if enabled
+        // Initial note-count overlay creation if enabled - delay to ensure cy is fully ready
         if (showNoteCountOverlay) {
-          ensureNoteCountNodes(cy, notes, showNoteCountOverlay);
-          updateNoteCounts(cy, notes);
+          setTimeout(() => {
+            try {
+              ensureNoteCountNodes(cy, notes, showNoteCountOverlay);
+              updateNoteCounts(cy, notes);
+            } catch (error) {
+              console.warn('Failed to create initial note count overlays:', error);
+            }
+          }, 100);
         }
       } catch (error) {
         printError('Failed to initialize Cytoscape:', error);
@@ -171,14 +178,15 @@ function CytoscapeGraph({
       onBackgroundClick,
       onNodeMove,
       onZoomChange,
-      onCameraMove
+      onCameraMove,
+      notes
     }, mode);
 
     // Store the new cleanup function
     cyRef.current._eventCleanup = off;
 
     // No cleanup needed here since we handle it in the next effect run or on unmount
-  }, [onNodeSelectionChange, onEdgeSelectionChange, onNodeClick, onEdgeClick, onNodeDoubleClick, onEdgeDoubleClick, onBackgroundClick, onNodeMove, onZoomChange, onCameraMove, mode]);
+  }, [onNodeSelectionChange, onEdgeSelectionChange, onNodeClick, onEdgeClick, onNodeDoubleClick, onEdgeDoubleClick, onBackgroundClick, onNodeMove, onZoomChange, onCameraMove, mode, notes]);
 
   // Sync when domain elements change
   // Note: mode is included as dependency because it affects grabbable property in buildElements
@@ -464,12 +472,40 @@ function CytoscapeGraph({
 
   // Note count overlay management (Cytoscape child nodes instead of HTML overlays)
   useEffect(() => {
-    if (!cyRef.current) return; const cy = cyRef.current;
+    if (!cyRef.current) return; 
+    const cy = cyRef.current;
     ensureNoteCountNodes(cy, notes, showNoteCountOverlay);
     updateNoteCounts(cy, notes);
-    cy.on('add remove', () => { ensureNoteCountNodes(cy, notes, showNoteCountOverlay); });
-    return () => { cy.off('add remove'); };
+    
+    const handleGraphChange = () => { 
+      ensureNoteCountNodes(cy, notes, showNoteCountOverlay); 
+    };
+    
+    cy.on('add remove', handleGraphChange);
+    return () => { 
+      cy.off('add remove', handleGraphChange); 
+    };
   }, [showNoteCountOverlay, notes]);
+
+  // Position listener for real-time edge note-count updates
+  const notesRef = useRef(notes);
+  useEffect(() => { notesRef.current = notes; }, [notes]);
+
+  useEffect(() => {
+    const cy = cyRef.current;
+    if (!cy) return;
+
+    const handleNodePosition = () => {
+      updateNoteCounts(cy, notesRef.current);
+    };
+
+    // Listen for position changes on entry-parent nodes only
+    cy.on('position', 'node.entry-parent', handleNodePosition);
+
+    return () => {
+      cy.off('position', 'node.entry-parent', handleNodePosition);
+    };
+  }, []); // Empty dependency array - uses notesRef.current
 
   return (
     <div

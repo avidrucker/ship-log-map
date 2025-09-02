@@ -34,6 +34,7 @@ import { printDebug } from "../utils/debug.js"; // printWarn
 const GRAYSCALE_CACHE_KEY = 'shipLogGrayscaleCache';
 const grayscaleCache = new Map();
 const pendingConversions = new Set();
+const BASE_NODE_HEIGHT = 175;
 
 // Track pending image loads to prevent duplicate requests
 const pendingImageLoads = new Set();
@@ -596,6 +597,12 @@ export function wireEvents(cy, handlers = {}, mode = 'editing') {
   cy.on('dragfree', 'node.entry-parent', (evt) => {
     syncParentStateToChild(evt.target);
     if (onNodeMove) { const { x, y } = evt.target.position(); onNodeMove(evt.target.id(), { x, y }); }
+    
+    // Update edge note-count positions immediately after drag
+    // We need to get notes from somewhere - let's add it to the handlers
+    if (handlers.notes) {
+      updateNoteCounts(cy, handlers.notes);
+    }
   });
 
   // Add mouseup, wheel, touchend, and touchmove listeners to trigger camera update only after pan/zoom ends
@@ -653,30 +660,156 @@ export function wireEvents(cy, handlers = {}, mode = 'editing') {
 }
 
 export function ensureNoteCountNodes(cy, notes, visible) {
-  if (!cy) return; if (cy._noteCountUpdating) return; cy._noteCountUpdating = true;
+  if (!cy) return; 
+  if (cy._noteCountUpdating) return; 
+  
+  // Ensure cy is not destroyed before proceeding
+  if (cy.destroyed()) return;
+  
+  cy._noteCountUpdating = true;
+  
   try {
+    // Handle node note-counts (only create if count > 0)
     cy.nodes('.entry-parent').forEach(parent => {
       const id = parent.id();
       const size = parent.data('size') || 'regular';
       const count = Array.isArray(notes[id]) ? notes[id].length : 0;
       const noteId = `${id}__noteCount`;
       let noteNode = cy.getElementById(noteId);
-      if (noteNode.empty()) {
-        noteNode = cy.add({ group: 'nodes', data: { id: noteId, parent: id, label: String(count), size }, position: parent.position(), selectable: false, grabbable: false, classes: 'note-count' });
+      
+      if (count > 0) {
+        // Create or update node with notes
+        if (noteNode.empty()) {
+          noteNode = cy.add({ 
+            group: 'nodes', 
+            data: { id: noteId, parent: id, label: String(count), size }, 
+            position: parent.position(), 
+            selectable: false, 
+            grabbable: false, 
+            classes: 'note-count' 
+          });
+        } else {
+          noteNode.data('label', String(count));
+          noteNode.data('size', size);
+        }
+        if (visible) noteNode.removeClass('hidden'); 
+        else noteNode.addClass('hidden');
       } else {
-        noteNode.data('label', String(count));
-        noteNode.data('size', size);
+        // Remove node if no notes
+        if (!noteNode.empty()) {
+          cy.remove(noteNode);
+        }
       }
-      if (visible && count > 0) noteNode.removeClass('hidden'); else noteNode.addClass('hidden');
     });
-    cy.nodes('.note-count').forEach(n => { if (!n.parent() || !n.parent().hasClass('entry-parent')) cy.remove(n); });
-  } finally { cy._noteCountUpdating = false; }
+
+    // Handle edge note-counts (only create if count > 0)
+    cy.edges().forEach(edge => {
+      try {
+        const id = edge.id();
+        const count = Array.isArray(notes[id]) ? notes[id].length : 0;
+        const noteId = `${id}__noteCount`;
+        let noteNode = cy.getElementById(noteId);
+
+        if (count > 0) {
+          // Calculate midpoint position
+          const sourceNode = edge.source();
+          const targetNode = edge.target();
+          
+          // Skip if edge references non-existent nodes
+          if (!sourceNode || !targetNode || sourceNode.length === 0 || targetNode.length === 0) {
+            return;
+          }
+          
+          const srcPos = sourceNode.position();
+          const tgtPos = targetNode.position();
+          const offsetY = -BASE_NODE_HEIGHT / 8;
+          const midX = (srcPos.x + tgtPos.x) / 2;
+          const midY = (srcPos.y + tgtPos.y) / 2 + offsetY;
+
+          if (noteNode.empty()) {
+            noteNode = cy.add({
+              group: 'nodes',
+              data: { id: noteId, label: String(count), size: 'small' },
+              position: { x: midX, y: midY },
+              selectable: false,
+              grabbable: false,
+              classes: 'note-count edge-note-count'
+            });
+          } else {
+            noteNode.data('label', String(count));
+            noteNode.position({ x: midX, y: midY });
+          }
+          if (visible) noteNode.removeClass('hidden'); 
+          else noteNode.addClass('hidden');
+        } else {
+          // Remove edge note-count if no notes
+          if (!noteNode.empty()) {
+            cy.remove(noteNode);
+          }
+        }
+      } catch (error) {
+        console.warn(`Failed to process edge note-count for edge ${edge.id()}:`, error);
+      }
+    });
+
+    // Clean up orphaned note-count nodes
+    cy.nodes('.note-count').forEach(n => {
+      const isNodeNote = n.id().endsWith('__noteCount') && n.parent() && n.parent().hasClass('entry-parent');
+      const isEdgeNote = n.id().endsWith('__noteCount') && n.hasClass('edge-note-count');
+      if (!isNodeNote && !isEdgeNote) {
+        cy.remove(n);
+      }
+    });
+  } finally { 
+    cy._noteCountUpdating = false; 
+  }
 }
 
 export function updateNoteCounts(cy, notes) {
-  if (!cy) return;
+  if (!cy || cy._noteCountUpdating) return;
+  
+  // Ensure cy is not destroyed before proceeding
+  if (cy.destroyed()) return;
+  
+  // Update node note-counts
   cy.nodes('.note-count').forEach(n => {
-    const parent = n.parent(); if (!parent.empty()) { const id = parent.id(); const count = Array.isArray(notes[id]) ? notes[id].length : 0; n.data('label', String(count)); n.data('size', parent.data('size') || 'regular'); }
+    const parent = n.parent(); 
+    if (!parent.empty()) { 
+      const id = parent.id(); 
+      const count = Array.isArray(notes[id]) ? notes[id].length : 0; 
+      n.data('label', String(count)); 
+      n.data('size', parent.data('size') || 'regular'); 
+    }
+  });
+  
+  // Update edge note-counts and their positions
+  cy.nodes('.edge-note-count').forEach(n => {
+    try {
+      const edgeId = n.id().replace('__noteCount', '');
+      const count = Array.isArray(notes[edgeId]) ? notes[edgeId].length : 0;
+      n.data('label', String(count));
+      
+      // Recompute position in case edge moved
+      const edge = cy.getElementById(edgeId);
+      if (edge && edge.length) {
+        const sourceNode = edge.source();
+        const targetNode = edge.target();
+        
+        // Skip if edge references non-existent nodes
+        if (!sourceNode || !targetNode || sourceNode.length === 0 || targetNode.length === 0) {
+          return;
+        }
+        
+        const srcPos = sourceNode.position();
+        const tgtPos = targetNode.position();
+        const offsetY = -BASE_NODE_HEIGHT / 8;
+        const midX = (srcPos.x + tgtPos.x) / 2;
+        const midY = (srcPos.y + tgtPos.y) / 2 + offsetY;
+        n.position({ x: midX, y: midY });
+      }
+    } catch (error) {
+      console.warn(`Failed to update edge note-count for node ${n.id()}:`, error);
+    }
   });
 }
 
