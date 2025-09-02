@@ -744,3 +744,25 @@ export async function forceNodeImageUpdate(nodeId, imagePath, mapName, cdnBaseUr
     return false;
   }
 }
+
+export function debugPrintEntireGraph(cy) {
+  if (!cy) {
+    console.warn("No Cytoscape instance provided.");
+    return;
+  }
+  const nodes = cy.nodes().map(n => ({
+    id: n.id(),
+    classes: n.classes(),
+    position: n.position(),
+    data: n.data()
+  }));
+  const edges = cy.edges().map(e => ({
+    id: e.id(),
+    source: e.source().id(),
+    target: e.target().id(),
+    classes: e.classes(),
+    data: e.data()
+  }));
+  console.log("Cytoscape Nodes:", nodes);
+  console.log("Cytoscape Edges:", edges);
+}
