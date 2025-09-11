@@ -78,7 +78,7 @@
 - [x] Implement sharing where, in the sharing modal, the user can copy a second newly available link which will add a query param of "editing=true" which will enable editing mode for the map when it is loaded. Also, when there are no query params, the app will have editing mode (and mode switching) enabled. To reiterate, if the app is has query params and the editing query param is not set to true, then the app will load the map in playing mode only and will not allow mode switching.
 - [ ] Fix bug where, loading in a new map from the CDN doesn't appear to update the compass visibility/direction
 - [ ] Implement conflict resolution modal that informs the user if the graph data from CDN and the graph data (names, node locations, edge directions, node count, edge count, node color, node size, etc.) in local storage differ, and if so, which map would they like to continue with, and update local storage with CDN graph data if the user chooses the CDN graph as well as update the app visually the graph data from the CDN
-- [ ] Fix bug where, for example, when working in local dev map http://localhost:5173/ship-log-map/?map=https%3A%2F%2Favidrucker.github.io%2Fimg-test-1%2FGaia%2520Yoga%2Fgaia_yoga.json&editing=true that, on page refresh, the app resets the camera to fit the map instead of keeping the current camera position and zoom level, and also reverts the compass display back to the CDN state instead of keeping the current (local storage saved) compass display state
+- [ ] Fix bug where, for example, when working in local dev map http://localhost:5173/ship-log-map/?map=https%3A%2F%2Favidrucker.github.io%2Fimg-test-1%2FGaia%2520Yoga%2Fgaia_yoga.json&canedit=true that, on page refresh, the app resets the camera to fit the map instead of keeping the current camera position and zoom level, and also reverts the compass display back to the CDN state instead of keeping the current (local storage saved) compass display state
 - [x] Implement a "Reload" button in the Universal Controls that fully reloads the current map from the specified CDN URL, which can be used to discard any unsaved changes and revert to the last saved state in the CDN
 - [ ] Create icon for the app
   - [ ] Add new icon to the app
@@ -93,6 +93,10 @@
 - [ ] Switch from using 100x100 jpeg thumbnails to larger 500x500 webp images
 - [ ] Experiment with using composite images as tilesheets/spritesheets to improve performance and loading times
 - [ ] Create "update history" which, in editing mode, simply shows what changes have been made to the map since it was last loaded (e.g. moved "Node A" from (x,y) to (x',y') OR "added picture to node B").
+- [ ] Implement "export to image" feature that allows users to export the current map view as a PNG or JPEG image
+- [ ] Implement "read history" where, in playing mode, the user can see a list of nodes they have visited and read visually by seeing where an icon indicator is shown or not (exclamation icon for unread, nothing for read)
+- [ ] Implement typewriter animation for notes in the Note Viewer Modal (note: once a note has been viewed, it doesn't play the animation again, it just shows the full note text)
+- [ ] Create and import custom chevron icon for edge arrows that more closely matches the original source material
 
 Notes for Future Features
 - Listing out "layers" which show things such as electrical lines, water lines, Internet, etc. that can be toggled on and off
