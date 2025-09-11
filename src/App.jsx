@@ -142,23 +142,6 @@ function normalizeGraphData(data) {
     direction: e.direction ?? "forward"
   }));
 
-  // const bgImage = data?.bgImage && typeof data.bgImage === "object" ? {
-  //   // imageUrl: typeof data.bgImage.imageUrl === "string" ? data.bgImage.imageUrl : "",
-  //   x: Number.isFinite(data.bgImage.x) ? data.bgImage.x : 0,
-  //   y: Number.isFinite(data.bgImage.y) ? data.bgImage.y : 0,
-  //   scale: Number.isFinite(data.bgImage.scale) ? data.bgImage.scale : 100,
-  //   opacity: Number.isFinite(data.bgImage.opacity) ? data.bgImage.opacity : 100,
-  //   visible: typeof data.bgImage.visible === "boolean" ? data.bgImage.visible : false,
-  //   included: typeof data.bgImage.included === "boolean" ? data.bgImage.included : false
-  // } : {
-  //   imageUrl: "",
-  //   x: 0,
-  //   y: 0,
-  //   scale: 100,
-  //   opacity: 100,
-  //   visible: false
-  // };
-
   return { nodes: normNodes, edges: normEdges, notes, mode, mapName, cdnBaseUrl, orientation, compassVisible, bgImage };
 }
 
