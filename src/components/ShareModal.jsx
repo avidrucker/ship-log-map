@@ -35,7 +35,7 @@ function ShareModal({
   const shareUrl = cdnJsonUrl ? `${window.location.origin}${window.location.pathname}?map=${encodeURIComponent(cdnJsonUrl)}` : '';
 
   // Construct the shareable app URL (editing mode)
-  const shareUrlEditing = cdnJsonUrl ? `${window.location.origin}${window.location.pathname}?map=${encodeURIComponent(cdnJsonUrl)}&editing=true` : '';
+  const shareUrlEditing = cdnJsonUrl ? `${window.location.origin}${window.location.pathname}?map=${encodeURIComponent(cdnJsonUrl)}&canedit=true` : '';
 
   const handleCopyUrl = useCallback(async () => {
     try {

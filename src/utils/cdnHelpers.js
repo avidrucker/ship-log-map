@@ -56,10 +56,11 @@ export async function loadMapFromCdn(mapUrl) {
   }
 }
 
-export function getEditingEnabledFromQuery() {
+// previously getEditingEnabledFromQuery
+export function getCanEditFromQuery() {
   const urlParams = new URLSearchParams(window.location.search);
-  const editing = urlParams.get('editing');
-  return editing === 'true';
+  const canedit = urlParams.get('canedit');
+  return canedit === 'true';
 }
 
 export function hasAnyQueryParams() {
@@ -117,7 +118,15 @@ export async function handleLoadFromCdn({
     if (result.success) {
       const g1 = normalizeGraphData(result.data);
       const g2 = hydrateCoordsIfMissing(g1, defaultShipLogData);
-      setGraphData(g2);
+
+      // Determine effective mode based on canedit + presence of ANY query params
+      const search = window.location.search;
+      const hasQuery = !!(search && search.length > 1);
+      const params = new URLSearchParams(search);
+      const canEdit = (params.get('canedit') === 'true') || !hasQuery;
+      const effectiveMode = canEdit ? (typeof g1.mode === 'string' ? g1.mode : 'editing') : 'playing';
+      const g2WithMode = { ...g2, mode: effectiveMode };
+      setGraphData(g2WithMode);
 
     // 🖼️ Background image: honor JSON + default filename
     try {
@@ -163,9 +172,7 @@ export async function handleLoadFromCdn({
       setBgImage?.({ imageUrl: "", x: 0, y: 0, scale: 100, opacity: 100, visible: false, included: false });
     }
 
-      if (typeof g1.mode === 'string') {
-        dispatchAppState({ type: ACTION_TYPES.SET_MODE, payload: { mode: g1.mode } });
-      }
+      dispatchAppState({ type: ACTION_TYPES.SET_MODE, payload: { mode: effectiveMode } });
       if (typeof g1.mapName === 'string') {
         dispatchAppState({ type: ACTION_TYPES.SET_MAP_NAME, payload: { mapName: g1.mapName } });
       }

@@ -60,6 +60,7 @@ import { loadOrientationFromLocal, saveOrientationToLocal, loadCompassVisibleFro
 import { edgeId, renameNode } from "./graph/ops.js";
 import { printDebug } from "./utils/debug.js";
 import { rotateCompassOnly, rotateNodesAndCompass } from './utils/rotation.js';
+import { getCanEditFromQuery } from "./utils/cdnHelpers.js";
 
 // Add CSS for spinner animation
 const SPINNER_CSS = `
@@ -179,17 +180,12 @@ function hydrateCoordsIfMissing(graph, defaultGraph) {
 
 function App() {
 
-  function getEditingEnabledFromQuery() {
-    const urlParams = new URLSearchParams(window.location.search);
-    const editing = urlParams.get('editing');
-    return editing === 'true';
-  }
-
   function hasAnyQueryParams() {
     return window.location.search && window.location.search.length > 1;
   }
   
-  const editingEnabled = getEditingEnabledFromQuery() || !hasAnyQueryParams();
+  // previously editingEnabled, getEditingEnabledFromQuery
+  const canEdit = getCanEditFromQuery() || !hasAnyQueryParams();
 
   const fileInputRef = useRef(null);
   // Guard to prevent multiple simultaneous close operations (avoids multi animation)
@@ -255,15 +251,11 @@ function App() {
       })()
     },
     mode: (() => {
-      // If editing is not enabled, force playing mode
-      if (!editingEnabled) {
-        return 'playing';
-      }
-      // Try to get mode from loaded graph data first, then from localStorage
+      // If canEdit is false → hard-read-only
+      if (!canEdit) return 'playing';
+      // Prefer persisted mode to preserve across refresh; else fallback to stored graph or default
       const saved = loadFromLocal();
-      if (saved && typeof saved.mode === 'string') {
-        return saved.mode;
-      }
+      if (saved && typeof saved.mode === 'string') return saved.mode;
       return loadModeFromLocal();
     })(),
     mapName: (() => {
@@ -284,9 +276,9 @@ function App() {
     ui: {
       shouldFitOnNextRender: false,
       loadError: null,
-      universalMenuCollapsed: !editingEnabled ? true : loadUniversalMenuCollapsed(),
-      graphControlsCollapsed: !editingEnabled ? true : loadGraphControlsCollapsed(),
-      cameraInfoCollapsed: !editingEnabled ? true : loadCameraInfoCollapsed(),
+      universalMenuCollapsed: !canEdit ? true : loadUniversalMenuCollapsed(),
+      graphControlsCollapsed: !canEdit ? true : loadGraphControlsCollapsed(),
+      cameraInfoCollapsed: !canEdit ? true : loadCameraInfoCollapsed(),
       compassVisible: loadCompassVisibleFromLocal()
     },
     undo: {
@@ -435,15 +427,22 @@ useEffect(() => {
           const hydratedData = hydrateCoordsIfMissing(normalizedData, defaultShipLogData);
 
           // --- MODE OVERRIDE LOGIC ---
-          const editingEnabledFromQuery = getEditingEnabledFromQuery();
+          // This is the bit that ensures refresh doesn’t yank the mode back to the JSON value when canedit=true or there are no params.
+          // previously getEditingEnabledFromQuery
+          const canEditFromQuery = getCanEditFromQuery();
           const hasQueryParams = hasAnyQueryParams();
           let forcedMode;
-          if (editingEnabledFromQuery) {
-            forcedMode = 'editing';
+          if (canEditFromQuery) {
+            // canedit=true: preserve current/saved on refresh; fallback to JSON
+            const savedMode = (typeof loadModeFromLocal === 'function') ? loadModeFromLocal() : null;
+            forcedMode = savedMode || hydratedData.mode || 'editing';
           } else if (hasQueryParams) {
+            // Query params present but *no* canedit=true → read-only
             forcedMode = 'playing';
           } else {
-            forcedMode = hydratedData.mode || 'editing';
+            // No query params → editable link; preserve saved, else honor JSON
+            const savedMode = (typeof loadModeFromLocal === 'function') ? loadModeFromLocal() : null;
+            forcedMode = savedMode || hydratedData.mode || 'editing';
           }
           const hydratedDataWithMode = { ...hydratedData, mode: forcedMode };
           setGraphData(hydratedDataWithMode);
@@ -685,12 +684,15 @@ useEffect(() => {
         // normalize, hydrate coords, persist
         const g1 = normalizeGraphData(result.data);
         const g2 = hydrateCoordsIfMissing(g1, defaultShipLogData);
-        setGraphData(g2);
-
-        // Set mode if it's included in the imported data
-        if (typeof g1.mode === 'string') {
-          dispatchAppState({ type: ACTION_TYPES.SET_MODE, payload: { mode: g1.mode } });
-        }
+        // Decide effective mode from URL policy
+        const search = window.location.search;
+        const hasQuery = !!(search && search.length > 1);
+        const params = new URLSearchParams(search);
+        const canEditNow = (params.get('canedit') === 'true') || !hasQuery;
+        const importedMode = (typeof g1.mode === 'string') ? g1.mode : 'editing';
+        const effectiveMode = canEditNow ? importedMode : 'playing';
+        setGraphData({ ...g2, mode: effectiveMode });
+        dispatchAppState({ type: ACTION_TYPES.SET_MODE, payload: { mode: effectiveMode } });
 
         // Set map name if it's included in the imported data
         if (typeof g1.mapName === 'string') {
@@ -1602,7 +1604,7 @@ useEffect(() => {
         />
       )}
 
-      {editingEnabled && (
+      {canEdit && (
         <GraphControls
           selectedNodes={selectedNodeIds}
           selectedEdges={selectedEdgeIds}
@@ -1632,7 +1634,7 @@ useEffect(() => {
         fileInputRef={fileInputRef}
         onImportFile={handleFileSelect}
         onFitToView={handleFitToView}
-        onModeToggle={editingEnabled ? handleModeToggle : undefined}
+        onModeToggle={canEdit ? handleModeToggle : undefined}
         mode={mode}
         showNoteCountOverlay={showNoteCountOverlay}
         onToggleNoteCountOverlay={handleToggleNoteCountOverlay}
@@ -1687,7 +1689,7 @@ useEffect(() => {
         cdnBaseUrl={cdnBaseUrl}
       />
 
-      {(!CAMERA_INFO_HIDDEN && editingEnabled) && (
+      {(!CAMERA_INFO_HIDDEN && canEdit) && (
         <CameraInfo
           zoom={zoomLevel}
           pan={cameraPosition}
