@@ -134,14 +134,15 @@ function UniversalControls({
         Comp {compassVisible ? 'ON' : 'OFF'}
       </button>
       {
-        (bgImage.imageUrl !== null &&
-        bgImage.imageUrl !== "") &&
+        (bgImage?.imageUrl && 
+         bgImage.imageUrl !== null &&
+         bgImage.imageUrl !== "") &&
       <button
-        style={{ padding: '6px 10px', background: bgImage.visible ? '#4caf50' : '#666', color: '#fff', border: `1px solid ${bgImage.visible ? '#388e3c' : '#555'}`, cursor: 'pointer' }}
+        style={{ padding: '6px 10px', background: bgImage?.visible ? '#4caf50' : '#666', color: '#fff', border: `1px solid ${bgImage?.visible ? '#388e3c' : '#555'}`, cursor: 'pointer' }}
         onClick={onToggleBgImageVisible}
-        title={bgImage.visible ? 'Hide Background Image' : 'Show Background Image'}
+        title={bgImage?.visible ? 'Hide Background Image' : 'Show Background Image'}
       >
-        Show Img {bgImage.visible ? 'ON' : 'OFF'}
+        Show Img {bgImage?.visible ? 'ON' : 'OFF'}
       </button>
       }
     </div>

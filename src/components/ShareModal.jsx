@@ -26,7 +26,7 @@ function ShareModal({
   const [copyStatus, setCopyStatus] = useState('');
 
   // Construct the JSON filename from map name
-  const jsonFileName = `${mapName.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_-]/g, '')}.json`;
+  const jsonFileName = `${(mapName || 'untitled_map').toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_-]/g, '')}.json`;
   
   // Construct the full CDN JSON URL
   const cdnJsonUrl = cdnBaseUrl ? `${cdnBaseUrl.replace(/\/$/, '')}/${jsonFileName}` : '';
