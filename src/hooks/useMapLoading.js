@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { normalizeGraphData, hydrateCoordsIfMissing } from '../utils/mapHelpers';
 import { printDebug } from '../utils/debug';
 import { loadMapFromCdn, getCanEditFromQuery, hasAnyQueryParams } from '../utils/cdnHelpers';
@@ -41,6 +41,11 @@ export function useMapLoading({
   cdnBaseUrl,
   ACTION_TYPES
 }) {
+
+  // ⚠️ StrictMode in dev mounts effects twice; this latch prevents duplicate work before state catches up
+  const hasRunUrlCheckRef = useRef(false);
+
+
   // URL monitoring effect - handles initial load and popstate navigation
   useEffect(() => {
     printDebug('🚨🚨🚨 [URL EFFECT] URL monitoring effect initialized - VERSION 4.0 (useMapLoading) 🚨🚨🚨');
@@ -60,6 +65,12 @@ export function useMapLoading({
 
       // Only load if the normalized map URL has changed and is non-empty
       if (normalizedMapUrl && normalizedMapUrl !== appState.lastLoadedMapUrl) {
+        // 🚫 Prevent duplicate in-flight loads of the *same* URL
+        if (currentCdnLoadRef.current === normalizedMapUrl) {
+          printDebug('[URL EFFECT] 🚫 Duplicate in-flight load detected, skipping:', normalizedMapUrl);
+          return;
+        }
+        
         printDebug('[URL EFFECT] ✅ CONDITION MET - Map URL changed, loading from CDN:', normalizedMapUrl);
 
         // Set loading state
@@ -185,7 +196,12 @@ export function useMapLoading({
 
     // Initial check on mount
     printDebug('[URL EFFECT] Running initial URL check');
-    handleURLChange();
+    if (hasRunUrlCheckRef.current) {
+      printDebug('[URL EFFECT] Skipping duplicate initial check (StrictMode)');
+    } else {
+      hasRunUrlCheckRef.current = true;
+      handleURLChange();
+    }
 
     // Listen for popstate events (back/forward navigation)
     window.addEventListener('popstate', handleURLChange);

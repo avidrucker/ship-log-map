@@ -109,6 +109,9 @@ const imageCache = new ImageCache();
 // Placeholder state tracking per mapName
 const placeholderLoadPromises = new Map(); // mapName -> Promise
 
+// In-flight fetch coalescing (avoids duplicate network hits)
+const inflightFetches = new Map(); // key: `${fullSize}:${finalUrl}`
+
 async function fetchBlob(url, cacheMode = 'force-cache') {
   const started = Date.now();
   const resp = await fetch(url, { cache: cacheMode });
@@ -231,57 +234,74 @@ export async function loadImageWithFallback(imagePath, mapName = '', cdnBaseUrlO
   const primaryUrl = buildCdnUrl(cdnBaseUrl, mapName, imagePath);
   const diagKey = cacheKey;
 
-  const attemptFetch = async (url, cacheMode) => {
-    try {
-      recordImageAttempt(diagKey, { url, cacheMode, phase: 'fetch-start' });
-      const blob = await fetchBlob(url, cacheMode);
-      recordImageAttempt(diagKey, { url, cacheMode, phase: 'fetch-success', blobSize: blob.size });
-
-      if (fullSize) {
-        // For BG: return full image data URL and DO NOT CACHE
-        const dataUrl = await blobToDataUrl(blob);
-        return { success: true, dataUrl };
-      }
-
-      if (THUMBNAIL_ONLY_CACHE) {
-        const thumbUrl = await blobToThumbnailDataUrl(blob, thumbnailSize, 'image/webp', 0.85);
-        imageCache.set(cacheKey, thumbUrl);
-        return { success: true, dataUrl: thumbUrl };
-      } else {
-        const dataUrl = await blobToDataUrl(blob);
-        imageCache.set(cacheKey, dataUrl);
-        return { success: true, dataUrl };
-      }
-    } catch (e) {
-      recordImageAttempt(diagKey, { url, cacheMode, phase: 'fetch-error', error: e.message });
-      printDebug(`❌ [ImageLoader] Attempt failed url='${url}' cache='${cacheMode}' error='${e.message}'`);
-      return { success: false, error: e };
-    }
-  };
-
-  const cacheModes = ['force-cache', 'no-cache'];
-  const alternativeBases = buildAlternativeBaseUrls(cdnBaseUrl);
-  const urlsToTry = [primaryUrl];
-  alternativeBases.forEach(base => {
-    const altUrl = buildCdnUrl(base, mapName, imagePath);
-    if (altUrl && !urlsToTry.includes(altUrl)) urlsToTry.push(altUrl);
-  });
-
-  for (const url of urlsToTry) {
-    for (const mode of cacheModes) {
-      const res = await attemptFetch(url, mode);
-      if (res.success) {
-        finalizeImageAttempt(diagKey, 'success');
-        printDebug(`✅ [ImageLoader] Loaded '${imagePath}' from '${url}' (len=${res.dataUrl.length})`);
-        return res.dataUrl;
-      }
-    }
+  // Coalesce concurrent requests (especially helpful for BG fullSize loads)
+  const inflightKey = `${fullSize ? 'full' : 'thumb'}:${primaryUrl}`;
+  if (inflightFetches.has(inflightKey)) {
+    printDebug(`⏳ [ImageLoader] Using in-flight request for ${inflightKey}`);
+    return inflightFetches.get(inflightKey);
   }
 
-  printDebug(`🛑 [ImageLoader] All attempts failed for '${imagePath}'. Falling back to IMAGE_NOT_FOUND_SVG.`);
-  if (!fullSize) imageCache.set(cacheKey, IMAGE_NOT_FOUND_SVG);
-  finalizeImageAttempt(diagKey, 'fallback');
-  return IMAGE_NOT_FOUND_SVG;
+  const task = (async () => {
+    const attemptFetch = async (url, cacheMode) => {
+      try {
+        recordImageAttempt(diagKey, { url, cacheMode, phase: 'fetch-start' });
+        const blob = await fetchBlob(url, cacheMode);
+        recordImageAttempt(diagKey, { url, cacheMode, phase: 'fetch-success', blobSize: blob.size });
+
+        if (fullSize) {
+          // For BG: return full image data URL and DO NOT CACHE
+          const dataUrl = await blobToDataUrl(blob);
+          return { success: true, dataUrl };
+        }
+
+        if (THUMBNAIL_ONLY_CACHE) {
+          const thumbUrl = await blobToThumbnailDataUrl(blob, thumbnailSize, 'image/webp', 0.85);
+          imageCache.set(cacheKey, thumbUrl);
+          return { success: true, dataUrl: thumbUrl };
+        } else {
+          const dataUrl = await blobToDataUrl(blob);
+          imageCache.set(cacheKey, dataUrl);
+          return { success: true, dataUrl };
+        }
+      } catch (e) {
+        recordImageAttempt(diagKey, { url, cacheMode, phase: 'fetch-error', error: e.message });
+        printDebug(`❌ [ImageLoader] Attempt failed url='${url}' cache='${cacheMode}' error='${e.message}'`);
+        return { success: false, error: e };
+      }
+    };
+
+    const cacheModes = ['force-cache', 'no-cache'];
+    const alternativeBases = buildAlternativeBaseUrls(cdnBaseUrl);
+    const urlsToTry = [primaryUrl];
+    alternativeBases.forEach(base => {
+      const altUrl = buildCdnUrl(base, mapName, imagePath);
+      if (altUrl && !urlsToTry.includes(altUrl)) urlsToTry.push(altUrl);
+    });
+
+    for (const url of urlsToTry) {
+      for (const mode of cacheModes) {
+        const res = await attemptFetch(url, mode);
+        if (res.success) {
+          finalizeImageAttempt(diagKey, 'success');
+          printDebug(`✅ [ImageLoader] Loaded '${imagePath}' from '${url}' (len=${res.dataUrl.length})`);
+          return res.dataUrl;
+        }
+      }
+    }
+
+    printDebug(`🛑 [ImageLoader] All attempts failed for '${imagePath}'. Falling back to IMAGE_NOT_FOUND_SVG.`);
+    if (!fullSize) imageCache.set(cacheKey, IMAGE_NOT_FOUND_SVG);
+    finalizeImageAttempt(diagKey, 'fallback');
+    return IMAGE_NOT_FOUND_SVG;
+  })();
+
+  inflightFetches.set(inflightKey, task);
+  try {
+    const result = await task;
+    return result;
+  } finally {
+    inflightFetches.delete(inflightKey);
+  }
 }
 
 // Preload list of nodes (only those with non-data imageUrl strings)

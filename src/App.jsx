@@ -1626,6 +1626,7 @@ useEffect(() => {
       )}
 
       <CytoscapeGraph
+        key={`graph-${cdnBaseUrl || 'none'}`}
         nodes={memoNodes}
         edges={memoEdges}
         mode={mode}

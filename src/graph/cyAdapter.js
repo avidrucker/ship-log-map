@@ -468,16 +468,33 @@ export async function mountCy({ container, graph, styles = cytoscapeStyles, mode
 
 // Replace elements with a fresh build from the domain state
 export function syncElements(cy, graph, options = {}) {
+  // Local helper used by the deferred post-pass below
   const onImageLoaded = (nodeId, imageUrl) => {
-    if (cy && cy.getElementById(nodeId).length > 0) {
-      cy.getElementById(nodeId).data('imageUrl', imageUrl);
+    if (!cy || cy.destroyed()) return;
+    // Make sure we're updating the child entry node
+    if (nodeId && !nodeId.endsWith('__entry')) {
+      const possibleChild = `${nodeId}__entry`;
+      if (cy.getElementById(possibleChild).length > 0) nodeId = possibleChild;
+    }
+    const el = cy.getElementById(nodeId);
+    if (el && el.length > 0) {
+      el.data('imageUrl', imageUrl);
       cy.style().update();
     }
   };
+
   const { mode = 'editing' } = options;
-  const newElements = buildElementsFromDomain(graph, { ...options, onImageLoaded, forceImageLoad: false, cdnBaseUrlOverride: graph.cdnBaseUrl });
+
+  // Build elements with placeholders (forceImageLoad: false) —
+  // actual network loads will be handled by the post-pass we add below.
+  const newElements = buildElementsFromDomain(
+    graph,
+    { ...options, onImageLoaded, forceImageLoad: false, cdnBaseUrlOverride: graph.cdnBaseUrl }
+  );
+
   printDebug(`🔄 [cyAdapter] Syncing elements`);
 
+  // Preserve camera & positions
   const currentZoom = cy.zoom();
   const currentPan = cy.pan();
   const currentPositions = {};
@@ -491,24 +508,25 @@ export function syncElements(cy, graph, options = {}) {
   const edgesChanged = JSON.stringify(currentEdges) !== JSON.stringify(newEdges);
 
   if (!nodesChanged && !edgesChanged) {
+    // Only data refresh
     newElements.forEach(newEl => {
       if (newEl.group === 'nodes') {
         const existingNode = cy.getElementById(newEl.data.id);
-        if (existingNode.length > 0) {
-          existingNode.data(newEl.data);
-        }
+        if (existingNode.length > 0) existingNode.data(newEl.data);
       } else if (newEl.group === 'edges') {
         const existingEdge = cy.getElementById(newEl.data.id);
         if (existingEdge.length > 0) existingEdge.data(newEl.data);
       }
     });
   } else {
+    // Full element set replace (but restore positions & camera)
     cy.json({ elements: newElements });
     cy.nodes().forEach(node => {
       const savedPosition = currentPositions[node.id()];
       if (savedPosition) node.position(savedPosition);
     });
-    cy.zoom(currentZoom); cy.pan(currentPan);
+    cy.zoom(currentZoom);
+    cy.pan(currentPan);
   }
 
   // Enforce grabbable only on parents; children always ungrabbable
@@ -526,9 +544,94 @@ export function syncElements(cy, graph, options = {}) {
     const parentId = parent.id();
     const entryChildId = `${parentId}__entry`;
     if (cy.getElementById(entryChildId).empty()) {
-      cy.add({ group: 'nodes', data: { id: entryChildId, parent: parentId, label: parent.data('label') || '', size: parent.data('size') || 'regular', color: parent.data('color') || 'gray' }, position: parent.position(), selectable: false, grabbable: false, classes: 'entry' });
+      cy.add({
+        group: 'nodes',
+        data: {
+          id: entryChildId,
+          parent: parentId,
+          label: parent.data('label') || '',
+          size: parent.data('size') || 'regular',
+          color: parent.data('color') || 'gray'
+        },
+        position: parent.position(),
+        selectable: false,
+        grabbable: false,
+        classes: 'entry'
+      });
     }
   });
+
+  // ────────────────────────────────────────────────────────────────
+  // Deferred image bootstrapping (Fix A.2):
+  // If we previously built with placeholders because cdnBaseUrl was unknown,
+  // start exactly one load per missing image now that we (likely) have it.
+  // ────────────────────────────────────────────────────────────────
+  try {
+    const g = deserializeGraph(graph);
+    const mapName = g.mapName || 'default_map';
+    const effectiveCdn = graph.cdnBaseUrl || getCdnBaseUrl();
+
+    if (!effectiveCdn) {
+      printDebug(`⚠️ [cyAdapter] syncElements: no effective CDN base URL; deferring image loads`);
+    } else {
+      g.nodes.forEach(n => {
+        const orig = n.imageUrl;
+        if (!orig || orig === 'unspecified' || typeof orig !== 'string') return;
+        if (orig.startsWith('data:')) return; // already resolved/cached
+
+        const loadKey = `${mapName}:${orig}`;
+        if (imageCache.has(loadKey)) return;          // already cached
+        if (pendingImageLoads.has(loadKey)) {         // already loading
+          printDebug(`⏳ [cyAdapter] syncElements: image already loading ${orig}`);
+          return;
+        }
+
+        // Mark in-flight and start the network load
+        pendingImageLoads.add(loadKey);
+        printDebug(`🔄 [cyAdapter] syncElements: starting deferred image load for ${orig}`);
+
+        const entryChildId = `${n.id}__entry`;
+
+        loadImageWithFallback(orig, mapName, effectiveCdn)
+          .then(async (dataUrl) => {
+            pendingImageLoads.delete(loadKey);
+            if (!dataUrl) return;
+
+            // Optional grayscale, mirroring mountCy behavior
+            let finalUrl = dataUrl;
+            if (
+              GRAYSCALE_IMAGES &&
+              typeof dataUrl === 'string' &&
+              !dataUrl.includes('data:image/svg+xml') &&
+              (dataUrl.startsWith('data:image/png;') ||
+               dataUrl.startsWith('data:image/jpeg;') ||
+               dataUrl.startsWith('data:image/jpg;') ||
+               dataUrl.startsWith('data:image/webp;'))
+            ) {
+              try {
+                finalUrl = await preprocessImageToGrayscale(dataUrl, orig);
+              } catch {
+                finalUrl = dataUrl;
+              }
+            }
+
+            if (cy && !cy.destroyed()) {
+              onImageLoaded(entryChildId, finalUrl);
+            } else {
+              // If instance disappeared mid-load, queue for next active instance
+              pendingNodeImageUpdates.push({ nodeId: entryChildId, imageUrl: finalUrl });
+            }
+          })
+          .catch(err => {
+            pendingImageLoads.delete(loadKey);
+            console.warn(`❌ [cyAdapter] syncElements: failed to load image ${orig}`, err);
+          });
+      });
+    }
+  } catch (e) {
+    printDebug(`⚠️ [cyAdapter] syncElements: deferred image bootstrapping failed: ${e?.message || e}`);
+  }
+
   return cy;
 }
 
