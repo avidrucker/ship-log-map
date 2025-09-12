@@ -3,6 +3,24 @@
 /**
  * Outer Wilds–style Rumor Map — Application Shell
  *
+ * REFACTORING STATUS - STEP 2 COMPLETED:
+ * ✅ Graph Operations Hook (useGraphOperations) - COMPLETED
+ *    - Replaced handleFitToView() with graphOps.handleFitGraph()
+ *    - Replaced handleRotateMap() with graphOps.handleRotateRight() 
+ *    - Removed rotateCompassOnly import (no longer needed)
+ *    - Benefits: Direct Cytoscape manipulation, consistent camera updates
+ *    - Note: handleRotateNodesAndMap still uses local implementation (complex node rotation)
+ * 
+ * ✅ Map Loading Hook (useMapLoading) - COMPLETED
+ *    - Replaced large URL monitoring useEffect with modular hook
+ *    - Delegates CDN loading to cdnHelpers.js (no duplication)
+ *    - Handles URL monitoring, mode logic, background image loading
+ *    - Benefits: Cleaner App.jsx, reusable URL monitoring logic
+ * 
+ * PENDING REFACTORS:
+ * 🔄 Modal State Hook (useModalState) - Modal open/close state management  
+ * 🔄 Keyboard Handlers Hook (useKeyboardHandlers) - Keyboard shortcuts
+ *
  * Responsibilities
  * - Owns top-level application state (graph data, UI mode, selections, modals).
  * - Coordinates data flow between domain logic (graph ops), Cytoscape rendering,
@@ -59,8 +77,14 @@ import { saveToLocal, loadFromLocal, saveModeToLocal, loadModeFromLocal, saveUnd
 import { loadOrientationFromLocal, saveOrientationToLocal, loadCompassVisibleFromLocal, saveCompassVisibleToLocal } from './persistence/index.js';
 import { edgeId, renameNode } from "./graph/ops.js";
 import { printDebug } from "./utils/debug.js";
-import { rotateCompassOnly, rotateNodesAndCompass } from './utils/rotation.js';
+import { rotateNodesAndCompass } from './utils/rotation.js';  // REFACTOR STEP 1: Removed rotateCompassOnly - now using graphOps.handleRotateRight
 import { getCanEditFromQuery } from "./utils/cdnHelpers.js";
+
+// REFACTOR STEP 1: Import graph operations hook
+import { useGraphOperations } from "./hooks/useGraphOperations.js";
+
+// REFACTOR STEP 2: Import map loading hook for URL monitoring  
+import { useMapLoading } from "./hooks/useMapLoading.js";
 
 // Add CSS for spinner animation
 const SPINNER_CSS = `
@@ -68,38 +92,6 @@ const SPINNER_CSS = `
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
 }`;
-
-/** ---------- URL/CDN helpers ---------- **/
-
-// Helper to load map from CDN
-async function loadMapFromCdn(mapUrl) {
-  try {
-    printDebug('[CDN] Attempting to load map from:', mapUrl);
-    printDebug('[CDN] Attempting to load map from:', mapUrl);
-    
-    const response = await fetch(mapUrl);
-    printDebug('[CDN] Fetch response status:', response.status, response.statusText);
-    
-    if (!response.ok) {
-      throw new Error('HTTP ' + response.status + ': ' + response.statusText);
-    }
-    
-    const data = await response.json();
-    printDebug('[CDN] Successfully loaded map data:', data);
-    printDebug('[CDN] Successfully loaded map data');
-    
-    // Validate the data structure
-    if (!data || typeof data !== 'object') {
-      throw new Error('Invalid JSON structure: not an object');
-    }
-    
-    return { success: true, data };
-  } catch (error) {
-    console.error('[CDN] Failed to load map:', error);
-    printDebug('[CDN] Failed to load map:', error.message);
-    return { success: false, error: error.message };
-  }
-}
 
 /** ---------- helpers & migration ---------- **/
 
@@ -315,6 +307,40 @@ function App() {
   });
   const [isLoadingFromCDN, setIsLoadingFromCDN] = useState(false); // Flag to prevent persistence conflicts
 
+  // REFACTOR STEP 1: Initialize graph operations hook
+  // This replaces individual handleFitToView, handleRotateMap, etc. functions
+  const graphOps = useGraphOperations(
+    getCytoscapeInstance(), 
+    dispatchAppState, 
+    clearCytoscapeSelections, 
+    null, // applyDebugStyles - can be added later
+    orientation // current orientation for rotation functions
+  );
+
+  // Helper to clear undo state (for new/load operations) - defined early because it's used in effects
+  const clearUndoState = useCallback(() => {
+    dispatchAppState({ type: ACTION_TYPES.CLEAR_UNDO_STATE });
+  }, []);
+
+  // REFACTOR STEP 2: Initialize map loading hook for URL monitoring
+  // This replaces the large URL monitoring useEffect in App.jsx
+  useMapLoading({
+    appState,
+    dispatchAppState,
+    defaultShipLogData,
+    setGraphData,
+    setBgImage,
+    setCdnLoadingState,
+    setIsLoadingFromCDN,
+    clearCytoscapeSelections,
+    clearUndoState,
+    saveModeToLocal,
+    loadModeFromLocal,
+    currentCdnLoadRef,
+    cdnBaseUrl,
+    ACTION_TYPES
+  });
+
   // Collapse toggles mapped to reducer-backed state
   const toggleUniversalMenu = useCallback(() => {
     dispatchAppState({ type: ACTION_TYPES.SET_UNIVERSAL_MENU_COLLAPSED, payload: { collapsed: !universalMenuCollapsed } });
@@ -365,168 +391,9 @@ function App() {
     };
   }, []);
 
-  // Helper to clear undo state (for new/load operations) - defined early because it's used in effects
-  const clearUndoState = useCallback(() => {
-    dispatchAppState({ type: ACTION_TYPES.CLEAR_UNDO_STATE });
-  }, []);
+  // REFACTOR STEP 2: URL monitoring is now handled by useMapLoading hook
+  // Previous large URL monitoring useEffect has been moved to hooks/useMapLoading.js
 
-  // ---------- URL monitoring for CDN map loading ----------
-useEffect(() => {
-  printDebug('🚨🚨🚨 [URL EFFECT] URL monitoring effect initialized - VERSION 3.1 🚨🚨🚨');
-
-  // Helper: get only the map URL from query params
-  function getNormalizedMapUrlFromQuery() {
-    const urlParams = new URLSearchParams(window.location.search);
-    return urlParams.get('map') || '';
-  }
-
-  // Handler for initial load and popstate navigation
-  const handleURLChange = async () => {
-    const normalizedMapUrl = getNormalizedMapUrlFromQuery();
-    printDebug('[URL EFFECT] normalizedMapUrl:', JSON.stringify(normalizedMapUrl));
-    printDebug('[URL EFFECT] lastLoadedMapUrl:', JSON.stringify(appState.lastLoadedMapUrl));
-    printDebug('[URL EFFECT] Are they different?', normalizedMapUrl !== appState.lastLoadedMapUrl);
-
-    // Only load if the normalized map URL has changed and is non-empty
-    if (normalizedMapUrl && normalizedMapUrl !== appState.lastLoadedMapUrl) {
-      printDebug('[URL EFFECT] ✅ CONDITION MET - Map URL changed, loading from CDN:', normalizedMapUrl);
-
-      // Set loading state
-      setCdnLoadingState({ isLoading: true, error: null });
-      setIsLoadingFromCDN(true);
-      currentCdnLoadRef.current = normalizedMapUrl;
-
-      try {
-        const result = await loadMapFromCdn(normalizedMapUrl);
-
-        // Only proceed if this is still the current load operation
-        if (currentCdnLoadRef.current !== normalizedMapUrl) {
-          printDebug('[URL EFFECT] ⏭️ CDN load operation superseded, skipping state update');
-          return;
-        }
-
-        if (result.success) {
-          const normalizedData = normalizeGraphData(result.data);
-          const hydratedData = hydrateCoordsIfMissing(normalizedData, defaultShipLogData);
-
-          // --- MODE OVERRIDE LOGIC ---
-          // This is the bit that ensures refresh doesn’t yank the mode back to the JSON value when canedit=true or there are no params.
-          // previously getEditingEnabledFromQuery
-          const canEditFromQuery = getCanEditFromQuery();
-          const hasQueryParams = hasAnyQueryParams();
-          let forcedMode;
-          if (canEditFromQuery) {
-            // canedit=true: preserve current/saved on refresh; fallback to JSON
-            const savedMode = (typeof loadModeFromLocal === 'function') ? loadModeFromLocal() : null;
-            forcedMode = savedMode || hydratedData.mode || 'editing';
-          } else if (hasQueryParams) {
-            // Query params present but *no* canedit=true → read-only
-            forcedMode = 'playing';
-          } else {
-            // No query params → editable link; preserve saved, else honor JSON
-            const savedMode = (typeof loadModeFromLocal === 'function') ? loadModeFromLocal() : null;
-            forcedMode = savedMode || hydratedData.mode || 'editing';
-          }
-          const hydratedDataWithMode = { ...hydratedData, mode: forcedMode };
-          setGraphData(hydratedDataWithMode);
-          dispatchAppState({ type: ACTION_TYPES.SET_MODE, payload: { mode: forcedMode } });
-          saveModeToLocal(forcedMode);
-
-          // Update app state with loaded data
-          if (typeof hydratedData.mapName === 'string') {
-            dispatchAppState({ type: ACTION_TYPES.SET_MAP_NAME, payload: { mapName: hydratedData.mapName } });
-          }
-          if (typeof hydratedData.cdnBaseUrl === 'string') {
-            dispatchAppState({ type: ACTION_TYPES.SET_CDN_BASE_URL, payload: { cdnBaseUrl: hydratedData.cdnBaseUrl } });
-          }
-          if (typeof hydratedData.orientation === 'number') {
-            dispatchAppState({ type: ACTION_TYPES.SET_ORIENTATION, payload: { orientation: hydratedData.orientation } });
-          }
-          if (typeof hydratedData.compassVisible === 'boolean') {
-            dispatchAppState({ type: ACTION_TYPES.SET_COMPASS_VISIBLE, payload: { visible: hydratedData.compassVisible } });
-          }
-          // After you get hydratedData (from CDN or JSON)
-          if (typeof hydratedData.bgImage === 'object' && hydratedData.bgImage !== null) {
-            let bgImageToSet = { ...hydratedData.bgImage };
-            bgImageToSet.included = !!bgImageToSet.imageUrl;
-            printDebug(`App.jsx: Attempting to load background image ${ bgImageToSet.imageUrl ? 'from URL' : 'as empty' } for map ${hydratedData.mapName}`);
-            // If imageUrl is a CDN path (not a data URL), fetch and convert it
-            if (
-              bgImageToSet.included
-            ) {
-              try {
-                printDebug("!!! URL CHANGE: Attempting to load BG image:", bgImageToSet.imageUrl);
- 
-                // ⬇️ fullSize=true (do not cache, no thumb)
-                const rawDataUrl = await loadImageWithFallback(
-                  bgImageToSet.imageUrl,
-                  hydratedData.mapName,
-                  hydratedData.cdnBaseUrl || cdnBaseUrl,
-                  { fullSize: true }
-                );
-
-                // ⬇️ convert heavy PNG/JPEG to WebP, clamp size to 2048px
-                const webpDataUrl = await dataUrlOrBlobToWebpDataUrl(rawDataUrl, 2048, 0.82);
-
-                bgImageToSet = { ...bgImageToSet, imageUrl: webpDataUrl, included: true };
-                printDebug("URL CHANGE: Loaded BG image dataUrl:", webpDataUrl);
-              } catch {
-                printDebug("URL CHANGE: Failed to load BG image, setting to empty");
-                // fallback: keep imageUrl as-is or set to ""
-                bgImageToSet = { ...bgImageToSet, imageUrl: "", included: false };
-              }
-            } else {
-              printDebug('App.jsx: No background image URL provided, skipping load.');
-            }
-            setBgImage(bgImageToSet);
-            dispatchAppState({ type: ACTION_TYPES.SET_BG_IMAGE, payload: { bgImage: bgImageToSet } });
-          } else {
-            printDebug('App.jsx: No background image URL provided, skipping load.');
-          }
-          // Reset camera + fit
-          dispatchAppState({ type: ACTION_TYPES.SET_ZOOM, payload: { zoom: 1 } });
-          dispatchAppState({ type: ACTION_TYPES.SET_CAMERA_POSITION, payload: { position: { x: 0, y: 0 } } });
-          dispatchAppState({ type: ACTION_TYPES.SET_SHOULD_FIT, payload: { shouldFit: true } });
-          // Clear selections and undo state (loading clears undo)
-          clearCytoscapeSelections();
-          dispatchAppState({ type: ACTION_TYPES.CLEAR_ALL_SELECTIONS });
-          clearUndoState();
-
-          // Track the loaded map URL
-          dispatchAppState({ type: ACTION_TYPES.SET_LAST_LOADED_MAP_URL, payload: { url: normalizedMapUrl } });
-
-          setCdnLoadingState({ isLoading: false, error: null });
-          setIsLoadingFromCDN(false);
-          currentCdnLoadRef.current = null;
-        } else {
-          setCdnLoadingState({ isLoading: false, error: result.error });
-          setIsLoadingFromCDN(false);
-          currentCdnLoadRef.current = null;
-        }
-      } catch (error) {
-        setCdnLoadingState({ isLoading: false, error: 'Unexpected error: ' + error.message });
-        setIsLoadingFromCDN(false);
-        currentCdnLoadRef.current = null;
-      }
-    } else {
-      printDebug('[URL EFFECT] ❌ CONDITION NOT MET - Map URL unchanged, skipping CDN load');
-    }
-  };
-
-  // Initial check on mount
-  printDebug('[URL EFFECT] Running initial URL check');
-  handleURLChange();
-
-  // Listen for popstate events (back/forward navigation)
-  window.addEventListener('popstate', handleURLChange);
-  printDebug('[URL EFFECT] Added popstate listener');
-
-  // Clean up listener
-  return () => {
-    window.removeEventListener('popstate', handleURLChange);
-  };
-}, [appState.lastLoadedMapUrl, clearCytoscapeSelections, clearUndoState, cdnBaseUrl, setBgImage]); // Only rerun if lastLoadedMapUrl changes
-  
 // ---------- persistence ----------
   useEffect(() => {
     // Don't persist while loading from CDN to avoid overwriting CDN data
@@ -648,9 +515,12 @@ useEffect(() => {
     }));
   }, [saveUndoState]);
 
+  // REFACTOR STEP 1: Replace handleFitToView with hook function
+  // OLD: const handleFitToView = useCallback(() => { dispatchAppState({ type: ACTION_TYPES.SET_SHOULD_FIT, payload: { shouldFit: true } }); }, []);
+  // NEW: Use graphOps.handleFitGraph which directly calls cy.fit() with proper padding
   const handleFitToView = useCallback(() => {
-    dispatchAppState({ type: ACTION_TYPES.SET_SHOULD_FIT, payload: { shouldFit: true } });
-  }, []);
+    graphOps.handleFitGraph();
+  }, [graphOps]);
 
   const handleFitCompleted = useCallback(() => {
     dispatchAppState({ type: ACTION_TYPES.SET_SHOULD_FIT, payload: { shouldFit: false } });
@@ -1161,11 +1031,13 @@ useEffect(() => {
     dispatchAppState({ type: ACTION_TYPES.SET_CAMERA_POSITION, payload: { position } });
   }, []);
 
-  // New: rotate map (increments orientation by 90° clockwise)
+  // REFACTOR STEP 1: Replace handleRotateMap with hook function  
+  // OLD: const handleRotateMap = useCallback(() => { const next = rotateCompassOnly(orientation); dispatchAppState({ type: ACTION_TYPES.SET_ORIENTATION, payload: { orientation: next } }); }, [orientation]);
+  // NEW: Use graphOps.handleRotateRight which handles the same 90° clockwise rotation
   const handleRotateMap = useCallback(() => {
-    const next = rotateCompassOnly(orientation);
-    dispatchAppState({ type: ACTION_TYPES.SET_ORIENTATION, payload: { orientation: next } });
-  }, [orientation]);
+    graphOps.handleRotateRight();
+  }, [graphOps]);
+  
   // New: rotate all nodes AND compass (graph controls button)
   const handleRotateNodesAndMap = useCallback(() => {
     // Save undo first

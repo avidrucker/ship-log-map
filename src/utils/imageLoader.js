@@ -149,13 +149,16 @@ export function ensureDefaultPlaceholderLoaded(mapName = 'default_map', cdnBaseU
   const cacheKey = PLACEHOLDER_CACHE_KEY_PREFIX + mapName;
   if (imageCache.has(cacheKey)) {
     const existing = imageCache.get(cacheKey);
-    if (typeof existing === 'string') return Promise.resolve(existing);
+    // Return cached result (either string data URL or null for failed loads)
+    return Promise.resolve(existing);
   }
   if (placeholderLoadPromises.has(mapName)) return placeholderLoadPromises.get(mapName);
 
   const cdnBaseUrl = cdnBaseUrlOverride !== undefined ? cdnBaseUrlOverride : getCdnBaseUrl();
   if (!cdnBaseUrl) {
     printDebug(`⚠️ [ImageLoader] No CDN base URL; skipping placeholder load for map '${mapName}'`);
+    // Cache the null result to avoid repeated attempts
+    imageCache.set(cacheKey, null);
     return Promise.resolve(null);
   }
   const url = buildCdnUrl(cdnBaseUrl, mapName, DEFAULT_PLACEHOLDER_FILENAME);
@@ -167,6 +170,8 @@ export function ensureDefaultPlaceholderLoaded(mapName = 'default_map', cdnBaseU
       const dataUrl = await blobToDataUrl(blob);
       if (!dataUrl.startsWith('data:image/svg+xml')) {
         printWarn(`⚠️ [ImageLoader] default_image.svg did not return SVG (content-type mismatch)`);
+        // Cache the failure to avoid repeated attempts
+        imageCache.set(cacheKey, null);
         return null;
       }
       imageCache.set(cacheKey, dataUrl);
@@ -175,6 +180,8 @@ export function ensureDefaultPlaceholderLoaded(mapName = 'default_map', cdnBaseU
       return dataUrl;
     } catch (e) {
       printDebug(`❌ [ImageLoader] Failed to load default placeholder: ${e.message}`);
+      // Cache the failure to avoid repeated attempts
+      imageCache.set(cacheKey, null);
       return null;
     } finally {
       placeholderLoadPromises.delete(mapName);
