@@ -97,6 +97,8 @@
 - [ ] Implement "read history" where, in playing mode, the user can see a list of nodes they have visited and read visually by seeing where an icon indicator is shown or not (exclamation icon for unread, nothing for read)
 - [ ] Implement typewriter animation for notes in the Note Viewer Modal (note: once a note has been viewed, it doesn't play the animation again, it just shows the full note text)
 - [ ] Create and import custom chevron icon for edge arrows that more closely matches the original source material
+- [ ] Fix issue for some devices where, when already zoomed into a node in playing mode after having selected a node, and then clicking on another node, the camera attempts to "zoom out" and "zoom in" at the same time. Instead, it should just smoothly pan and zoom to the newly selected node, and then, when closing the note viewer modal, it should smoothly pan and zoom back out to the previous non-zoomed in zoom level (but centered on the last selected node, not the first selected node)
+- [ ] Fix bug where map rotations don't relocate edge note counts to be correctly placed above the edge in its center and instead place them way off to the side
 
 Notes for Future Features
 - Listing out "layers" which show things such as electrical lines, water lines, Internet, etc. that can be toggled on and off
