@@ -101,6 +101,7 @@
 - [ ] Fix bug where map rotations don't relocate edge note counts to be correctly placed above the edge in its center and instead place them way off to the side
 - [ ] Fix bug where, in editing mode, closing the note editor modal doesn't unfocus the edit node title label text input, but it should unfocus and undo any changes if the user hasn't pressed Enter or the check "confirm button"
 - [x] Implement "F" shortcut to fit graph to screen
+- [ ] Fix bug where, when zooming into a node, the bg image is not also zoomed into the correct location, but it should be
 
 Notes for Future Features
 - Listing out "layers" which show things such as electrical lines, water lines, Internet, etc. that can be toggled on and off
