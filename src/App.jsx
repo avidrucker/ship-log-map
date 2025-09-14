@@ -39,7 +39,7 @@
  * - edges: [{ id, source, target, ... }]
  * - bgImage: { src, x, y, scale, opacity, included, visible }
  * - selection: { nodeIds: Set, edgeIds: Set }
- * - mode: 'editing' | 'viewing'
+ * - mode: 'editing' | 'playing'
  *
  * Gotchas
  * - Keep the graph as the single source of truth—Cytoscape does not mutate domain
