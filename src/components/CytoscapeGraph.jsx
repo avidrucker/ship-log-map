@@ -39,16 +39,19 @@ function CytoscapeGraph({
   selectedNodeIds = [],
   selectedEdgeIds = [],
 
-  // Camera / viewport
   initialZoom,
   initialCameraPosition,
-  onZoomChange,
-  onCameraMove,
-  onViewportChange,              // ← per-frame pan+zoom stream for BG
+
+  // Debounced reducer commit callbacks (optional)
+  // onZoomChange,
+  // onCameraMove,
+
+  // 🔴 Per-frame stream for BG layer
+  onViewportChange,
+
   shouldFitOnNextRender = false,
   onFitCompleted,
 
-  // Clicks/selections
   onNodeSelectionChange,
   onEdgeSelectionChange,
   onNodeClick,
@@ -56,8 +59,8 @@ function CytoscapeGraph({
   onNodeDoubleClick,
   onEdgeDoubleClick,
   onBackgroundClick,
-
   onNodeMove,
+
   showNoteCountOverlay = false,
   notes = {},
   onCytoscapeInstanceReady
@@ -65,14 +68,13 @@ function CytoscapeGraph({
   const containerRef = useRef(null);
   const cyRef = useRef(null);
 
-  // Keep the latest onViewportChange in a ref so the listener doesn’t rebind every render
+  // Latest callback ref; avoids re-binding cytoscape listeners every render
   const onViewportRef = useRef(null);
   useEffect(() => { onViewportRef.current = onViewportChange || null; }, [onViewportChange]);
 
-  // rAF id for throttling
+  // rAF id so we throttle to once per frame
   const rafIdRef = useRef(0);
 
-  // Mount once
   useEffect(() => {
     if (!containerRef.current) return;
 
@@ -85,13 +87,13 @@ function CytoscapeGraph({
         });
         cyRef.current = cy;
 
-        // Initial viewport (before wiring stream)
+        // Initialize camera
         if (typeof initialZoom === "number") cy.zoom(initialZoom);
         if (initialCameraPosition && Number.isFinite(initialCameraPosition.x) && Number.isFinite(initialCameraPosition.y)) {
           cy.pan(initialCameraPosition);
         }
 
-        // Wire domain/UI events (selection, clicks, etc.)
+        // Wire domain/UI events
         const off = wireEvents(cy, {
           onNodeSelectionChange,
           onEdgeSelectionChange,
@@ -101,13 +103,13 @@ function CytoscapeGraph({
           onEdgeDoubleClick,
           onBackgroundClick,
           onNodeMove,
-          onZoomChange,     // debounced commits (via useCamera)
-          onCameraMove,     // debounced commits (via useCamera)
+          // onZoomChange,   // debounced commit (useCamera)
+          // onCameraMove,   // debounced commit (useCamera)
           notes
         }, mode);
         cyRef.current._eventCleanup = off;
 
-        // ---- Per-frame viewport stream (pan + zoom) ----
+        // 🔴 rAF viewport streaming (pan + zoom) → App.useCamera
         const schedule = () => {
           if (!onViewportRef.current) return;
           if (rafIdRef.current) return;
@@ -116,7 +118,7 @@ function CytoscapeGraph({
             try {
               const p = cy.pan();
               const z = cy.zoom();
-              // clone pan so React sees a new object identity
+              // clone pan (cy returns a mutable object)
               onViewportRef.current({ pan: { x: p.x, y: p.y }, zoom: z });
             } catch (e) {
               printWarn('onViewportChange handler threw:', e);
@@ -124,15 +126,15 @@ function CytoscapeGraph({
           });
         };
 
-        // Render is fired each draw; pan/zoom fire as well (safety)
+        // Render is fired on each draw; pan/zoom fire on gestures.
         cy.on('render pan zoom', schedule);
 
-        // Seed once so BG is correct immediately
+        // Seed once so BG aligns immediately after mount
         schedule();
 
         if (onCytoscapeInstanceReady) onCytoscapeInstanceReady(cy);
 
-        // (Note overlay bootstrap)
+        // (rest of your overlays bootstrap)
         if (showNoteCountOverlay) {
           setTimeout(() => {
             try {
@@ -153,16 +155,14 @@ function CytoscapeGraph({
     return () => {
       try {
         if (cyRef.current?._eventCleanup) cyRef.current._eventCleanup();
-        if (cyRef.current) {
-          cyRef.current.off('render pan zoom'); // remove all three
-        }
+        if (cyRef.current) cyRef.current.off('render pan zoom');
         if (rafIdRef.current) {
           cancelAnimationFrame(rafIdRef.current);
           rafIdRef.current = 0;
         }
         cyRef.current?.destroy();
       } catch {
-        printWarn("Failed to destroy Cytoscape instance");
+        printWarn('Failed to destroy Cytoscape instance');
       }
       cyRef.current = null;
     };
@@ -177,14 +177,22 @@ function CytoscapeGraph({
       return;
     }
 
-    // Clean up existing events
-    if (cyRef.current._eventCleanup) {
+    const cy = cyRef.current;
+
+    // Clean up existing events (including viewport streaming)
+    if (cy._eventCleanup) {
       printDebug(`🧹 [CytoscapeGraph] Cleaning up existing events`);
-      cyRef.current._eventCleanup();
+      cy._eventCleanup();
+    }
+    // Clean up viewport streaming events
+    cy.off('render pan zoom');
+    if (rafIdRef.current) {
+      cancelAnimationFrame(rafIdRef.current);
+      rafIdRef.current = 0;
     }
 
     printDebug(`🔌 [CytoscapeGraph] Re-wiring events for mode: ${mode}`);
-    const off = wireEvents(cyRef.current, {
+    const off = wireEvents(cy, {
       onNodeSelectionChange,
       onEdgeSelectionChange,
       onNodeClick,
@@ -193,16 +201,39 @@ function CytoscapeGraph({
       onEdgeDoubleClick,
       onBackgroundClick,
       onNodeMove,
-      onZoomChange,
-      onCameraMove,
+      // onZoomChange,
+      // onCameraMove,
       notes
     }, mode);
 
+    // 🔴 Re-establish viewport streaming (critical for BG image updates)
+    const schedule = () => {
+      if (!onViewportRef.current) return;
+      if (rafIdRef.current) return;
+      rafIdRef.current = requestAnimationFrame(() => {
+        rafIdRef.current = 0;
+        try {
+          const p = cy.pan();
+          const z = cy.zoom();
+          // clone pan (cy returns a mutable object)
+          onViewportRef.current({ pan: { x: p.x, y: p.y }, zoom: z });
+        } catch (e) {
+          printWarn('onViewportChange handler threw:', e);
+        }
+      });
+    };
+
+    // Re-establish render/pan/zoom listeners for viewport streaming
+    cy.on('render pan zoom', schedule);
+
+    // Seed once so BG aligns immediately after re-wiring
+    schedule();
+
     // Store the new cleanup function
-    cyRef.current._eventCleanup = off;
+    cy._eventCleanup = off;
 
     // No cleanup needed here since we handle it in the next effect run or on unmount
-  }, [onNodeSelectionChange, onEdgeSelectionChange, onNodeClick, onEdgeClick, onNodeDoubleClick, onEdgeDoubleClick, onBackgroundClick, onNodeMove, onZoomChange, onCameraMove, mode, notes]);
+  }, [onNodeSelectionChange, onEdgeSelectionChange, onNodeClick, onEdgeClick, onNodeDoubleClick, onEdgeDoubleClick, onBackgroundClick, onNodeMove, mode, notes]); // onZoomChange, onCameraMove,
 
   // Sync when domain elements change
   // Note: mode is included as dependency because it affects grabbable property in buildElements
@@ -440,15 +471,15 @@ function CytoscapeGraph({
         const cy = cyRef.current;
         cy.fit(cy.nodes(), 50);
         // Emit updated zoom and pan to parent
-        if (onZoomChange) onZoomChange(cy.zoom());
-        if (onCameraMove) onCameraMove(cy.pan());
+        // if (onZoomChange) onZoomChange(cy.zoom());
+        // if (onCameraMove) onCameraMove(cy.pan());
         if (onFitCompleted) onFitCompleted();
       } catch {
         printWarn("Failed to fit Cytoscape instance");
       }
     }, 50);
     return () => clearTimeout(id);
-  }, [shouldFitOnNextRender, onFitCompleted, onZoomChange, onCameraMove]);
+  }, [shouldFitOnNextRender, onFitCompleted]); // onZoomChange, onCameraMove
 
 
   // Periodic check for completed grayscale image conversions

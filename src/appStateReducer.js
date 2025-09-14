@@ -39,6 +39,12 @@ export const ACTION_TYPES = {
   UPDATE_RENAME_VALUE: 'UPDATE_RENAME_VALUE',
   CANCEL_RENAME: 'CANCEL_RENAME',
   
+  // Replace SET_ZOOM and SET_CAMERA_POSITION with sourced versions
+  SET_ZOOM_EXTERNAL: 'SET_ZOOM_EXTERNAL', // from fit/load/etc
+  SET_ZOOM_INTERNAL: 'SET_ZOOM_INTERNAL', // from user interaction debounce
+  SET_CAMERA_POSITION_EXTERNAL: 'SET_CAMERA_POSITION_EXTERNAL',
+  SET_CAMERA_POSITION_INTERNAL: 'SET_CAMERA_POSITION_INTERNAL',
+  
   // Camera actions
   SET_ZOOM: 'SET_ZOOM',
   SET_CAMERA_POSITION: 'SET_CAMERA_POSITION',
@@ -118,7 +124,8 @@ export const initialAppState = {
   },
   camera: {
     zoom: 1,
-    position: { x: 0, y: 0 }
+    position: { x: 0, y: 0 },
+    lastUpdateSource: null // 'external' | 'internal' | null
   },
   mode: 'editing', // 'editing' or 'playing'
   mapName: 'default_map', // Editable map name
@@ -325,20 +332,44 @@ export function appStateReducer(state, action) {
       };
       
     case ACTION_TYPES.SET_ZOOM:
+    case ACTION_TYPES.SET_ZOOM_EXTERNAL:
       return {
         ...state,
         camera: {
           ...state.camera,
-          zoom: action.payload.zoom
+          zoom: action.payload.zoom,
+          lastUpdateSource: 'external'
+        }
+      };
+      
+    case ACTION_TYPES.SET_ZOOM_INTERNAL:
+      return {
+        ...state,
+        camera: {
+          ...state.camera,
+          zoom: action.payload.zoom,
+          lastUpdateSource: 'internal'
         }
       };
       
     case ACTION_TYPES.SET_CAMERA_POSITION:
+    case ACTION_TYPES.SET_CAMERA_POSITION_EXTERNAL:
       return {
         ...state,
         camera: {
           ...state.camera,
-          position: action.payload.position
+          position: action.payload.position,
+          lastUpdateSource: 'external'
+        }
+      };
+      
+    case ACTION_TYPES.SET_CAMERA_POSITION_INTERNAL:
+      return {
+        ...state,
+        camera: {
+          ...state.camera,
+          position: action.payload.position,
+          lastUpdateSource: 'internal'
         }
       };
       

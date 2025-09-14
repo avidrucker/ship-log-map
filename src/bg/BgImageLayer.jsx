@@ -31,7 +31,7 @@ import { printDebug } from "../utils/debug.js";
  * - We pin transform origin to top-left so math is exact.
  * - We compose: translate( pan + zoom*tx ) scale( zoom*s )
  */
-export default function BgImageLayer({
+function BgImageLayer({
   url,
   visible = true,
   opacity = 100,
@@ -42,6 +42,7 @@ export default function BgImageLayer({
   style = {}
 }) {
     printDebug("BgImageLayer render", { url, visible, opacity, pan, zoom, calibration, style });
+  
   if (!url || !visible) return null;
 
   const { tx = 0, ty = 0, s = 1 } = calibration;
@@ -69,9 +70,40 @@ export default function BgImageLayer({
         opacity: opacity / 100,
         transformOrigin: "0 0",
         transform,
+        transition: "none",
         // Allow external overrides if needed
         ...style
       }}
     />
   );
 }
+
+// Memoize with custom comparison to prevent unnecessary re-renders when transform values are similar
+// export default React.memo(BgImageLayer, (prevProps, nextProps) => {
+//   // If URL changes, always re-render
+//   if (prevProps.url !== nextProps.url) return false;
+//   if (prevProps.visible !== nextProps.visible) return false;
+//   if (Math.abs(prevProps.opacity - nextProps.opacity) > 0.1) return false;
+  
+//   // For pan/zoom, use threshold to prevent jitter
+//   const panThreshold = 0.1;
+//   const zoomThreshold = 0.001; // Increased from 1e-3 to prevent zoom jitter
+  
+//   const panChanged = Math.abs((prevProps.pan?.x ?? 0) - (nextProps.pan?.x ?? 0)) > panThreshold ||
+//                      Math.abs((prevProps.pan?.y ?? 0) - (nextProps.pan?.y ?? 0)) > panThreshold;
+//   const zoomChanged = Math.abs((prevProps.zoom ?? 1) - (nextProps.zoom ?? 1)) > zoomThreshold;
+  
+//   if (panChanged || zoomChanged) return false;
+  
+//   // Check calibration changes
+//   const prevCal = prevProps.calibration || {};
+//   const nextCal = nextProps.calibration || {};
+//   if (Math.abs((prevCal.tx ?? 0) - (nextCal.tx ?? 0)) > 0.1) return false;
+//   if (Math.abs((prevCal.ty ?? 0) - (nextCal.ty ?? 0)) > 0.1) return false;
+//   if (Math.abs((prevCal.s ?? 1) - (nextCal.s ?? 1)) > 0.001) return false; // Increased from 1e-3
+  
+//   // Props are similar enough - skip re-render
+//   return true;
+// });
+
+export default BgImageLayer;

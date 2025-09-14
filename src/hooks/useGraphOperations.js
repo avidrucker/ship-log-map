@@ -28,7 +28,7 @@ export function useGraphOperations(cy, dispatch, resetSelectionState, applyDebug
 
   const handleFitGraph = useCallback(() => {
     if (!cy) return;
-    console.log('Fitting graph...');
+    //// console.log('Fitting graph...');
     
     // Use Cytoscape's built-in fit method with padding (same as CytoscapeGraph component)
     try {
@@ -39,8 +39,9 @@ export function useGraphOperations(cy, dispatch, resetSelectionState, applyDebug
         zoom: cy.zoom(),
         position: cy.pan()
       };
-      dispatch({ type: ACTION_TYPES.SET_ZOOM, payload: { zoom: cameraInfo.zoom } });
-      dispatch({ type: ACTION_TYPES.SET_CAMERA_POSITION, payload: { position: cameraInfo.position } });
+      //// console.log("Internal update of camera state after fit:", cameraInfo);
+      dispatch({ type: ACTION_TYPES.SET_ZOOM_INTERNAL, payload: { zoom: cameraInfo.zoom } });
+      dispatch({ type: ACTION_TYPES.SET_CAMERA_POSITION_INTERNAL, payload: { position: cameraInfo.position } });
     } catch (error) {
       console.error('Error fitting graph:', error);
     }
@@ -48,7 +49,7 @@ export function useGraphOperations(cy, dispatch, resetSelectionState, applyDebug
 
   const handleResetSelection = useCallback(() => {
     if (!cy) return;
-    console.log('Resetting selection');
+    //// console.log('Resetting selection');
     cy.elements().unselect();
     resetSelectionState?.();
   }, [cy, resetSelectionState]);
@@ -56,7 +57,7 @@ export function useGraphOperations(cy, dispatch, resetSelectionState, applyDebug
   const toggleDebugMode = useCallback(() => {
     // TODO: Add TOGGLE_DEBUG_MODE action type to appStateReducer.js
     // dispatch({ type: ACTION_TYPES.TOGGLE_DEBUG_MODE });
-    console.log('Debug mode toggle not yet implemented in reducer');
+    //// console.log('Debug mode toggle not yet implemented in reducer');
     if (cy) {
       applyDebugStyles?.(cy);
     }
@@ -70,7 +71,7 @@ export function useGraphOperations(cy, dispatch, resetSelectionState, applyDebug
         data: node,
         position: node.position || { x: 0, y: 0 }
       });
-      console.log('Node added:', node);
+      //// console.log('Node added:', node);
     } catch (error) {
       console.error('Error adding node:', error);
     }
@@ -83,7 +84,7 @@ export function useGraphOperations(cy, dispatch, resetSelectionState, applyDebug
         group: 'edges',
         data: edge
       });
-      console.log('Edge added:', edge);
+      //// console.log('Edge added:', edge);
     } catch (error) {
       console.error('Error adding edge:', error);
     }
@@ -95,7 +96,7 @@ export function useGraphOperations(cy, dispatch, resetSelectionState, applyDebug
       const element = cy.getElementById(elementId);
       if (element.length > 0) {
         element.remove();
-        console.log('Element removed:', elementId);
+        //// console.log('Element removed:', elementId);
       }
     } catch (error) {
       console.error('Error removing element:', error);
@@ -108,7 +109,7 @@ export function useGraphOperations(cy, dispatch, resetSelectionState, applyDebug
       const element = cy.getElementById(elementId);
       if (element.length > 0) {
         element.data(data);
-        console.log('Element data updated:', elementId, data);
+        //// console.log('Element data updated:', elementId, data);
       }
     } catch (error) {
       console.error('Error updating element data:', error);
@@ -121,7 +122,7 @@ export function useGraphOperations(cy, dispatch, resetSelectionState, applyDebug
       const element = cy.getElementById(elementId);
       if (element.length > 0 && element.isNode()) {
         element.position(position);
-        console.log('Node position updated:', elementId, position);
+        //// console.log('Node position updated:', elementId, position);
       }
     } catch (error) {
       console.error('Error updating node position:', error);
@@ -135,7 +136,7 @@ export function useGraphOperations(cy, dispatch, resetSelectionState, applyDebug
       if (element.length > 0) {
         cy.elements().unselect();
         element.select();
-        console.log('Element selected:', elementId);
+        //// console.log('Element selected:', elementId);
       }
     } catch (error) {
       console.error('Error selecting element:', error);

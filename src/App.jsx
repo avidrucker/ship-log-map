@@ -602,8 +602,9 @@ function App() {
       }
 
         // Reset camera + fit
-        dispatchAppState({ type: ACTION_TYPES.SET_ZOOM, payload: { zoom: 1 } });
-        dispatchAppState({ type: ACTION_TYPES.SET_CAMERA_POSITION, payload: { position: { x: 0, y: 0 } } });
+        //// console.log("App: Internally resetting camera due to file load");
+        dispatchAppState({ type: ACTION_TYPES.SET_ZOOM_INTERNAL, payload: { zoom: 1 } });
+        dispatchAppState({ type: ACTION_TYPES.SET_CAMERA_POSITION_INTERNAL, payload: { position: { x: 0, y: 0 } } });
         dispatchAppState({ type: ACTION_TYPES.SET_SHOULD_FIT, payload: { shouldFit: true } });
 
         // Clear selections and undo state (loading clears undo)
@@ -659,9 +660,9 @@ function App() {
     dispatchAppState({ type: ACTION_TYPES.SET_BG_IMAGE, payload: { bgImage: emptyBgImage } });
 
     // Camera reset - update both app state and Cytoscape instance
-    dispatchAppState({ type: ACTION_TYPES.SET_ZOOM, payload: { zoom: 1 } });
-    dispatchAppState({ type: ACTION_TYPES.SET_CAMERA_POSITION, payload: { position: { x: 0, y: 0 } } });
-    
+    dispatchAppState({ type: ACTION_TYPES.SET_ZOOM_EXTERNAL, payload: { zoom: 1 } });
+    dispatchAppState({ type: ACTION_TYPES.SET_CAMERA_POSITION_EXTERNAL, payload: { position: { x: 0, y: 0 } } });
+
     // Apply camera reset to Cytoscape instance immediately
     const cy = getCytoscapeInstance();
     if (cy) {
@@ -1019,9 +1020,10 @@ function App() {
   const {
     livePan,
     liveZoom,
-    onZoomChange,
-    onCameraMove,
-    onViewportChange
+    // onZoomChange,
+    // onCameraMove,
+    onViewportChange,
+    // forceCameraUpdate,
   } = useCamera(dispatchAppState, appState);
 
   // REFACTOR STEP 1: Replace handleRotateMap with hook function  
@@ -1611,8 +1613,8 @@ useEffect(() => {
         selectedNodeIds={memoSelectedNodeIds}
         selectedEdgeIds={memoSelectedEdgeIds}
         onNodeMove={handleNodeMove}
-        onZoomChange={onZoomChange}         // debounced reducer commit
-        onCameraMove={onCameraMove}         // debounced reducer commit
+        // onZoomChange={onZoomChange}         // debounced reducer commit
+        // onCameraMove={onCameraMove}         // debounced reducer commit
         onViewportChange={onViewportChange} // 🔴 every-frame stream for BG
         initialZoom={zoomLevel}
         initialCameraPosition={memoCameraPosition}

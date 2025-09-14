@@ -713,8 +713,8 @@ export function wireEvents(cy, handlers = {}, mode = 'editing') {
 
   function handleCameraUpdate(source) {
     printDebug(`Camera update triggered by: ${source}`);
-    if (handlers.onZoomChange) handlers.onZoomChange(cy.zoom());
-    if (handlers.onCameraMove) handlers.onCameraMove({ x: cy.pan().x, y: cy.pan().y });
+    // if (handlers.onZoomChange) handlers.onZoomChange(cy.zoom());
+    // if (handlers.onCameraMove) handlers.onCameraMove({ x: cy.pan().x, y: cy.pan().y });
   }
 
   function mouseupHandler() {
@@ -999,6 +999,6 @@ export function debugPrintEntireGraph(cy) {
     classes: e.classes(),
     data: e.data()
   }));
-  console.log("Cytoscape Nodes:", nodes);
-  console.log("Cytoscape Edges:", edges);
+  //// console.log("Cytoscape Nodes:", nodes);
+  //// console.log("Cytoscape Edges:", edges);
 }
