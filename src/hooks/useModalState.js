@@ -1,3 +1,5 @@
+// src/hooks/useModalState.js
+
 import { useCallback } from 'react';
 
 /**

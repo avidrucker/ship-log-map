@@ -1,3 +1,5 @@
+// src/hooks/useGraphOperations.js
+
 import { useCallback } from 'react';
 import { incrementOrientationBy90 } from '../utils/rotation';
 import { ACTION_TYPES } from '../appStateReducer';  // Import ACTION_TYPES constants

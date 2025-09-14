@@ -1,3 +1,5 @@
+// src/hooks/useMapLoading.js
+
 import { useEffect, useRef } from 'react';
 import { normalizeGraphData, hydrateCoordsIfMissing } from '../utils/mapHelpers';
 import { printDebug } from '../utils/debug';
