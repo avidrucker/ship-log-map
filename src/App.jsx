@@ -90,6 +90,9 @@ import { useMapLoading } from "./hooks/useMapLoading.js";
 import { useModalState } from "./hooks/useModalState.js";
 import { useKeyboardHandlers } from "./hooks/useKeyboardHandlers.js";
 
+// camera hook (live viewport + debounced commits)
+import { useCamera } from "./hooks/useCamera.js";
+
 // Add CSS for spinner animation
 const SPINNER_CSS = `
 @keyframes spin {
@@ -1011,16 +1014,15 @@ function App() {
       nodes: prev.nodes.map(n => (nodeIds.includes(n.id) ? { ...n, color: newColor } : n))
     }));
   }, [updateNodeInPlace, saveUndoState]);
-  // camera
-  // camera
-  const setZoomLevel = useCallback((zoom) => {
-    printDebug(`🏠 App: setZoomLevel called with: ${zoom}`);
-    dispatchAppState({ type: ACTION_TYPES.SET_ZOOM, payload: { zoom } });
-  }, []);
-  const setCameraPosition = useCallback((position) => {
-    printDebug(`🏠 App: setCameraPosition called with: (${Math.round(position.x)}, ${Math.round(position.y)})`);
-    dispatchAppState({ type: ACTION_TYPES.SET_CAMERA_POSITION, payload: { position } });
-  }, []);
+
+  // 🔴 Live camera values (smooth BG), plus debounced reducer commits
+  const {
+    livePan,
+    liveZoom,
+    onZoomChange,
+    onCameraMove,
+    onViewportChange
+  } = useCamera(dispatchAppState, appState);
 
   // REFACTOR STEP 1: Replace handleRotateMap with hook function  
   // OLD: const handleRotateMap = useCallback(() => { const next = rotateCompassOnly(orientation); dispatchAppState({ type: ACTION_TYPES.SET_ORIENTATION, payload: { orientation: next } }); }, [orientation]);
@@ -1422,8 +1424,8 @@ useEffect(() => {
           url={bgImage.imageUrl}
           visible={bgImage.visible}
           opacity={bgImage.opacity}
-          pan={cameraPosition}              // { x, y } from Cytoscape
-          zoom={zoomLevel}                  // number from Cytoscape
+          pan={livePan}              // 🔴 live pan (every frame)
+          zoom={liveZoom}            // 🔴 live zoom (every frame)
           calibration={ bgCalibration
             // keep your existing semantics: scale is a percentage
             // tx: bgImage.x,                  // world offset X (same units as node positions)
@@ -1609,8 +1611,9 @@ useEffect(() => {
         selectedNodeIds={memoSelectedNodeIds}
         selectedEdgeIds={memoSelectedEdgeIds}
         onNodeMove={handleNodeMove}
-        onZoomChange={setZoomLevel}
-        onCameraMove={setCameraPosition}
+        onZoomChange={onZoomChange}         // debounced reducer commit
+        onCameraMove={onCameraMove}         // debounced reducer commit
+        onViewportChange={onViewportChange} // 🔴 every-frame stream for BG
         initialZoom={zoomLevel}
         initialCameraPosition={memoCameraPosition}
         shouldFitOnNextRender={shouldFitOnNextRender}
