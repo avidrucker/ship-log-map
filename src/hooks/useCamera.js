@@ -6,85 +6,79 @@ import { printDebug } from '../utils/debug';
 /**
  * useCamera — real-time camera streaming + debounced reducer commits
  *
- * - livePan/liveZoom update every frame for BgImageLayer (no blip).
- * - commitPan/commitZoom (debounced) keep appState.camera persisted.
+ * - livePan/liveZoom: per-frame values for BgImageLayer (smooth, no jitter).
+ * - commitPan/commitZoom: debounced commits into reducer/persistence.
  */
 export function useCamera(dispatch, appState, { commitDelay = 60 } = {}) {
   const { camera } = appState;
 
-  // Live state for UI that must update every frame (BgImageLayer).
+  // Live state for BG layer (avoid reducer thrash)
   const [liveZoom, setLiveZoom] = useState(camera.zoom);
-  const [livePan, setLivePan] = useState(camera.position);
+  const [livePan, setLivePan] = useState({
+    x: camera.position?.x ?? 0,
+    y: camera.position?.y ?? 0
+  });
 
-  // Track whether the user is actively interacting (wheel/drag). While "hot",
-  // we do NOT let reducer commits clobber live state.
-  const interactingUntil = useRef(0);
-  const markInteracting = useCallback(() => { interactingUntil.current = Date.now() + 160; }, []);
-  const isInteracting = () => Date.now() < interactingUntil.current;
+  // Keep live state in sync if reducer changes (fit, load, etc)
+  useEffect(() => { setLiveZoom(camera.zoom); }, [camera.zoom]);
+  useEffect(() => { setLivePan({ x: camera.position?.x ?? 0, y: camera.position?.y ?? 0 }); }, [camera.position?.x, camera.position?.y]);
 
-  // Keep live in sync if reducer changes (e.g., fit, load) — BUT NOT during interaction.
-  useEffect(() => {
-    if (!isInteracting()) setLiveZoom(camera.zoom);
-  }, [camera.zoom]);
-  useEffect(() => {
-    if (!isInteracting()) setLivePan(camera.position);
-  }, [camera.position]);
-
-  // Debounced commits into reducer (avoid render storms during drag/zoom).
+  // --- Debounced commits to reducer (persistence) ---
   const zoomT = useRef(null);
-  const panT = useRef(null);
-  const latest = useRef({ pan: camera.position, zoom: camera.zoom });
+  const panT  = useRef(null);
 
   const commitZoom = useCallback((z) => {
     clearTimeout(zoomT.current);
     zoomT.current = setTimeout(() => {
-      const val = latest.current.zoom;
-      printDebug(`🎥 commit SET_ZOOM ${val}`);
-      dispatch({ type: ACTION_TYPES.SET_ZOOM, payload: { zoom: val } });
+      printDebug(`🎥 commit SET_ZOOM ${z}`);
+      dispatch({ type: ACTION_TYPES.SET_ZOOM, payload: { zoom: z } });
     }, commitDelay);
   }, [dispatch, commitDelay]);
 
-  const commitPan = useCallback(() => {
+  const commitPan = useCallback((p) => {
     clearTimeout(panT.current);
+    const clone = { x: p.x, y: p.y };
     panT.current = setTimeout(() => {
-      const val = latest.current.pan;
-      printDebug(`🎥 commit SET_CAMERA_POSITION (${Math.round(val.x)}, ${Math.round(val.y)})`);
-      dispatch({ type: ACTION_TYPES.SET_CAMERA_POSITION, payload: { position: val } });
+      printDebug(`🎥 commit SET_CAMERA_POSITION (${Math.round(clone.x)}, ${Math.round(clone.y)})`);
+      dispatch({ type: ACTION_TYPES.SET_CAMERA_POSITION, payload: { position: clone } });
     }, commitDelay);
   }, [dispatch, commitDelay]);
 
-  // Handlers passed to CytoscapeGraph (existing props)
-  const onZoomChange = useCallback((z) => {
-    // Coarse event: do NOT set live here; rAF stream owns live values.
-    latest.current.zoom = z;
-    commitZoom(z);
-  }, [commitZoom]);
-
-  const onCameraMove = useCallback((p) => {
-    // Coarse event: do NOT set live here; rAF stream owns live values.
-    latest.current.pan = p;
-    commitPan(p);
-  }, [commitPan]);
-
-  // NEW: per-frame (rAF) viewport stream from Cytoscape
+  // --- Every-frame viewport stream from CytoscapeGraph ---
   const rafPending = useRef(false);
+  const latest = useRef({ pan: { x: livePan.x, y: livePan.y }, zoom: liveZoom });
 
   const onViewportChange = useCallback(({ pan, zoom }) => {
-    latest.current = { pan, zoom };
-    markInteracting();
+    // record latest values (pan may be a mutable object from cy, so don't keep it)
+    latest.current = { zoom, pan: { x: pan.x, y: pan.y } };
+
     if (rafPending.current) return;
     rafPending.current = true;
+
     requestAnimationFrame(() => {
       rafPending.current = false;
-      // During interaction, rAF drives live state; after it ends, reducer sync kicks in.
-      setLiveZoom(prev => (prev === latest.current.zoom ? prev : latest.current.zoom));
-      setLivePan(prev =>
-        (prev.x === latest.current.pan.x && prev.y === latest.current.pan.y) ? prev : latest.current.pan
-      );
-    });
-  }, [markInteracting]);
+      const { zoom: z, pan: p } = latest.current;
 
-  // Cleanup timeouts on unmount
+      // Only update if changed (avoid redundant renders)
+      if (Math.abs(z - liveZoom) > 1e-4) setLiveZoom(z);
+      if (p.x !== livePan.x || p.y !== livePan.y) setLivePan({ x: p.x, y: p.y });
+    });
+  }, [liveZoom, livePan.x, livePan.y]);
+
+  // Optional: also accept “classic” change events (debounced commits)
+  const onZoomChange = useCallback((z) => {
+    // live update for safety (e.g. if render stream is paused), but guard equality
+    if (Math.abs(z - liveZoom) > 1e-4) setLiveZoom(z);
+    commitZoom(z);
+  }, [commitZoom, liveZoom]);
+
+  const onCameraMove = useCallback((p) => {
+    // clone to ensure a new reference for React
+    if (p.x !== livePan.x || p.y !== livePan.y) setLivePan({ x: p.x, y: p.y });
+    commitPan(p);
+  }, [commitPan, livePan.x, livePan.y]);
+
+  // Cleanup
   useEffect(() => () => {
     clearTimeout(zoomT.current);
     clearTimeout(panT.current);
@@ -93,8 +87,8 @@ export function useCamera(dispatch, appState, { commitDelay = 60 } = {}) {
   return {
     livePan,
     liveZoom,
-    onZoomChange,
-    onCameraMove,
-    onViewportChange
+    onZoomChange,      // debounced reducer commit
+    onCameraMove,      // debounced reducer commit
+    onViewportChange   // per-frame stream (BG uses this)
   };
 }

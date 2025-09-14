@@ -11,7 +11,7 @@
  * - Integrates grayscale/placeholder image readiness to avoid flicker.
  *
  * Props (selected)
- * - nodes, edges, mode ('editing'|'viewing'), mapName, cdnBaseUrl
+ * - nodes, edges, mode ('editing'|'playing'), mapName, cdnBaseUrl
  * - onNodeSelectionChange(ids), onEdgeSelectionChange(ids)
  * - onNodeClick(id), onEdgeClick(id), onBackgroundClick()
  * - shouldFitOnNextRender, onFitCompleted()
@@ -20,14 +20,15 @@
  * - Keep props stable (useCallback/memo) to avoid unnecessary full re-syncs.
  */
 
+// src/components/CytoscapeGraph.jsx
 import React, { useEffect, useRef } from "react";
-import { mountCy, syncElements, wireEvents, hasPendingGrayscaleConversions, updateCompletedGrayscaleImages, ensureNoteCountNodes, updateNoteCounts } from "../graph/cyAdapter.js";
+import {
+  mountCy, syncElements, wireEvents,
+  hasPendingGrayscaleConversions, updateCompletedGrayscaleImages,
+  ensureNoteCountNodes, updateNoteCounts
+} from "../graph/cyAdapter.js";
 import { printDebug, printError, printWarn } from "../utils/debug.js";
 
-// NOTE: mountCy now supports async CDN placeholder default image loading for 'unspecified' images.
-// Passing mapName & cdnBaseUrl ensures placeholder keyed per map.
-
-// Keep the same props your App already passes in
 function CytoscapeGraph({
   nodes = [],
   edges = [],
@@ -35,7 +36,6 @@ function CytoscapeGraph({
   mapName = 'default_map',
   cdnBaseUrl = '',
 
-  // Selection state for synchronization
   selectedNodeIds = [],
   selectedEdgeIds = [],
 
@@ -44,10 +44,11 @@ function CytoscapeGraph({
   initialCameraPosition,
   onZoomChange,
   onCameraMove,
+  onViewportChange,              // ← per-frame pan+zoom stream for BG
   shouldFitOnNextRender = false,
   onFitCompleted,
 
-  // Selections & clicks
+  // Clicks/selections
   onNodeSelectionChange,
   onEdgeSelectionChange,
   onNodeClick,
@@ -56,51 +57,41 @@ function CytoscapeGraph({
   onEdgeDoubleClick,
   onBackgroundClick,
 
-  // Editing callbacks (forwarded up; the graph doesn’t mutate domain state directly)
-  // onDeleteSelectedEdges,
-  // onNodeSelectionChange: _noUse_1, // maintained for compatibility if App passes it twice
-  // onEdgeDirectionChange,
-  // onDeleteSelectedNodes,
-  // onNodeSizeChange,
-  // onNodeColorChange,
-
-  // Node move
   onNodeMove,
-
-  // Note count overlay
   showNoteCountOverlay = false,
   notes = {},
-
-  // Give parent access to cy instance
   onCytoscapeInstanceReady
 }) {
   const containerRef = useRef(null);
   const cyRef = useRef(null);
 
+  // Keep the latest onViewportChange in a ref so the listener doesn’t rebind every render
+  const onViewportRef = useRef(null);
+  useEffect(() => { onViewportRef.current = onViewportChange || null; }, [onViewportChange]);
+
+  // rAF id for throttling
+  const rafIdRef = useRef(0);
+
   // Mount once
   useEffect(() => {
     if (!containerRef.current) return;
 
-    const mountCytoscape = async () => {
+    const mount = async () => {
       try {
         const cy = await mountCy({
           container: containerRef.current,
           graph: { nodes, edges, mapName, cdnBaseUrl },
           mode
         });
-
         cyRef.current = cy;
 
-        // Initial viewport
-        if (typeof initialZoom === "number") {
-          cy.zoom(initialZoom);
-        }
-        if (initialCameraPosition && typeof initialCameraPosition.x === "number" && typeof initialCameraPosition.y === "number") {
+        // Initial viewport (before wiring stream)
+        if (typeof initialZoom === "number") cy.zoom(initialZoom);
+        if (initialCameraPosition && Number.isFinite(initialCameraPosition.x) && Number.isFinite(initialCameraPosition.y)) {
           cy.pan(initialCameraPosition);
         }
 
-        // Wire events immediately after Cytoscape is ready
-        printDebug(`🔌 [CytoscapeGraph] Wiring events after mount`);
+        // Wire domain/UI events (selection, clicks, etc.)
         const off = wireEvents(cy, {
           onNodeSelectionChange,
           onEdgeSelectionChange,
@@ -110,39 +101,64 @@ function CytoscapeGraph({
           onEdgeDoubleClick,
           onBackgroundClick,
           onNodeMove,
-          onZoomChange,
-          onCameraMove,
+          onZoomChange,     // debounced commits (via useCamera)
+          onCameraMove,     // debounced commits (via useCamera)
           notes
         }, mode);
-
-        // Store the cleanup function for later use
         cyRef.current._eventCleanup = off;
 
+        // ---- Per-frame viewport stream (pan + zoom) ----
+        const schedule = () => {
+          if (!onViewportRef.current) return;
+          if (rafIdRef.current) return;
+          rafIdRef.current = requestAnimationFrame(() => {
+            rafIdRef.current = 0;
+            try {
+              const p = cy.pan();
+              const z = cy.zoom();
+              // clone pan so React sees a new object identity
+              onViewportRef.current({ pan: { x: p.x, y: p.y }, zoom: z });
+            } catch (e) {
+              printWarn('onViewportChange handler threw:', e);
+            }
+          });
+        };
+
+        // Render is fired each draw; pan/zoom fire as well (safety)
+        cy.on('render pan zoom', schedule);
+
+        // Seed once so BG is correct immediately
+        schedule();
+
         if (onCytoscapeInstanceReady) onCytoscapeInstanceReady(cy);
-        // Initial note-count overlay creation if enabled - delay to ensure cy is fully ready
+
+        // (Note overlay bootstrap)
         if (showNoteCountOverlay) {
           setTimeout(() => {
             try {
               ensureNoteCountNodes(cy, notes, showNoteCountOverlay);
               updateNoteCounts(cy, notes);
-            } catch (error) {
-              console.warn('Failed to create initial note count overlays:', error);
+            } catch (err) {
+              console.warn('Failed to create initial note count overlays:', err);
             }
           }, 100);
         }
-      } catch (error) {
-        printError('Failed to initialize Cytoscape:', error);
+      } catch (err) {
+        printError('Failed to initialize Cytoscape:', err);
       }
     };
 
-    mountCytoscape();
+    mount();
 
     return () => {
       try {
-        // Clean up events first
-        if (cyRef.current?._eventCleanup) {
-          printDebug(`🧹 [CytoscapeGraph] Cleaning up events on unmount`);
-          cyRef.current._eventCleanup();
+        if (cyRef.current?._eventCleanup) cyRef.current._eventCleanup();
+        if (cyRef.current) {
+          cyRef.current.off('render pan zoom'); // remove all three
+        }
+        if (rafIdRef.current) {
+          cancelAnimationFrame(rafIdRef.current);
+          rafIdRef.current = 0;
         }
         cyRef.current?.destroy();
       } catch {
