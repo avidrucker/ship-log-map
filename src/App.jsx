@@ -17,7 +17,7 @@
  *    - Handles URL monitoring, mode logic, background image loading
  *    - Benefits: Cleaner App.jsx, reusable URL monitoring logic
  * 
- * PENDING REFACTORS:
+ * ✅ Modal State Hook and Keyboard Handlers Hook - COMPLETED
  * 🔄 Modal State Hook (useModalState) - Modal open/close state management  
  * 🔄 Keyboard Handlers Hook (useKeyboardHandlers) - Keyboard shortcuts
  *
@@ -78,13 +78,17 @@ import { loadOrientationFromLocal, saveOrientationToLocal, loadCompassVisibleFro
 import { edgeId, renameNode } from "./graph/ops.js";
 import { printDebug } from "./utils/debug.js";
 import { rotateNodesAndCompass } from './utils/rotation.js';  // REFACTOR STEP 1: Removed rotateCompassOnly - now using graphOps.handleRotateRight
-import { getCanEditFromQuery } from "./utils/cdnHelpers.js";
+import { getCanEditFromQuery, hasAnyQueryParams } from "./utils/mapHelpers.js";
 
 // REFACTOR STEP 1: Import graph operations hook
 import { useGraphOperations } from "./hooks/useGraphOperations.js";
 
 // REFACTOR STEP 2: Import map loading hook for URL monitoring  
 import { useMapLoading } from "./hooks/useMapLoading.js";
+
+// REFACTOR STEP 3: Modal state + keyboard hooks
+import { useModalState } from "./hooks/useModalState.js";
+import { useKeyboardHandlers } from "./hooks/useKeyboardHandlers.js";
 
 // Add CSS for spinner animation
 const SPINNER_CSS = `
@@ -154,10 +158,6 @@ function hydrateCoordsIfMissing(graph, defaultGraph) {
 }
 
 function App() {
-
-  function hasAnyQueryParams() {
-    return window.location.search && window.location.search.length > 1;
-  }
   
   // previously editingEnabled, getEditingEnabledFromQuery
   const canEdit = getCanEditFromQuery() || !hasAnyQueryParams();
@@ -290,13 +290,11 @@ function App() {
   }, []);
 
   // Share modal state
-  const [shareModalOpen, setShareModalOpen] = useState(false);
-  const handleOpenShareModal = useCallback(() => {
-    setShareModalOpen(true);
-  }, []);
-  const handleCloseShareModal = useCallback(() => {
-    setShareModalOpen(false);
-  }, []);
+  // Centralized modal helpers (note editor/viewer/debug via reducer, share via local)
+  const modalOps = useModalState(dispatchAppState, appState, {
+    openBgImageModal,
+    closeBgImageModal
+  });
 
   // CDN loading state
   // const [currentMapUrl, setCurrentMapUrl] = useState(null); // Initialize as null to force initial check
@@ -724,14 +722,7 @@ function App() {
     }
   }, [mode, restoreOriginalCamera, hasOriginalCamera]);
 
-  // Debug modal handlers
-  const handleOpenDebugModal = useCallback(() => {
-    dispatchAppState({ type: ACTION_TYPES.OPEN_DEBUG_MODAL });
-  }, []);
-
-  const handleCloseDebugModal = useCallback(() => {
-    dispatchAppState({ type: ACTION_TYPES.CLOSE_DEBUG_MODAL });
-  }, []);
+  // Debug modal open/close now via modalOps
 
   const handleEdgeSelectionChange = useCallback((edgeIds) => {
     printDebug('🏠 App: Edge selection changed:', edgeIds);
@@ -1292,36 +1283,19 @@ function App() {
     );
   }, [graphData.edges]);
 
-  // ---------- keyboard shortcuts ----------
-  useEffect(() => {
-    const handleKeyDown = (event) => {
-      // Only handle Delete key in editing mode
-      if (mode !== 'editing') return;
-      if (event.key !== 'Delete' && event.key !== 'Backspace') return;
-      
-      // Don't handle if user is typing in an input/textarea
-      if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') return;
-      
-      // Prevent default behavior
-      event.preventDefault();
-      
-      printDebug('🏠 App: Delete key pressed, selected nodes:', selectedNodeIds, 'selected edges:', selectedEdgeIds);
-      
-      // Delete selected nodes first (they have priority), then edges
-      if (selectedNodeIds.length > 0) {
-        handleDeleteSelectedNodes(selectedNodeIds);
-      } else if (selectedEdgeIds.length > 0) {
-        handleDeleteSelectedEdges(selectedEdgeIds);
-      }
-    };
-
-    // Add event listener to document
-    document.addEventListener('keydown', handleKeyDown);
-    
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [mode, selectedNodeIds, selectedEdgeIds, handleDeleteSelectedNodes, handleDeleteSelectedEdges]);
+  // ---------- keyboard shortcuts (moved to hook) ----------
+  useKeyboardHandlers({
+    mode,
+    getSelections: () => ({ selectedNodeIds, selectedEdgeIds }),
+    onDeleteSelectedNodes: handleDeleteSelectedNodes,
+    onDeleteSelectedEdges: handleDeleteSelectedEdges,
+    graphOps,
+    modalOps,
+    onResetSelection: () => {
+      dispatchAppState({ type: ACTION_TYPES.CLEAR_ALL_SELECTIONS });
+      clearCytoscapeSelections();
+    }
+  });
 
   // Prepare debug data for debug modal
   const getDebugData = useCallback(() => {
@@ -1476,8 +1450,8 @@ useEffect(() => {
           mode={mode}
           collapsed={graphControlsCollapsed}
           onToggleCollapsed={toggleGraphControls}
-          onOpenDebugModal={DEV_MODE ? handleOpenDebugModal : undefined}
-          onOpenShareModal={handleOpenShareModal}
+          onOpenDebugModal={DEV_MODE ? modalOps.openDebugModal : undefined}
+          onOpenShareModal={modalOps.openShareModal}
           onUndo={handleUndo}
           canUndo={!!lastUndoState}
           onRotateCompass={handleRotateMap}
@@ -1531,15 +1505,15 @@ useEffect(() => {
       {DEV_MODE && (
         <DebugModal
           isOpen={debugModalOpen}
-          onClose={handleCloseDebugModal}
+          onClose={modalOps.closeDebugModal}
           debugData={getDebugData()}
           getCytoscapeInstance={getCytoscapeInstance}
         />
       )}
 
       <ShareModal
-        isOpen={shareModalOpen}
-        onClose={handleCloseShareModal}
+        isOpen={modalOps.isShareModalOpen}
+        onClose={modalOps.closeShareModal}
         mapName={mapName}
         cdnBaseUrl={cdnBaseUrl}
       />

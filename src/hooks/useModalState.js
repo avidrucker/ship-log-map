@@ -1,166 +1,134 @@
 // src/hooks/useModalState.js
 
-import { useCallback } from 'react';
+import { useCallback, useMemo, useState } from 'react';
+import { ACTION_TYPES } from '../appStateReducer';
 
 /**
- * Custom hook for managing modal states
- * @param {Function} dispatch - State dispatch function
- * @param {Object} state - Current app state
- * @returns {Object} Modal state management functions
+ * Modal state helper hook
+ *
+ * Notes
+ * - Uses reducer-backed state (note editor/viewer, debug)
+ * - Keeps "Share" modal as local state (no reducer changes required)
+ * - Optionally integrates background image modal toggles from parent
+ *
+ * @param {Function} dispatchAppState - reducer dispatch
+ * @param {Object} appState - current reducer state
+ * @param {Object} [opts]
+ * @param {Function} [opts.openBgImageModal] - from useBgImageState()
+ * @param {Function} [opts.closeBgImageModal] - from useBgImageState()
  */
-export function useModalState(dispatch, state) {
-  const openNoteEditor = useCallback((elementId, elementType) => {
-    dispatch({
-      type: 'OPEN_NOTE_EDITOR',
-      payload: { elementId, elementType }
-    });
-  }, [dispatch]);
+export function useModalState(dispatchAppState, appState, opts = {}) {
+  const { openBgImageModal, closeBgImageModal } = opts;
 
-  const closeNoteEditor = useCallback(() => {
-    dispatch({ type: 'CLOSE_NOTE_EDITOR' });
-  }, [dispatch]);
+  // Local-only Share modal (no reducer coupling)
+  const [isShareModalOpen, setShareModalOpen] = useState(false);
+  const openShareModal = useCallback(() => setShareModalOpen(true), []);
+  const closeShareModal = useCallback(() => setShareModalOpen(false), []);
+  const toggleShareModal = useCallback(
+    () => setShareModalOpen((v) => !v),
+    []
+  );
 
-  const openNoteViewer = useCallback((elementId, elementType) => {
-    dispatch({
-      type: 'OPEN_NOTE_VIEWER',
-      payload: { elementId, elementType }
-    });
-  }, [dispatch]);
+  // Reducer-backed modals
+  const openDebugModal = useCallback(
+    () => dispatchAppState({ type: ACTION_TYPES.OPEN_DEBUG_MODAL }),
+    [dispatchAppState]
+  );
+  const closeDebugModal = useCallback(
+    () => dispatchAppState({ type: ACTION_TYPES.CLOSE_DEBUG_MODAL }),
+    [dispatchAppState]
+  );
 
-  const closeNoteViewer = useCallback(() => {
-    dispatch({ type: 'CLOSE_NOTE_VIEWER' });
-  }, [dispatch]);
+  const openNoteEditor = useCallback(
+    (targetId, targetType = 'node') =>
+      dispatchAppState({
+        type: ACTION_TYPES.START_NOTE_EDITING,
+        payload: { targetId, targetType },
+      }),
+    [dispatchAppState]
+  );
+  const closeNoteEditor = useCallback(
+    () => dispatchAppState({ type: ACTION_TYPES.CLOSE_NOTE_EDITING }),
+    [dispatchAppState]
+  );
 
-  const openBgImageModal = useCallback(() => {
-    dispatch({ type: 'OPEN_BG_IMAGE_MODAL' });
-  }, [dispatch]);
+  const openNoteViewer = useCallback(
+    (targetId) =>
+      dispatchAppState({
+        type: ACTION_TYPES.START_NOTE_VIEWING,
+        payload: { targetId },
+      }),
+    [dispatchAppState]
+  );
+  const closeNoteViewer = useCallback(
+    () => dispatchAppState({ type: ACTION_TYPES.CLOSE_NOTE_VIEWING }),
+    [dispatchAppState]
+  );
 
-  const closeBgImageModal = useCallback(() => {
-    dispatch({ type: 'CLOSE_BG_IMAGE_MODAL' });
-  }, [dispatch]);
+  // Derived state
+  const isDebugOpen = !!appState?.selections?.debugModal?.isOpen;
+  const isNoteEditorOpen = !!appState?.selections?.noteEditing?.targetId;
+  const isNoteViewerOpen = !!appState?.selections?.noteViewing?.targetId;
 
-  const openShareModal = useCallback(() => {
-    dispatch({ type: 'OPEN_SHARE_MODAL' });
-  }, [dispatch]);
-
-  const closeShareModal = useCallback(() => {
-    dispatch({ type: 'CLOSE_SHARE_MODAL' });
-  }, [dispatch]);
-
-  const openDebugModal = useCallback(() => {
-    dispatch({ type: 'OPEN_DEBUG_MODAL' });
-  }, [dispatch]);
-
-  const closeDebugModal = useCallback(() => {
-    dispatch({ type: 'CLOSE_DEBUG_MODAL' });
-  }, [dispatch]);
+  const isAnyModalOpen = useMemo(() => {
+    const anyReducerModal =
+      isDebugOpen || isNoteEditorOpen || isNoteViewerOpen;
+    const anyBg =
+      typeof appState?.bgImage?.visible === 'boolean'
+        ? false // visibility != modal open; modal is managed in useBgImageState
+        : false;
+    return anyReducerModal || anyBg || isShareModalOpen;
+  }, [isDebugOpen, isNoteEditorOpen, isNoteViewerOpen, isShareModalOpen, appState]);
 
   const closeAllModals = useCallback(() => {
-    dispatch({ type: 'CLOSE_ALL_MODALS' });
-  }, [dispatch]);
-
-  const toggleModal = useCallback((modalType) => {
-    const modalStateMap = {
-      'noteEditor': state?.noteEditor?.isOpen,
-      'noteViewer': state?.noteViewer?.isOpen,
-      'bgImage': state?.bgImageModal?.isOpen,
-      'share': state?.shareModal?.isOpen,
-      'debug': state?.debugModal?.isOpen
-    };
-
-    const isOpen = modalStateMap[modalType];
-    
-    switch (modalType) {
-      case 'noteEditor':
-        if (isOpen) {
-          closeNoteEditor();
-        } else {
-          openNoteEditor();
-        }
-        break;
-      case 'noteViewer':
-        if (isOpen) {
-          closeNoteViewer();
-        } else {
-          openNoteViewer();
-        }
-        break;
-      case 'bgImage':
-        if (isOpen) {
-          closeBgImageModal();
-        } else {
-          openBgImageModal();
-        }
-        break;
-      case 'share':
-        if (isOpen) {
-          closeShareModal();
-        } else {
-          openShareModal();
-        }
-        break;
-      case 'debug':
-        if (isOpen) {
-          closeDebugModal();
-        } else {
-          openDebugModal();
-        }
-        break;
-      default:
-        console.warn('Unknown modal type:', modalType);
-    }
+    if (isDebugOpen) closeDebugModal();
+    if (isNoteEditorOpen) closeNoteEditor();
+    if (isNoteViewerOpen) closeNoteViewer();
+    if (isShareModalOpen) closeShareModal();
+    if (typeof closeBgImageModal === 'function') closeBgImageModal();
   }, [
-    state,
-    openNoteEditor,
+    isDebugOpen,
+    isNoteEditorOpen,
+    isNoteViewerOpen,
+    isShareModalOpen,
+    closeDebugModal,
     closeNoteEditor,
-    openNoteViewer,
     closeNoteViewer,
-    openBgImageModal,
-    closeBgImageModal,
-    openShareModal,
     closeShareModal,
-    openDebugModal,
-    closeDebugModal
+    closeBgImageModal,
   ]);
 
-  const isAnyModalOpen = useCallback(() => {
-    return !!(
-      state?.noteEditor?.isOpen ||
-      state?.noteViewer?.isOpen ||
-      state?.bgImageModal?.isOpen ||
-      state?.shareModal?.isOpen ||
-      state?.debugModal?.isOpen
-    );
-  }, [state]);
-
-  const getOpenModalType = useCallback(() => {
-    if (state?.noteEditor?.isOpen) return 'noteEditor';
-    if (state?.noteViewer?.isOpen) return 'noteViewer';
-    if (state?.bgImageModal?.isOpen) return 'bgImage';
-    if (state?.shareModal?.isOpen) return 'share';
-    if (state?.debugModal?.isOpen) return 'debug';
-    return null;
-  }, [state]);
+  const toggleBgImageModal = useCallback(() => {
+    if (!openBgImageModal || !closeBgImageModal) return;
+    // The BG modal open state is owned by useBgImageState; we don't read it here.
+    openBgImageModal();
+  }, [openBgImageModal, closeBgImageModal]);
 
   return {
-    // Individual modal controls
+    // share (local)
+    isShareModalOpen,
+    openShareModal,
+    closeShareModal,
+    toggleShareModal,
+
+    // debug (reducer)
+    isDebugOpen,
+    openDebugModal,
+    closeDebugModal,
+
+    // note editor/viewer (reducer)
+    isNoteEditorOpen,
+    isNoteViewerOpen,
     openNoteEditor,
     closeNoteEditor,
     openNoteViewer,
     closeNoteViewer,
-    openBgImageModal,
-    closeBgImageModal,
-    openShareModal,
-    closeShareModal,
-    openDebugModal,
-    closeDebugModal,
-    
-    // Global modal controls
-    closeAllModals,
-    toggleModal,
-    
-    // Modal state queries
+
+    // bg modal (delegated)
+    toggleBgImageModal,
+
+    // global helpers
     isAnyModalOpen,
-    getOpenModalType
+    closeAllModals,
   };
 }
