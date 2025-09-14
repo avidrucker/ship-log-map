@@ -56,17 +56,6 @@ export async function loadMapFromCdn(mapUrl) {
   }
 }
 
-// previously getEditingEnabledFromQuery
-export function getCanEditFromQuery() {
-  const urlParams = new URLSearchParams(window.location.search);
-  const canedit = urlParams.get('canedit');
-  return canedit === 'true';
-}
-
-export function hasAnyQueryParams() {
-  return window.location.search && window.location.search.length > 1;
-}
-
 // Externalized handleLoadFromCdn for use in App.jsx
 export async function handleLoadFromCdn({
   cdnBaseUrl,

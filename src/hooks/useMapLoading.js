@@ -1,9 +1,9 @@
 // src/hooks/useMapLoading.js
 
 import { useEffect, useRef } from 'react';
-import { normalizeGraphData, hydrateCoordsIfMissing } from '../utils/mapHelpers';
+import { normalizeGraphData, hydrateCoordsIfMissing, hasAnyQueryParams, getCanEditFromQuery } from '../utils/mapHelpers';
 import { printDebug } from '../utils/debug';
-import { loadMapFromCdn, getCanEditFromQuery, hasAnyQueryParams } from '../utils/cdnHelpers';
+import { loadMapFromCdn } from '../utils/cdnHelpers';
 import { loadImageWithFallback } from '../utils/imageLoader';
 import { dataUrlOrBlobToWebpDataUrl } from '../utils/imageUtils';
 

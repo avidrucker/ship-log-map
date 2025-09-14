@@ -88,11 +88,11 @@ export function hasAnyQueryParams() {
   return window.location.search && window.location.search.length > 1;
 }
 
-// Get editing enabled from query parameters
-export function getEditingEnabledFromQuery() {
+// previously getEditingEnabledFromQuery
+export function getCanEditFromQuery() {
   const urlParams = new URLSearchParams(window.location.search);
-  const editing = urlParams.get('editing');
-  return editing === 'true' || editing === '1';
+  const canedit = urlParams.get('canedit');
+  return canedit === 'true';
 }
 
 // Get normalized map URL from query parameters
