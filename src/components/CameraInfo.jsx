@@ -291,7 +291,7 @@ function CameraInfo({ zoom, pan, selectedNodeIds, selectedEdgeIds, mode, mapName
         )}
       </div>
       <div>Zoom: {(zoom * 100).toFixed(0)}%</div>
-      <div>Camera:<br/>({Math.round(pan.x)},{Math.round(pan.y)})</div>
+      <div>Camera: ({Math.round(pan.x)},{Math.round(pan.y)})</div>
       {selectedNodeIds.length > 0 && (
         <div style={{ color: "#4fc3f7" }}>
           Nodes: {selectedNodeIds.length} selected
