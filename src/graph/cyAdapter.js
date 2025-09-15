@@ -832,7 +832,12 @@ export function ensureNoteCountNodes(cy, notes, visible) {
           if (noteNode.empty()) {
             noteNode = cy.add({
               group: 'nodes',
-              data: { id: noteId, label: String(count), size: 'small' },
+              data: { 
+                id: noteId, 
+                edgeId: edge.id(),
+                label: String(count), 
+                size: 'small' 
+              },
               position: { x: midX, y: midY },
               selectable: false,
               grabbable: false,
@@ -866,6 +871,24 @@ export function ensureNoteCountNodes(cy, notes, visible) {
   } finally { 
     cy._noteCountUpdating = false; 
   }
+}
+
+export function updateEdgeCountNodePositions(cy) {
+  // For each edge-note-count node, compute the midpoint of its edge
+  const counters = cy.$('node.edge-note-count');
+  counters.forEach(n => {
+    const edgeId = n.data('edgeId');
+    if (!edgeId) return;
+    const e = cy.getElementById(edgeId);
+    if (!e || e.empty()) return;
+
+    const p1 = e.source().position();
+    const p2 = e.target().position();
+    const offsetY = -BASE_NODE_HEIGHT / 8;
+    const mid = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 + offsetY };
+
+    n.position(mid);
+  });
 }
 
 export function updateNoteCounts(cy, notes) {
@@ -999,6 +1022,6 @@ export function debugPrintEntireGraph(cy) {
     classes: e.classes(),
     data: e.data()
   }));
-  //// console.log("Cytoscape Nodes:", nodes);
-  //// console.log("Cytoscape Edges:", edges);
+  console.log("Cytoscape Nodes:", nodes);
+  console.log("Cytoscape Edges:", edges);
 }

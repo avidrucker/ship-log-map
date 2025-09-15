@@ -1,4 +1,4 @@
-// src/CytoscapeGraph.jsx
+// src/components/CytoscapeGraph.jsx
 
 /**
  * CytoscapeGraph — Declarative wrapper around Cytoscape
@@ -20,12 +20,11 @@
  * - Keep props stable (useCallback/memo) to avoid unnecessary full re-syncs.
  */
 
-// src/components/CytoscapeGraph.jsx
 import React, { useEffect, useRef } from "react";
 import {
   mountCy, syncElements, wireEvents,
   hasPendingGrayscaleConversions, updateCompletedGrayscaleImages,
-  ensureNoteCountNodes, updateNoteCounts
+  ensureNoteCountNodes, updateNoteCounts, updateEdgeCountNodePositions
 } from "../graph/cyAdapter.js";
 import { printDebug, printError, printWarn } from "../utils/debug.js";
 
@@ -42,11 +41,7 @@ function CytoscapeGraph({
   initialZoom,
   initialCameraPosition,
 
-  // Debounced reducer commit callbacks (optional)
-  // onZoomChange,
-  // onCameraMove,
-
-  // 🔴 Per-frame stream for BG layer
+  // Per-frame stream for BG layer (kept outside reducer commits)
   onViewportChange,
 
   shouldFitOnNextRender = false,
@@ -72,9 +67,76 @@ function CytoscapeGraph({
   const onViewportRef = useRef(null);
   useEffect(() => { onViewportRef.current = onViewportChange || null; }, [onViewportChange]);
 
-  // rAF id so we throttle to once per frame
-  const rafIdRef = useRef(0);
+  // rAF id so we throttle viewport streaming to once per frame
+  const viewportRafIdRef = useRef(0);
 
+  // ---- Helpers: attach/detach viewport streaming (pan+zoom -> onViewportChange) ----
+  const attachViewportStreaming = (cy) => {
+    const schedule = () => {
+      if (!onViewportRef.current) return;
+      if (viewportRafIdRef.current) return;
+      viewportRafIdRef.current = requestAnimationFrame(() => {
+        viewportRafIdRef.current = 0;
+        try {
+          const p = cy.pan();
+          const z = cy.zoom();
+          onViewportRef.current({ pan: { x: p.x, y: p.y }, zoom: z });
+        } catch (e) {
+          printWarn('onViewportChange handler threw:', e);
+        }
+      });
+    };
+    cy.on('render pan zoom', schedule);
+    // seed once
+    schedule();
+
+    const cleanup = () => {
+      cy.off('render pan zoom', schedule);
+      if (viewportRafIdRef.current) {
+        cancelAnimationFrame(viewportRafIdRef.current);
+        viewportRafIdRef.current = 0;
+      }
+    };
+    return cleanup;
+  };
+
+  // ---- Helpers: attach/detach edge-count (note bubble) live reposition rAF ----
+  const attachEdgeCountLiveUpdater = (cy) => {
+    let edgeCountRafPending = false;
+    const scheduleEdgeCountUpdate = () => {
+      if (edgeCountRafPending) return;
+      edgeCountRafPending = true;
+      requestAnimationFrame(() => {
+        edgeCountRafPending = false;
+        try {
+          updateEdgeCountNodePositions(cy);
+          // Optionally ensure text/counts are current; inexpensive if short-circuited
+          // updateNoteCounts(cy, notes);
+        } catch (e) {
+          printWarn('edge-count update failed:', e);
+        }
+      });
+    };
+
+    // Live updates while dragging and while programmatically moving nodes
+    cy.on('drag position', 'node', scheduleEdgeCountUpdate);
+
+    // Structural or data changes that affect edge endpoints or visibility
+    cy.on('add remove data', 'edge', scheduleEdgeCountUpdate);
+    cy.on('add remove', 'node', scheduleEdgeCountUpdate);
+
+    // seed once
+    scheduleEdgeCountUpdate();
+
+    const cleanup = () => {
+      cy.off('drag position', 'node', scheduleEdgeCountUpdate);
+      cy.off('add remove data', 'edge', scheduleEdgeCountUpdate);
+      cy.off('add remove', 'node', scheduleEdgeCountUpdate);
+    };
+    return cleanup;
+  };
+
+  // ------------------- Mount once -------------------
   useEffect(() => {
     if (!containerRef.current) return;
 
@@ -103,43 +165,26 @@ function CytoscapeGraph({
           onEdgeDoubleClick,
           onBackgroundClick,
           onNodeMove,
-          // onZoomChange,   // debounced commit (useCamera)
-          // onCameraMove,   // debounced commit (useCamera)
           notes
         }, mode);
-        cyRef.current._eventCleanup = off;
+        cy._eventCleanup = off;
 
-        // 🔴 rAF viewport streaming (pan + zoom) → App.useCamera
-        const schedule = () => {
-          if (!onViewportRef.current) return;
-          if (rafIdRef.current) return;
-          rafIdRef.current = requestAnimationFrame(() => {
-            rafIdRef.current = 0;
-            try {
-              const p = cy.pan();
-              const z = cy.zoom();
-              // clone pan (cy returns a mutable object)
-              onViewportRef.current({ pan: { x: p.x, y: p.y }, zoom: z });
-            } catch (e) {
-              printWarn('onViewportChange handler threw:', e);
-            }
-          });
-        };
+        // Viewport streaming (BG layer)
+        cy._viewportCleanup = attachViewportStreaming(cy);
 
-        // Render is fired on each draw; pan/zoom fire on gestures.
-        cy.on('render pan zoom', schedule);
-
-        // Seed once so BG aligns immediately after mount
-        schedule();
+        // Edge note-count live updater
+        cy._edgeCountCleanup = attachEdgeCountLiveUpdater(cy);
 
         if (onCytoscapeInstanceReady) onCytoscapeInstanceReady(cy);
 
-        // (rest of your overlays bootstrap)
+        // Bootstrap overlays
         if (showNoteCountOverlay) {
           setTimeout(() => {
             try {
               ensureNoteCountNodes(cy, notes, showNoteCountOverlay);
               updateNoteCounts(cy, notes);
+              // make sure initial placement is correct
+              updateEdgeCountNodePositions(cy);
             } catch (err) {
               console.warn('Failed to create initial note count overlays:', err);
             }
@@ -154,13 +199,14 @@ function CytoscapeGraph({
 
     return () => {
       try {
-        if (cyRef.current?._eventCleanup) cyRef.current._eventCleanup();
-        if (cyRef.current) cyRef.current.off('render pan zoom');
-        if (rafIdRef.current) {
-          cancelAnimationFrame(rafIdRef.current);
-          rafIdRef.current = 0;
-        }
-        cyRef.current?.destroy();
+        const cy = cyRef.current;
+        if (!cy) return;
+
+        if (cy._eventCleanup) cy._eventCleanup();
+        if (cy._edgeCountCleanup) cy._edgeCountCleanup();
+        if (cy._viewportCleanup) cy._viewportCleanup();
+
+        cy.destroy();
       } catch {
         printWarn('Failed to destroy Cytoscape instance');
       }
@@ -169,30 +215,37 @@ function CytoscapeGraph({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // mount once
 
-  // Re-wire events when handlers change (but only if cytoscape is ready)
+  // ------------------- Re-wire events when handlers/mode change -------------------
   useEffect(() => {
     printDebug(`🔌 [CytoscapeGraph] Event handlers changed, re-wiring events`);
-    if (!cyRef.current) {
+    const cy = cyRef.current;
+    if (!cy) {
       printDebug(`⚠️ [CytoscapeGraph] cyRef.current is null, skipping event re-wiring`);
       return;
     }
 
-    const cy = cyRef.current;
-
-    // Clean up existing events (including viewport streaming)
+    // Clean up existing domain/UI events
     if (cy._eventCleanup) {
       printDebug(`🧹 [CytoscapeGraph] Cleaning up existing events`);
       cy._eventCleanup();
-    }
-    // Clean up viewport streaming events
-    cy.off('render pan zoom');
-    if (rafIdRef.current) {
-      cancelAnimationFrame(rafIdRef.current);
-      rafIdRef.current = 0;
+      cy._eventCleanup = null;
     }
 
+    // Clean up viewport streaming
+    if (cy._viewportCleanup) {
+      cy._viewportCleanup();
+      cy._viewportCleanup = null;
+    }
+
+    // Clean up edge-count listeners
+    if (cy._edgeCountCleanup) {
+      cy._edgeCountCleanup();
+      cy._edgeCountCleanup = null;
+    }
+
+    // Re-wire UI events
     printDebug(`🔌 [CytoscapeGraph] Re-wiring events for mode: ${mode}`);
-    const off = wireEvents(cy, {
+    cy._eventCleanup = wireEvents(cy, {
       onNodeSelectionChange,
       onEdgeSelectionChange,
       onNodeClick,
@@ -201,308 +254,191 @@ function CytoscapeGraph({
       onEdgeDoubleClick,
       onBackgroundClick,
       onNodeMove,
-      // onZoomChange,
-      // onCameraMove,
       notes
     }, mode);
 
-    // 🔴 Re-establish viewport streaming (critical for BG image updates)
-    const schedule = () => {
-      if (!onViewportRef.current) return;
-      if (rafIdRef.current) return;
-      rafIdRef.current = requestAnimationFrame(() => {
-        rafIdRef.current = 0;
-        try {
-          const p = cy.pan();
-          const z = cy.zoom();
-          // clone pan (cy returns a mutable object)
-          onViewportRef.current({ pan: { x: p.x, y: p.y }, zoom: z });
-        } catch (e) {
-          printWarn('onViewportChange handler threw:', e);
-        }
-      });
-    };
+    // Re-attach viewport streaming & seed once
+    cy._viewportCleanup = attachViewportStreaming(cy);
 
-    // Re-establish render/pan/zoom listeners for viewport streaming
-    cy.on('render pan zoom', schedule);
+    // Re-attach edge-count live updater & seed once
+    cy._edgeCountCleanup = attachEdgeCountLiveUpdater(cy);
 
-    // Seed once so BG aligns immediately after re-wiring
-    schedule();
+    // No extra cleanup here; handled by next run or unmount
+  }, [
+    onNodeSelectionChange, onEdgeSelectionChange, onNodeClick, onEdgeClick,
+    onNodeDoubleClick, onEdgeDoubleClick, onBackgroundClick, onNodeMove,
+    mode, notes
+  ]);
 
-    // Store the new cleanup function
-    cy._eventCleanup = off;
-
-    // No cleanup needed here since we handle it in the next effect run or on unmount
-  }, [onNodeSelectionChange, onEdgeSelectionChange, onNodeClick, onEdgeClick, onNodeDoubleClick, onEdgeDoubleClick, onBackgroundClick, onNodeMove, mode, notes]); // onZoomChange, onCameraMove,
-
-  // Sync when domain elements change
-  // Note: mode is included as dependency because it affects grabbable property in buildElements
+  // ------------------- Domain sync (nodes/edges) -------------------
   useEffect(() => {
-    if (!cyRef.current) return;
     const cy = cyRef.current;
+    if (!cy) return;
+
     printDebug(`🔄 [CytoscapeGraph] Domain sync effect triggered - checking if sync needed (mode: ${mode})`);
     printDebug(`🔍 [CytoscapeGraph] Current nodes in cytoscape: ${cy.nodes().length}, incoming nodes: ${nodes.length}`);
     printDebug(`🔍 [CytoscapeGraph] Current edges in cytoscape: ${cy.edges().length}, incoming edges: ${edges.length}`);
-    
+
     // Check if mode changed by comparing current node grabbable state with expected
     const expectedGrabbable = mode === 'editing';
     const modeChanged = cy.nodes().length > 0 && cy.nodes()[0].grabbable() !== expectedGrabbable;
-    
-    if (modeChanged) {
-      printDebug(`🎯 [CytoscapeGraph] Mode change detected - current grabbable: ${cy.nodes()[0].grabbable()}, expected: ${expectedGrabbable}`);
-    }
-    
-    // Check if only positions have changed to avoid unnecessary syncs
+
+    // Compare structural changes
     const currentNodes = cy.nodes().map(n => ({
       id: n.id(),
       data: n.data(),
       position: n.position()
     }));
-    
-    // Helper function to normalize imageUrl for comparison
+
     const normalizeImageUrl = (imageUrl) => {
-      // Treat "unspecified", empty values, and SVG placeholders as equivalent
-      if (!imageUrl || 
-          imageUrl === "unspecified" || 
-          imageUrl.startsWith('data:image/svg+xml')) {
-        return "placeholder";
-      }
-      // For data URLs that are not SVG, extract a consistent representation
-      if (imageUrl.startsWith('data:image/')) {
-        // For non-SVG data URLs, we can't easily extract the original filename
-        // but we can use a consistent hash or representation
-        return "data-url-image";
-      }
-      // Return the filename as-is
+      if (!imageUrl || imageUrl === "unspecified" || imageUrl.startsWith('data:image/svg+xml')) return "placeholder";
+      if (imageUrl.startsWith('data:image/')) return "data-url-image";
       return imageUrl;
     };
 
-    // Compare with incoming nodes to see if only positions changed
     const nodeStructuralChanges = nodes.some(newNode => {
       const currentNode = currentNodes.find(cn => cn.id === newNode.id);
-      if (!currentNode) return true; // New node
-      
-      // Check if non-position data changed by comparing relevant properties
-      // newNode has: {id, title, x, y, size, color, imageUrl}
-      // currentNode.data has: {id, label, size, color, imageUrl, originalImageUrl} + position separate
-      
+      if (!currentNode) return true;
       const newNodeNonPosition = {
         id: newNode.id,
         title: newNode.title,
         size: newNode.size,
         color: newNode.color,
-        // Use originalImageUrl for comparison if available, fallback to imageUrl
         imageUrl: normalizeImageUrl(newNode.originalImageUrl || newNode.imageUrl)
       };
-      
       const currentNodeNonPosition = {
         id: currentNode.data.id,
-        title: currentNode.data.label, // Note: cytoscape uses 'label' for display
+        title: currentNode.data.label,
         size: currentNode.data.size,
         color: currentNode.data.color,
-        // Use originalImageUrl for comparison if available, fallback to imageUrl
         imageUrl: normalizeImageUrl(currentNode.data.originalImageUrl || currentNode.data.imageUrl)
       };
-      
-      const isDifferent = JSON.stringify(newNodeNonPosition) !== JSON.stringify(currentNodeNonPosition);
-      if (isDifferent) {
-        printDebug(`🔍 [CytoscapeGraph] Structural change detected for node ${newNode.id}:`, {
-          new: newNodeNonPosition,
-          current: currentNodeNonPosition,
-          originalNew: {
-            ...newNodeNonPosition,
-            imageUrl: newNode.imageUrl,
-            originalImageUrl: newNode.originalImageUrl
-          },
-          originalCurrent: {
-            ...currentNodeNonPosition,
-            imageUrl: currentNode.data.imageUrl,
-            originalImageUrl: currentNode.data.originalImageUrl
-          },
-          // Field-by-field comparison
-          idMatch: newNodeNonPosition.id === currentNodeNonPosition.id,
-          titleMatch: newNodeNonPosition.title === currentNodeNonPosition.title,
-          sizeMatch: newNodeNonPosition.size === currentNodeNonPosition.size,
-          colorMatch: newNodeNonPosition.color === currentNodeNonPosition.color,
-          imageUrlMatch: newNodeNonPosition.imageUrl === currentNodeNonPosition.imageUrl
-        });
-      }
-      return isDifferent;
+      return JSON.stringify(newNodeNonPosition) !== JSON.stringify(currentNodeNonPosition);
     });
-    
-    // Check for edge structural changes (properties other than position)
-    const currentEdges = cy.edges().map(e => ({
-      id: e.id(),
-      data: e.data()
-    }));
-    
+
+    const currentEdges = cy.edges().map(e => ({ id: e.id(), data: e.data() }));
     const edgeStructuralChanges = edges.some(newEdge => {
       const currentEdge = currentEdges.find(ce => ce.id === newEdge.id);
-      if (!currentEdge) return true; // New edge
-      
-      // Compare edge properties
-      const newEdgeData = {
-        id: newEdge.id,
-        source: newEdge.source,
-        target: newEdge.target,
-        direction: newEdge.direction ?? "forward"
-      };
-      
-      const currentEdgeData = {
-        id: currentEdge.data.id,
-        source: currentEdge.data.source,
-        target: currentEdge.data.target,
-        direction: currentEdge.data.direction ?? "forward"
-      };
-      
-      const isDifferent = JSON.stringify(newEdgeData) !== JSON.stringify(currentEdgeData);
-      if (isDifferent) {
-        printDebug(`🔍 [CytoscapeGraph] Edge structural change detected for edge ${newEdge.id}:`, {
-          new: newEdgeData,
-          current: currentEdgeData
-        });
-      }
-      return isDifferent;
+      if (!currentEdge) return true;
+      const a = { id: newEdge.id, source: newEdge.source, target: newEdge.target, direction: newEdge.direction ?? "forward" };
+      const b = { id: currentEdge.data.id, source: currentEdge.data.source, target: currentEdge.data.target, direction: currentEdge.data.direction ?? "forward" };
+      return JSON.stringify(a) !== JSON.stringify(b);
     });
-    
+
     const nodeCountChanged = nodes.length !== currentNodes.length;
     const edgeCountChanged = edges.length !== cy.edges().length;
-    
-    // Force full sync if mode changed or if there are structural changes
+
     if (modeChanged || nodeStructuralChanges || edgeStructuralChanges || nodeCountChanged || edgeCountChanged) {
-      printDebug(`🔄 [CytoscapeGraph] Sync required:`, {
-        modeChanged,
-        nodeStructural: nodeStructuralChanges,
-        edgeStructural: edgeStructuralChanges,
-        nodeCount: nodeCountChanged,
-        edgeCount: edgeCountChanged
-      });
       printDebug(`🔄 [CytoscapeGraph] Performing full sync`);
-      syncElements(cyRef.current, { nodes, edges, mapName, cdnBaseUrl }, { mode });
+      syncElements(cy, { nodes, edges, mapName, cdnBaseUrl }, { mode });
+
+      // Immediately re-place edge-count nodes post-sync (covers undo, load, etc.)
+      try { updateEdgeCountNodePositions(cy); } catch {
+        printWarn('Failed to update edge count node positions after full sync');
+      }
     } else {
       printDebug(`🔄 [CytoscapeGraph] Only positions changed, updating positions without sync`);
-      // Only update positions without triggering full sync
       let updatedCount = 0;
       let majorChange = false;
-      
+
       nodes.forEach(node => {
-        // Find the parent node (the actual draggable node in cytoscape)
         const cyNode = cy.getElementById(node.id);
         if (cyNode.length > 0) {
           const currentPos = cyNode.position();
-          const deltaX = Math.abs(currentPos.x - node.x);
-          const deltaY = Math.abs(currentPos.y - node.y);
-          
-          if (deltaX > 0.01 || deltaY > 0.01) {
-            printDebug(`📍 [CytoscapeGraph] Updating position for node ${node.id}: (${currentPos.x}, ${currentPos.y}) -> (${node.x}, ${node.y})`);
+          const dx = Math.abs(currentPos.x - node.x);
+          const dy = Math.abs(currentPos.y - node.y);
+          if (dx > 0.01 || dy > 0.01) {
             cyNode.position({ x: node.x, y: node.y });
             updatedCount++;
-            
-            // If this is a large coordinate change (like from rotation), mark as major change
-            if (deltaX > 10 || deltaY > 10) {
-              majorChange = true;
-            }
+            if (dx > 10 || dy > 10) majorChange = true;
           }
         }
       });
-      
-      printDebug(`📍 [CytoscapeGraph] Updated positions for ${updatedCount} nodes (major change: ${majorChange})`);
-      
-      // If we updated any positions and it was a major change, force a refresh
+
+      printDebug(`📍 [CytoscapeGraph] Updated positions for ${updatedCount} nodes (major: ${majorChange})`);
+
+      // Nudge edge-count nodes right away so they don't wait for the next event
+      if (updatedCount > 0) {
+        try { updateEdgeCountNodePositions(cy); } catch {
+          printWarn('Failed to update edge count node positions after position-only update');
+        }
+      }
+
+      // Optional: refresh layout on large changes
       if (updatedCount > 0 && majorChange) {
-        printDebug(`🔄 [CytoscapeGraph] Major position changes detected, forcing layout refresh`);
-        // Force a full sync instead for major changes like rotation
-        syncElements(cyRef.current, { nodes, edges, mapName, cdnBaseUrl }, { mode });
-      } else if (updatedCount > 0) {
-        // For minor position changes, just trigger a layout refresh
-        //// TODO: troubleshoot performance with fit calls
-        //// console.log("Forcing Cytoscape layout refresh after position updates");
-        cy.fit(cy.nodes(), 0); // Fit without padding to refresh layout
-        cy.center(); // Re-center the view
+        syncElements(cy, { nodes, edges, mapName, cdnBaseUrl }, { mode });
+        try { updateEdgeCountNodePositions(cy); } catch {
+          printWarn('Failed to update edge count node positions after major position-only update');
+        }
       }
     }
   }, [nodes, edges, mode, mapName, cdnBaseUrl, showNoteCountOverlay, notes]);
 
-  // Sync selections when app state changes
+  // ------------------- Sync selections when app state changes -------------------
   useEffect(() => {
-    if (!cyRef.current) return;
-    
     const cy = cyRef.current;
-    
-    // Get currently selected elements in Cytoscape
+    if (!cy) return;
+
     const currentSelectedNodes = cy.$("node:selected").map(n => n.id());
     const currentSelectedEdges = cy.$("edge:selected").map(e => e.id());
-    
-    // Check if selections are out of sync
-    const nodeSelectionsMatch = 
+
+    const nodeSelectionsMatch =
       currentSelectedNodes.length === selectedNodeIds.length &&
       currentSelectedNodes.every(id => selectedNodeIds.includes(id));
-    
-    const edgeSelectionsMatch = 
+
+    const edgeSelectionsMatch =
       currentSelectedEdges.length === selectedEdgeIds.length &&
       currentSelectedEdges.every(id => selectedEdgeIds.includes(id));
-    
+
     if (!nodeSelectionsMatch || !edgeSelectionsMatch) {
-      // Clear all selections first
       cy.elements().unselect();
-      
-      // Apply new selections
       selectedNodeIds.forEach(nodeId => {
         const node = cy.getElementById(nodeId);
-        if (node.length > 0) {
-          node.select();
-        }
+        if (node.length > 0) node.select();
       });
-      
       selectedEdgeIds.forEach(edgeId => {
         const edge = cy.getElementById(edgeId);
-        if (edge.length > 0) {
-          edge.select();
-        }
+        if (edge.length > 0) edge.select();
       });
     }
   }, [selectedNodeIds, selectedEdgeIds]);
 
-  // Fit request
+  // ------------------- Fit request -------------------
   useEffect(() => {
-  if (!cyRef.current || !shouldFitOnNextRender) return;
+    if (!cyRef.current || !shouldFitOnNextRender) return;
     const id = setTimeout(() => {
       try {
         const cy = cyRef.current;
         cy.fit(cy.nodes(), 50);
-        // Emit updated zoom and pan to parent
-        // if (onZoomChange) onZoomChange(cy.zoom());
-        // if (onCameraMove) onCameraMove(cy.pan());
         if (onFitCompleted) onFitCompleted();
       } catch {
         printWarn("Failed to fit Cytoscape instance");
       }
     }, 50);
     return () => clearTimeout(id);
-  }, [shouldFitOnNextRender, onFitCompleted]); // onZoomChange, onCameraMove
+  }, [shouldFitOnNextRender, onFitCompleted]);
 
-
-  // Periodic check for completed grayscale image conversions
+  // ------------------- Grayscale image conversions -------------------
   useEffect(() => {
-    if (!cyRef.current) return;
-    
+    const cy = cyRef.current;
+    if (!cy) return;
+
     const interval = setInterval(() => {
       if (hasPendingGrayscaleConversions()) {
-        const updated = updateCompletedGrayscaleImages(cyRef.current, { nodes, edges, mapName, cdnBaseUrl });
+        const updated = updateCompletedGrayscaleImages(cy, { nodes, edges, mapName, cdnBaseUrl });
         if (updated) {
-          // Force a redraw without changing layout or camera
-          cyRef.current.forceRender();
+          cy.forceRender();
         }
       }
-    }, 500); // Check every 500ms
-    
+    }, 500);
+
     return () => clearInterval(interval);
   }, [nodes, edges, mapName, cdnBaseUrl]);
 
-  // Immediate grabbable toggle on mode change (belt & suspenders)
+  // ------------------- Immediate grabbable toggle on mode change -------------------
   useEffect(() => {
-    if (!cyRef.current) return;
     const cy = cyRef.current;
+    if (!cy) return;
     const expected = mode === 'editing';
     let changed = 0;
     cy.nodes().forEach(n => {
@@ -517,24 +453,25 @@ function CytoscapeGraph({
     }
   }, [mode]);
 
-  // Note count overlay management (Cytoscape child nodes instead of HTML overlays)
+  // ------------------- Note count overlay creation/refresh -------------------
   useEffect(() => {
-    if (!cyRef.current) return; 
     const cy = cyRef.current;
+    if (!cy) return;
+
     ensureNoteCountNodes(cy, notes, showNoteCountOverlay);
     updateNoteCounts(cy, notes);
-    
-    const handleGraphChange = () => { 
-      ensureNoteCountNodes(cy, notes, showNoteCountOverlay); 
+
+    const handleGraphChange = () => {
+      ensureNoteCountNodes(cy, notes, showNoteCountOverlay);
     };
-    
+
     cy.on('add remove', handleGraphChange);
-    return () => { 
-      cy.off('add remove', handleGraphChange); 
+    return () => {
+      cy.off('add remove', handleGraphChange);
     };
   }, [showNoteCountOverlay, notes]);
 
-  // Position listener for real-time edge note-count updates
+  // ------------------- Edge note-count re-run when entry-parent nodes move -------------------
   const notesRef = useRef(notes);
   useEffect(() => { notesRef.current = notes; }, [notes]);
 
@@ -544,15 +481,17 @@ function CytoscapeGraph({
 
     const handleNodePosition = () => {
       updateNoteCounts(cy, notesRef.current);
+      // Keep placement correct on any move
+      try { updateEdgeCountNodePositions(cy); } catch {
+        printWarn('Failed to update edge count node positions after entry-parent move');
+      }
     };
 
-    // Listen for position changes on entry-parent nodes only
     cy.on('position', 'node.entry-parent', handleNodePosition);
-
     return () => {
       cy.off('position', 'node.entry-parent', handleNodePosition);
     };
-  }, []); // Empty dependency array - uses notesRef.current
+  }, []); // uses notesRef.current
 
   return (
     <div
