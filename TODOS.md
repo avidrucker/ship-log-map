@@ -88,8 +88,8 @@
 - [x] Fix "Create New Map" (just called "New" in the app) button not deleting, clearing, and reseting the background image underlay data if one is set
 - [ ] Fix "Zooming In To Node/Edge" not yet scaling & panning the background image (but it should)
 - [x] Fix issue where FF7 bg image settings are not correctly saved to JSON and thus not reloaded properly from JSON
-- [ ] Fix bug where first load of the page doesn't load in the image assets, but it should
-- [ ] Implement showing of Note Counts on edges too (right now, edges can hold notes, but when in "Notes ON" mode, numbers are not yet shown)
+- [x] Fix bug where first load of the page doesn't load in the image assets, but it should
+- [x] Implement showing of Note Counts on edges too (right now, edges can hold notes, but when in "Notes ON" mode, numbers are not yet shown)
 - [ ] Switch from using 100x100 jpeg thumbnails to larger 500x500 webp images
 - [ ] Experiment with using composite images as tilesheets/spritesheets to improve performance and loading times
 - [ ] Create "update history" which, in editing mode, simply shows what changes have been made to the map since it was last loaded (e.g. moved "Node A" from (x,y) to (x',y') OR "added picture to node B").
@@ -102,6 +102,7 @@
 - [ ] Fix bug where, in editing mode, closing the note editor modal doesn't unfocus the edit node title label text input, but it should unfocus and undo any changes if the user hasn't pressed Enter or the check "confirm button"
 - [x] Implement "F" shortcut to fit graph to screen
 - [ ] Fix bug where, when zooming into a node, the bg image is not also zoomed into the correct location, but it should be
+- [x] Fix bug where, when undoing a node move change, the edge note count node doesn't move back to its correct position, but it should
 
 Notes for Future Features
 - Listing out "layers" which show things such as electrical lines, water lines, Internet, etc. that can be toggled on and off
