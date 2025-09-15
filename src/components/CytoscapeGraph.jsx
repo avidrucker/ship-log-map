@@ -86,12 +86,12 @@ function CytoscapeGraph({
         }
       });
     };
-    cy.on('render pan zoom', schedule);
+    cy.on('pan zoom', schedule);
     // seed once
     schedule();
 
     const cleanup = () => {
-      cy.off('render pan zoom', schedule);
+      cy.off('pan zoom', schedule);
       if (viewportRafIdRef.current) {
         cancelAnimationFrame(viewportRafIdRef.current);
         viewportRafIdRef.current = 0;
