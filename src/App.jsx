@@ -602,9 +602,9 @@ function App() {
       }
 
         // Reset camera + fit
-        //// console.log("App: Internally resetting camera due to file load");
-        dispatchAppState({ type: ACTION_TYPES.SET_ZOOM_INTERNAL, payload: { zoom: 1 } });
-        dispatchAppState({ type: ACTION_TYPES.SET_CAMERA_POSITION_INTERNAL, payload: { position: { x: 0, y: 0 } } });
+        console.log("App: Internally resetting camera due to file load");
+        // dispatchAppState({ type: ACTION_TYPES.SET_ZOOM_INTERNAL, payload: { zoom: 1 } });
+        // dispatchAppState({ type: ACTION_TYPES.SET_CAMERA_POSITION_INTERNAL, payload: { position: { x: 0, y: 0 } } });
         dispatchAppState({ type: ACTION_TYPES.SET_SHOULD_FIT, payload: { shouldFit: true } });
 
         // Clear selections and undo state (loading clears undo)
@@ -1020,10 +1020,7 @@ function App() {
   const {
     livePan,
     liveZoom,
-    // onZoomChange,
-    // onCameraMove,
     onViewportChange,
-    // forceCameraUpdate,
   } = useCamera(dispatchAppState, appState);
 
   // REFACTOR STEP 1: Replace handleRotateMap with hook function  
@@ -1447,7 +1444,6 @@ useEffect(() => {
           onEditSelected={handleEditSelected}
           onConnectNodes={handleConnectSelectedNodes}
           onExportMap={exportMap}
-          // onResetMap={handleResetToInitial}
           onNewMap={handleNewMap}
           onNodeColorChange={handleNodeColorChange}
           areNodesConnected={areNodesConnected}
@@ -1613,8 +1609,6 @@ useEffect(() => {
         selectedNodeIds={memoSelectedNodeIds}
         selectedEdgeIds={memoSelectedEdgeIds}
         onNodeMove={handleNodeMove}
-        // onZoomChange={onZoomChange}         // debounced reducer commit
-        // onCameraMove={onCameraMove}         // debounced reducer commit
         onViewportChange={onViewportChange} // 🔴 every-frame stream for BG
         initialZoom={zoomLevel}
         initialCameraPosition={memoCameraPosition}
