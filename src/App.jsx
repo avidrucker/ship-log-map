@@ -354,31 +354,31 @@ function App() {
   }, [cameraInfoCollapsed]);
 
   // ---------- debug taps ----------
-  useEffect(() => { printDebug('🏠 App: zoomLevel changed to:', zoomLevel); }, [zoomLevel]);
-  useEffect(() => { printDebug('🏠 App: cameraPosition changed to:', cameraPosition); }, [cameraPosition]);
-  useEffect(() => { printDebug('🏠 App: shouldFitOnNextRender changed to:', shouldFitOnNextRender); }, [shouldFitOnNextRender]);
-  useEffect(() => { printDebug('🎮 App: mode changed to:', mode); }, [mode]);
-  useEffect(() => { 
-    printDebug('📊 App: graphData changed - nodes:', graphData.nodes.length, 'edges:', graphData.edges.length, 'mapName:', graphData.mapName || 'default'); 
-    printDebug('📊 [App] graphData changed:', { 
-      nodeCount: graphData.nodes.length, 
-      edgeCount: graphData.edges.length, 
-      mapName: graphData.mapName || 'default',
-      firstNode: graphData.nodes[0] ? `${graphData.nodes[0].id} (${graphData.nodes[0].title})` : 'none'
-    });
-  }, [graphData]);
+  // useEffect(() => { printDebug('🏠 App: zoomLevel changed to:', zoomLevel); }, [zoomLevel]);
+  // useEffect(() => { printDebug('🏠 App: cameraPosition changed to:', cameraPosition); }, [cameraPosition]);
+  // useEffect(() => { printDebug('🏠 App: shouldFitOnNextRender changed to:', shouldFitOnNextRender); }, [shouldFitOnNextRender]);
+  // useEffect(() => { printDebug('🎮 App: mode changed to:', mode); }, [mode]);
+  // useEffect(() => { 
+  //   printDebug('📊 App: graphData changed - nodes:', graphData.nodes.length, 'edges:', graphData.edges.length, 'mapName:', graphData.mapName || 'default'); 
+  //   printDebug('📊 [App] graphData changed:', { 
+  //     nodeCount: graphData.nodes.length, 
+  //     edgeCount: graphData.edges.length, 
+  //     mapName: graphData.mapName || 'default',
+  //     firstNode: graphData.nodes[0] ? `${graphData.nodes[0].id} (${graphData.nodes[0].title})` : 'none'
+  //   });
+  // }, [graphData]);
 
   // Add a special debug effect to track when graphData actually changes
-  useEffect(() => {
-    printDebug('🔄 [App] graphData state updated! New data:', {
-      nodeCount: graphData.nodes.length,
-      edgeCount: graphData.edges.length,
-      mapName: graphData.mapName,
-      mode: graphData.mode,
-      cdnBaseUrl: graphData.cdnBaseUrl,
-      timestamp: new Date().toISOString()
-    });
-  }, [graphData]);
+  // useEffect(() => {
+  //   printDebug('🔄 [App] graphData state updated! New data:', {
+  //     nodeCount: graphData.nodes.length,
+  //     edgeCount: graphData.edges.length,
+  //     mapName: graphData.mapName,
+  //     mode: graphData.mode,
+  //     cdnBaseUrl: graphData.cdnBaseUrl,
+  //     timestamp: new Date().toISOString()
+  //   });
+  // }, [graphData]);
 
   // Add CSS for spinner animation
   useEffect(() => {
