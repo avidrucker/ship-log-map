@@ -64,7 +64,16 @@ function CameraInfo({ zoom, pan, selectedNodeIds, selectedEdgeIds, mode, mapName
     setIsEditingCdnUrl(true);
   }, [cdnBaseUrl]);
 
+  const inputRef = useRef(null);
+
   const handleSaveCdnUrl = useCallback(() => {
+
+    // Trigger browser validation
+    if (inputRef.current && !inputRef.current.checkValidity()) {
+      inputRef.current.reportValidity(); // Shows the browser tooltip
+      return;
+    }
+
     const cleanUrl = tempCdnUrl.trim();
     if (cleanUrl !== cdnBaseUrl) {
       onCdnBaseUrlChange(cleanUrl);
@@ -212,11 +221,14 @@ function CameraInfo({ zoom, pan, selectedNodeIds, selectedEdgeIds, mode, mapName
         {isEditingCdnUrl ? (
           <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
             <input
-              type="text"
+              ref={inputRef}
+              type="url"
               value={tempCdnUrl}
               onChange={(e) => setTempCdnUrl(e.target.value)}
               onKeyDown={handleCdnKeyDown}
               placeholder="https://example.com/images"
+              pattern="https?://.*"
+              title="Please enter a valid URL starting with http:// or https://"
               style={{
                 background: "#333",
                 color: "#fff",
@@ -272,7 +284,7 @@ function CameraInfo({ zoom, pan, selectedNodeIds, selectedEdgeIds, mode, mapName
               whiteSpace: "nowrap",
               textOverflow: "ellipsis"
             }}
-            title="Click to edit CDN base URL"
+            title={cdnBaseUrl !== "" ? `Click to edit CDN base URL: ${cdnBaseUrl}` : "Click to set CDN base URL"}
           >
             {cdnBaseUrl || 'No CDN URL set'}
           </div>
