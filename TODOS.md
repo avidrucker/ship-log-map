@@ -103,6 +103,8 @@
 - [x] Implement "F" shortcut to fit graph to screen
 - [ ] Fix bug where, when zooming into a node, the bg image is not also zoomed into the correct location, but it should be
 - [x] Fix bug where, when undoing a node move change, the edge note count node doesn't move back to its correct position, but it should
+- [x] Implement CDN link validation to ensure that the provided CDN link appears to be a validly correctly formed URL
+- [ ] Implement CDN link testing/verification to make sure that the provided CDN link is reachable and contains a valid JSON map file
 
 Notes for Future Features
 - Listing out "layers" which show things such as electrical lines, water lines, Internet, etc. that can be toggled on and off
