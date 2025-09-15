@@ -34,28 +34,51 @@ export function useCamera(dispatch, appState, { commitDelay = 0 } = {}) {
   const zoomT = useRef(null);
   const panT = useRef(null);
 
+  // Store commitDelay in ref to avoid recreating callbacks
+  const commitDelayRef = useRef(commitDelay);
+  commitDelayRef.current = commitDelay;
+
   const commitZoom = useCallback((z) => {
     clearTimeout(zoomT.current);
     zoomT.current = setTimeout(() => {
-      printDebug(`🎥 commit SET_ZOOM_INTERNAL ${z}`);
-      dispatch({ type: ACTION_TYPES.SET_ZOOM_INTERNAL, payload: { zoom: z } });
-    }, commitDelay);
-  }, [dispatch, commitDelay]);
+      printDebug(`🎥 commit SET_ZOOM_EXTERNAL ${z}`);
+      dispatch({ type: ACTION_TYPES.SET_ZOOM_EXTERNAL, payload: { zoom: z } });
+    }, commitDelayRef.current);
+  }, [dispatch]);
 
   const commitPan = useCallback((p) => {
     clearTimeout(panT.current);
     const clone = { x: p.x, y: p.y };
     panT.current = setTimeout(() => {
-      printDebug(`🎥 commit SET_CAMERA_POSITION_INTERNAL (${Math.round(clone.x)}, ${Math.round(clone.y)})`);
-      dispatch({ type: ACTION_TYPES.SET_CAMERA_POSITION_INTERNAL, payload: { position: clone } });
-    }, commitDelay);
-  }, [dispatch, commitDelay]);
+      printDebug(`🎥 commit SET_CAMERA_POSITION_EXTERNAL (${Math.round(clone.x)}, ${Math.round(clone.y)})`);
+      dispatch({ type: ACTION_TYPES.SET_CAMERA_POSITION_EXTERNAL, payload: { position: clone } });
+    }, commitDelayRef.current);
+  }, [dispatch]);
 
   // rAF-per-frame viewport stream (from CytoscapeGraph)
   const rafPending = useRef(false);
   const latest = useRef({ pan: { x: livePan.x, y: livePan.y }, zoom: liveZoom });
   
   const onViewportChange = useCallback(({ pan, zoom }) => {
+    // Check for meaningful changes before doing anything
+    const ZOOM_THRESHOLD = 0.0001;
+    const PAN_THRESHOLD = 0.1;
+    
+    const currentZoom = latest.current.zoom;
+    const currentPan = latest.current.pan;
+    
+    const zoomChanged = Math.abs(currentZoom - zoom) > ZOOM_THRESHOLD;
+    const panChanged = Math.abs(currentPan.x - pan.x) > PAN_THRESHOLD || 
+                      Math.abs(currentPan.y - pan.y) > PAN_THRESHOLD;
+    
+    if (!zoomChanged && !panChanged) {
+      // No meaningful change - don't update anything
+      printDebug(`🎥 Ignoring viewport event - no meaningful change (zoom Δ=${Math.abs(currentZoom - zoom).toFixed(6)}, pan Δ=${Math.abs(currentPan.x - pan.x).toFixed(2)},${Math.abs(currentPan.y - pan.y).toFixed(2)})`);
+      return;
+    }
+    
+    printDebug(`🎥 Meaningful camera change detected - zoom Δ=${Math.abs(currentZoom - zoom).toFixed(6)}, pan Δ=${Math.abs(currentPan.x - pan.x).toFixed(2)},${Math.abs(currentPan.y - pan.y).toFixed(2)}`);
+    
     // Store latest; clone pan (Cytoscape returns a mutable object)
     latest.current = { zoom, pan: { x: pan.x, y: pan.y } };
     if (rafPending.current) return;
@@ -95,9 +118,6 @@ export function useCamera(dispatch, appState, { commitDelay = 0 } = {}) {
   return {
     livePan,
     liveZoom,
-    // onZoomChange,      // deprecated
-    // onCameraMove,      // deprecated  
-    onViewportChange,  // main interface
-    // forceCameraUpdate  // for fit/load operations
+    onViewportChange  // main interface
   };
 }
