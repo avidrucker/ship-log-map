@@ -20,7 +20,7 @@
  * - selectedNodeIds, selectedEdgeIds: arrays of currently selected node/edge IDs
  */
 
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import { DEV_MODE } from "../config/features";
 import FpsCounter from "./FpsCounter";
 import { HamburgerIcon } from "./HamburgerIcon";
@@ -41,6 +41,8 @@ function CameraInfo({ zoom, pan, selectedNodeIds, selectedEdgeIds, mode, mapName
     const cleanName = tempMapName.trim();
     if (cleanName && cleanName !== mapName) {
       onMapNameChange(cleanName);
+    } else if (cleanName === "") {
+      onMapNameChange("default_map");
     }
     setIsEditingMapName(false);
   }, [tempMapName, mapName, onMapNameChange]);
@@ -209,7 +211,7 @@ function CameraInfo({ zoom, pan, selectedNodeIds, selectedEdgeIds, mode, mapName
               color: "#4fc3f7",
               fontSize: "11px"
             }}
-            title="Click to edit map name"
+            title={mapName !== "default_map" ? `Click to edit map name: ${mapName}` : "Click to set map name"}
           >
             {mapName}
           </div>
