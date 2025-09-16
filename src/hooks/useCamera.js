@@ -20,16 +20,6 @@ export function useCamera(dispatch, appState, { commitDelay = 0 } = {}) {
     y: camera.position?.y ?? 0
   });
 
-  // REMOVE THE SYNC EFFECT ENTIRELY - no more fighting between live and reducer state
-  // The live state is now the single source of truth for visuals
-  
-  // Only sync on specific external operations that should override user camera
-  // const forceCameraUpdate = useCallback((newZoom, newPan) => {
-  //   console.log('🎥 Force camera update (fit/load operation):', { newZoom, newPan });
-  //   setLiveZoom(newZoom);
-  //   setLivePan(newPan);
-  // }, []);
-
   // Debounced reducer commits (for persistence & camera info panel only)
   const zoomT = useRef(null);
   const panT = useRef(null);
