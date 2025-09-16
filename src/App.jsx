@@ -170,6 +170,8 @@ function App() {
   const isClosingNoteViewRef = useRef(false);
   // Ref to track current CDN loading operation
   const currentCdnLoadRef = useRef(null);
+  const isSwitchingTargetsRef = useRef(false);
+  const pendingViewTargetRef = useRef(null);
 
   // Use the Cytoscape instance management hook
   const {
@@ -681,43 +683,82 @@ function App() {
     dispatchAppState({ type: ACTION_TYPES.SET_LOAD_ERROR, payload: { error: null } });
   }, []);
 
+  const isTransitioningRef = useRef(false);
+
   // Note viewing handlers - defined early to avoid circular dependencies
+// Update handleStartNoteViewing to use the flag
   const handleStartNoteViewing = useCallback((targetId, targetType) => {
+    // Check if we're transitioning between nodes
+    const isTransitioning = noteViewingTarget && noteViewingTarget !== targetId;
+    
+    if (isTransitioning) {
+      isTransitioningRef.current = true;
+      // Clear the flag after the transition
+      setTimeout(() => {
+        isTransitioningRef.current = false;
+      }, 100);
+    }
+
+    // Treat clicking another node while already viewing as a "switch", not a close+open
+    const switching = !!noteViewingTarget && noteViewingTarget !== targetId;
+    isSwitchingTargetsRef.current = switching;
+    pendingViewTargetRef.current = targetId;
+
     // Zoom to selection if feature is enabled and we're in playing mode
     if (ZOOM_TO_SELECTION && targetId) {
+      // Only save the "original camera" once, on the first zoom-in. For switches, reuse it.
+      const shouldSaveCamera = !hasOriginalCamera();
       fitToSelection([targetId], {
         animate: true,
         padding: 80,
         targetHalf: 'top',
-        saveCamera: true,
-        zoomLevel: 'close' // Zoom in close for viewing
+        saveCamera: shouldSaveCamera,
+        zoomLevel: 'close'
       });
     }
-    
+
+    // Open (or switch) the viewer
     dispatchAppState({
       type: ACTION_TYPES.START_NOTE_VIEWING,
       payload: { targetId, targetType }
     });
-  }, [fitToSelection]);
 
+    // Clear the "switching" guard on the next macrotask
+    setTimeout(() => {
+      isSwitchingTargetsRef.current = false;
+      pendingViewTargetRef.current = null;
+    }, 0);
+  }, [fitToSelection, noteViewingTarget, hasOriginalCamera]);
+
+  // Update handleCloseNoteViewing to check the transition flag
   const handleCloseNoteViewing = useCallback(() => {
-    // Prevent duplicate execution (can be triggered via selection change + background click)
-    if (isClosingNoteViewRef.current) {
-      printDebug('🚫 [App] handleCloseNoteViewing skipped (already in progress)');
+    // Prevent duplicate execution and transitions
+    if (isClosingNoteViewRef.current || isTransitioningRef.current) {
+      printDebug('🚫 [App] handleCloseNoteViewing skipped (already in progress or transitioning)');
       return;
     }
     isClosingNoteViewRef.current = true;
 
     try {
       // Restore original camera if feature is enabled and we have a saved camera state
-      if (ZOOM_TO_SELECTION && mode === 'playing' && hasOriginalCamera()) {
-        printDebug('🎥 [App] Restoring original camera (note viewer close)');
-        restoreOriginalCamera(true);
+      // If we are switching to another target, DO NOT zoom_out now.
+      if (!(isSwitchingTargetsRef.current)) {
+        // Actual close: background click, Escape, or re-click same selected node
+        if (ZOOM_TO_SELECTION && mode === 'playing' && hasOriginalCamera()) {
+          printDebug('🎥 [App] Restoring original camera (note viewer close)');
+          restoreOriginalCamera(true);
+        }
+      } else {
+        printDebug('⏭️ [App] Suppressing camera restore (target switch in progress)');
       }
       dispatchAppState({ type: ACTION_TYPES.CLOSE_NOTE_VIEWING });
     } finally {
       // Release flag on next tick to allow future closes
-      setTimeout(() => { isClosingNoteViewRef.current = false; }, 0);
+      setTimeout(() => { 
+        isClosingNoteViewRef.current = false;
+      }, 0);
+      // We are done with any pending switch intent once a close has run.
+      pendingViewTargetRef.current = null;
     }
   }, [mode, restoreOriginalCamera, hasOriginalCamera]);
 
@@ -792,12 +833,8 @@ function App() {
       type: ACTION_TYPES.SET_NODE_SELECTION,
       payload: { nodeIds, selectionOrder: updatedOrder }
     });
-
-    // In playing mode, close note viewer if no nodes are selected
-    if (mode === 'playing' && nodeIds.length === 0 && noteViewingTarget) {
-      handleCloseNoteViewing();
-    }
-  }, [nodeSelectionOrder, mode, noteViewingTarget, handleCloseNoteViewing]);
+    
+  }, [nodeSelectionOrder]);
 
   const handleConnectSelectedNodes = useCallback(() => {
     if (selectedNodeIds.length === 2 && nodeSelectionOrder.length === 2) {
@@ -1238,12 +1275,36 @@ function App() {
   }, [saveUndoState, mapName, cdnBaseUrl]);
 
   const handleNodeClick = useCallback((nodeId) => {
-    if (mode === 'playing') {
-      // In playing mode, clicking a node opens the note viewer
+  if (mode === 'playing') {
+    // If we're already viewing a note and clicking on a different node,
+    // transition directly without zooming out first
+    if (noteViewingTarget && noteViewingTarget !== nodeId) {
+      // Direct transition to new node - only zoom in to new target
+      if (ZOOM_TO_SELECTION) {
+        fitToSelection([nodeId], {
+          animate: true,
+          padding: 80,
+          targetHalf: 'top',
+          saveCamera: false, // Don't save camera since we're transitioning
+          zoomLevel: 'close'
+        });
+      }
+      
+      // Update note viewing target directly without closing first
+      dispatchAppState({
+        type: ACTION_TYPES.START_NOTE_VIEWING,
+        payload: { targetId: nodeId, targetType: "node" }
+      });
+    } else if (noteViewingTarget === nodeId) {
+      // Clicking on the same node - close the note viewer (zoom out)
+      handleCloseNoteViewing();
+    } else {
+      // No note currently viewing - open new one (zoom in)
       handleStartNoteViewing(nodeId, "node");
     }
-    // In editing mode, clicking does nothing (selection is handled by Cytoscape)
-  }, [mode, handleStartNoteViewing]);
+  }
+  // In editing mode, clicking does nothing (selection is handled by Cytoscape)
+}, [mode, noteViewingTarget, handleStartNoteViewing, handleCloseNoteViewing, fitToSelection]);
 
   const handleEdgeClick = useCallback((edgeId) => {
     if (mode === 'playing') {
