@@ -406,16 +406,37 @@ function CytoscapeGraph({
   // ------------------- Fit request -------------------
   useEffect(() => {
     if (!cyRef.current || !shouldFitOnNextRender) return;
-    const id = setTimeout(() => {
+    
+    const attemptFit = () => {
       try {
         const cy = cyRef.current;
-        cy.fit(cy.nodes(), 50);
-        if (onFitCompleted) onFitCompleted();
-      } catch {
-        printWarn("Failed to fit Cytoscape instance");
+        if (!cy) {
+          if (onFitCompleted) onFitCompleted();
+          return;
+        }
+
+        const nodeCount = cy.nodes().length;
+        printDebug(`🎯 [CytoscapeGraph] Fit attempt - nodes available: ${nodeCount}`);
+
+        if (nodeCount > 0) {
+          cy.fit(cy.nodes(), 50);
+          printDebug(`✅ [CytoscapeGraph] Fit completed successfully with ${nodeCount} nodes`);
+          if (onFitCompleted) onFitCompleted();
+        } else {
+          // Retry after a short delay if no nodes are available yet
+          printDebug(`⏳ [CytoscapeGraph] No nodes available, retrying fit in 100ms`);
+          setTimeout(attemptFit, 100);
+        }
+      } catch (error) {
+        printWarn("Failed to fit Cytoscape instance:", error);
+        if (onFitCompleted) onFitCompleted(); // Ensure flag gets cleared
       }
-    }, 50);
-    return () => clearTimeout(id);
+    };
+
+    // Start with a delay to ensure elements are rendered
+    const timeoutId = setTimeout(attemptFit, 150);
+    
+    return () => clearTimeout(timeoutId);
   }, [shouldFitOnNextRender, onFitCompleted]);
 
   // ------------------- Grayscale image conversions -------------------

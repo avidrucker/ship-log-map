@@ -167,12 +167,13 @@ export function useMapLoading({
             
             // Reset camera + fit
             console.log("useMapLoading: Internally resetting camera due to URL change");
-            // dispatchAppState({ type: ACTION_TYPES.SET_ZOOM_INTERNAL, payload: { zoom: 1 } });
-            // dispatchAppState({ type: ACTION_TYPES.SET_CAMERA_POSITION_INTERNAL, payload: { position: { x: 0, y: 0 } } });
+            dispatchAppState({ type: ACTION_TYPES.SET_ZOOM_INTERNAL, payload: { zoom: 1 } });
+            dispatchAppState({ type: ACTION_TYPES.SET_CAMERA_POSITION_INTERNAL, payload: { position: { x: 0, y: 0 } } });
+            // Use setTimeout to ensure graph data is processed before fitting
             setTimeout(() => {
               dispatchAppState({ type: ACTION_TYPES.SET_SHOULD_FIT, payload: { shouldFit: true } });
-            }, 10);  
-
+            }, 150);
+            
             // Clear selections and undo state (loading clears undo)
             clearCytoscapeSelections();
             dispatchAppState({ type: ACTION_TYPES.CLEAR_ALL_SELECTIONS });

@@ -603,10 +603,11 @@ function App() {
 
         // Reset camera + fit
         console.log("App: Internally resetting camera due to file load");
-        // dispatchAppState({ type: ACTION_TYPES.SET_ZOOM_INTERNAL, payload: { zoom: 1 } });
-        // dispatchAppState({ type: ACTION_TYPES.SET_CAMERA_POSITION_INTERNAL, payload: { position: { x: 0, y: 0 } } });
-        dispatchAppState({ type: ACTION_TYPES.SET_SHOULD_FIT, payload: { shouldFit: true } });
-
+        dispatchAppState({ type: ACTION_TYPES.SET_ZOOM_INTERNAL, payload: { zoom: 1 } });
+        dispatchAppState({ type: ACTION_TYPES.SET_CAMERA_POSITION_INTERNAL, payload: { position: { x: 0, y: 0 } } });
+        setTimeout(() => {
+          dispatchAppState({ type: ACTION_TYPES.SET_SHOULD_FIT, payload: { shouldFit: true } });
+        }, 150);
         // Clear selections and undo state (loading clears undo)
         clearCytoscapeSelections();
         dispatchAppState({ type: ACTION_TYPES.CLEAR_ALL_SELECTIONS });
@@ -660,18 +661,12 @@ function App() {
     dispatchAppState({ type: ACTION_TYPES.SET_BG_IMAGE, payload: { bgImage: emptyBgImage } });
 
     // Camera reset - update both app state and Cytoscape instance
+    console.log("App.js handleNewMap: Resetting camera for new map");
     dispatchAppState({ type: ACTION_TYPES.SET_ZOOM_EXTERNAL, payload: { zoom: 1 } });
     dispatchAppState({ type: ACTION_TYPES.SET_CAMERA_POSITION_EXTERNAL, payload: { position: { x: 0, y: 0 } } });
-
-    // Apply camera reset to Cytoscape instance immediately
-    const cy = getCytoscapeInstance();
-    if (cy) {
-      cy.zoom(1);
-      cy.pan({ x: 0, y: 0 });
-    }
-    
-    dispatchAppState({ type: ACTION_TYPES.SET_SHOULD_FIT, payload: { shouldFit: true } });
-
+    setTimeout(() => {
+      dispatchAppState({ type: ACTION_TYPES.SET_SHOULD_FIT, payload: { shouldFit: true } });
+    }, 150);
     // Clear errors & selections and undo state (new map clears undo)
     dispatchAppState({ type: ACTION_TYPES.SET_LOAD_ERROR, payload: { error: null } });
     clearCytoscapeSelections();
@@ -680,7 +675,7 @@ function App() {
     
     // Clear query params from the browser address bar
     clearQueryParams();
-  }, [graphData.nodes.length, mode, getCytoscapeInstance, clearCytoscapeSelections, clearUndoState, setBgImage]);
+  }, [graphData.nodes.length, mode, clearCytoscapeSelections, clearUndoState, setBgImage]);
 
   const clearError = useCallback(() => {
     dispatchAppState({ type: ACTION_TYPES.SET_LOAD_ERROR, payload: { error: null } });
