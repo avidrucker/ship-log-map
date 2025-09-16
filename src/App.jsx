@@ -815,26 +815,34 @@ function App() {
     });
   }, [clearCytoscapeSelections, saveUndoState]);
 
-  // We now set selection order == ids from adapter; if you later emit order, it will still work
   const handleNodeSelectionChange = useCallback((nodeIds) => {
     printDebug('🏠 App: Node selection changed to:', nodeIds);
-    
-    // Maintain proper selection order by comparing with previous selection
+
+    // -------- selection bookkeeping (unchanged semantics) --------
     const newSelectionOrder = [...nodeSelectionOrder];
-    
-    // Remove nodes that are no longer selected
     const filteredOrder = newSelectionOrder.filter(id => nodeIds.includes(id));
-    
-    // Add newly selected nodes to the end
     const newNodes = nodeIds.filter(id => !newSelectionOrder.includes(id));
     const updatedOrder = [...filteredOrder, ...newNodes];
-    
+
     dispatchAppState({
       type: ACTION_TYPES.SET_NODE_SELECTION,
       payload: { nodeIds, selectionOrder: updatedOrder }
     });
-    
-  }, [nodeSelectionOrder]);
+
+    // -------- close logic only (no open/switch here to avoid double animations) --------
+    if (mode === 'playing') {
+      // When selection becomes empty (background click, ESC, or deselect), close the viewer.
+      if (nodeIds.length === 0 && noteViewingTarget) {
+        if (ZOOM_TO_SELECTION && hasOriginalCamera()) {
+          restoreOriginalCamera(true); // zoom-out
+        }
+        dispatchAppState({ type: ACTION_TYPES.CLOSE_NOTE_VIEWING });
+      }
+      // IMPORTANT: do NOT open/switch here. Opening/switching is owned by handleNodeClick.
+      // This strict split prevents zoom_out + zoom_in racing each other.
+    }
+  }, [nodeSelectionOrder, mode, noteViewingTarget, hasOriginalCamera, restoreOriginalCamera, dispatchAppState]);
+
 
   const handleConnectSelectedNodes = useCallback(() => {
     if (selectedNodeIds.length === 2 && nodeSelectionOrder.length === 2) {
@@ -1274,37 +1282,57 @@ function App() {
     });
   }, [saveUndoState, mapName, cdnBaseUrl]);
 
-  const handleNodeClick = useCallback((nodeId) => {
-  if (mode === 'playing') {
-    // If we're already viewing a note and clicking on a different node,
-    // transition directly without zooming out first
-    if (noteViewingTarget && noteViewingTarget !== nodeId) {
-      // Direct transition to new node - only zoom in to new target
-      if (ZOOM_TO_SELECTION) {
-        fitToSelection([nodeId], {
-          animate: true,
-          padding: 80,
-          targetHalf: 'top',
-          saveCamera: false, // Don't save camera since we're transitioning
-          zoomLevel: 'close'
-        });
-      }
-      
-      // Update note viewing target directly without closing first
-      dispatchAppState({
-        type: ACTION_TYPES.START_NOTE_VIEWING,
-        payload: { targetId: nodeId, targetType: "node" }
-      });
-    } else if (noteViewingTarget === nodeId) {
-      // Clicking on the same node - close the note viewer (zoom out)
-      handleCloseNoteViewing();
-    } else {
-      // No note currently viewing - open new one (zoom in)
-      handleStartNoteViewing(nodeId, "node");
+const handleNodeClick = useCallback((nodeId) => {
+  if (mode !== 'playing') return;
+
+  // 1) Click same node while viewing → toggle close (zoom-out)
+  if (noteViewingTarget === nodeId) {
+    if (ZOOM_TO_SELECTION && hasOriginalCamera()) {
+      restoreOriginalCamera(true); // zoom-out
     }
+    dispatchAppState({ type: ACTION_TYPES.CLOSE_NOTE_VIEWING });
+    return;
   }
-  // In editing mode, clicking does nothing (selection is handled by Cytoscape)
-}, [mode, noteViewingTarget, handleStartNoteViewing, handleCloseNoteViewing, fitToSelection]);
+
+  // 2) Click different node while viewing → switch (zoom-in only; don't save camera again)
+  if (noteViewingTarget && noteViewingTarget !== nodeId) {
+    if (ZOOM_TO_SELECTION) {
+      fitToSelection([nodeId], {
+        animate: true,
+        padding: 80,
+        targetHalf: 'top',
+        saveCamera: false,      // reuse the already-saved camera
+        zoomLevel: 'close'
+      });
+    }
+    dispatchAppState({
+      type: ACTION_TYPES.START_NOTE_VIEWING,
+      payload: { targetId: nodeId, targetType: 'node' }
+    });
+    return;
+  }
+
+  // 3) Nothing is open → open (zoom-in + save camera once)
+  if (!noteViewingTarget) {
+    if (ZOOM_TO_SELECTION) {
+      const shouldSaveCamera = !hasOriginalCamera();
+      fitToSelection([nodeId], {
+        animate: true,
+        padding: 80,
+        targetHalf: 'top',
+        saveCamera: shouldSaveCamera, // save original camera for the first zoom-in
+        zoomLevel: 'close'
+      });
+    }
+    dispatchAppState({
+      type: ACTION_TYPES.START_NOTE_VIEWING,
+      payload: { targetId: nodeId, targetType: 'node' }
+    });
+  }
+  // In editing mode, clicking is handled by Cytoscape selection, so do nothing.
+}, [mode, noteViewingTarget, fitToSelection, hasOriginalCamera, restoreOriginalCamera, dispatchAppState]);
+
+
 
   const handleEdgeClick = useCallback((edgeId) => {
     if (mode === 'playing') {
