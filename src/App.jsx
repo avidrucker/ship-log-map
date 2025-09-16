@@ -753,6 +753,11 @@ function App() {
         printDebug('⏭️ [App] Suppressing camera restore (target switch in progress)');
       }
       dispatchAppState({ type: ACTION_TYPES.CLOSE_NOTE_VIEWING });
+      // Ensure selection is cleared on true close so 'selected' class doesn't linger
+      if (mode === 'playing' && !isSwitchingTargetsRef.current) {
+        dispatchAppState({ type: ACTION_TYPES.CLEAR_ALL_SELECTIONS });
+        clearCytoscapeSelections();
+      }
     } finally {
       // Release flag on next tick to allow future closes
       setTimeout(() => { 
@@ -760,8 +765,9 @@ function App() {
       }, 0);
       // We are done with any pending switch intent once a close has run.
       pendingViewTargetRef.current = null;
+      isSwitchingTargetsRef.current = false;
     }
-  }, [mode, restoreOriginalCamera, hasOriginalCamera]);
+  }, [mode, restoreOriginalCamera, hasOriginalCamera, clearCytoscapeSelections]);
 
   // Debug modal open/close now via modalOps
 
@@ -833,6 +839,12 @@ function App() {
     // Clear guards when we have a selection
     if (nodeIds.length > 0) {
       suppressEmptyCloseRef.current = false;
+      // If we were switching targets and the new selection has landed,
+      // drop the switch flag so a subsequent close can restore camera.
+      if (pendingViewTargetRef.current && nodeIds.length === 1 && nodeIds[0] === pendingViewTargetRef.current) {
+        isSwitchingTargetsRef.current = false;
+        pendingViewTargetRef.current = null;
+      }
     }
   }, [nodeSelectionOrder, dispatchAppState]);
 
@@ -1289,8 +1301,21 @@ function App() {
       isTransitioningRef.current = false; // Clear this flag too
       isClosingNoteViewRef.current = false; // Clear the closing guard
       
-      // Just close - let handleCloseNoteViewing handle everything
+      // Guard against empty-selection auto-close races while we explicitly close
+      suppressEmptyCloseRef.current = true;
+      // Treat this as an explicit close, not a switch
+      isSwitchingTargetsRef.current = false;
+      pendingViewTargetRef.current = null;
+      isTransitioningRef.current = false;
+      isClosingNoteViewRef.current = false;
+      
+      // Close viewer (this will restore camera immediately)
       handleCloseNoteViewing();
+      // Explicitly clear selection so the node is truly deselected
+      dispatchAppState({ type: ACTION_TYPES.CLEAR_ALL_SELECTIONS });
+      clearCytoscapeSelections();
+      // Release the guard on next tick
+      setTimeout(() => { suppressEmptyCloseRef.current = false; }, 0);
       return;
     } else {
       console.log('🔺 different node clicked -> open/switch');
