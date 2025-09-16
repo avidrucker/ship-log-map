@@ -172,6 +172,8 @@ function App() {
   const currentCdnLoadRef = useRef(null);
   const isSwitchingTargetsRef = useRef(false);
   const pendingViewTargetRef = useRef(null);
+  // Suppress "empty selection" close while we're switching/opening a target
+  const suppressEmptyCloseRef = useRef(false);
 
   // Use the Cytoscape instance management hook
   const {
@@ -703,6 +705,8 @@ function App() {
     const switching = !!noteViewingTarget && noteViewingTarget !== targetId;
     isSwitchingTargetsRef.current = switching;
     pendingViewTargetRef.current = targetId;
+    // While opening/switching, suppress any empty-selection close from Cytoscape
+    suppressEmptyCloseRef.current = true;
 
     // Zoom to selection if feature is enabled and we're in playing mode
     if (ZOOM_TO_SELECTION && targetId) {
@@ -723,11 +727,8 @@ function App() {
       payload: { targetId, targetType }
     });
 
-    // Clear the "switching" guard on the next macrotask
-    setTimeout(() => {
-      isSwitchingTargetsRef.current = false;
-      pendingViewTargetRef.current = null;
-    }, 0);
+    // NOTE: we now clear the guards when the new selection actually lands
+    // (see handleNodeSelectionChange).
   }, [fitToSelection, noteViewingTarget, hasOriginalCamera]);
 
   // Update handleCloseNoteViewing to check the transition flag
@@ -829,19 +830,11 @@ function App() {
       payload: { nodeIds, selectionOrder: updatedOrder }
     });
 
-    // -------- close logic only (no open/switch here to avoid double animations) --------
-    if (mode === 'playing') {
-      // When selection becomes empty (background click, ESC, or deselect), close the viewer.
-      if (nodeIds.length === 0 && noteViewingTarget) {
-        if (ZOOM_TO_SELECTION && hasOriginalCamera()) {
-          restoreOriginalCamera(true); // zoom-out
-        }
-        dispatchAppState({ type: ACTION_TYPES.CLOSE_NOTE_VIEWING });
-      }
-      // IMPORTANT: do NOT open/switch here. Opening/switching is owned by handleNodeClick.
-      // This strict split prevents zoom_out + zoom_in racing each other.
+    // Clear guards when we have a selection
+    if (nodeIds.length > 0) {
+      suppressEmptyCloseRef.current = false;
     }
-  }, [nodeSelectionOrder, mode, noteViewingTarget, hasOriginalCamera, restoreOriginalCamera, dispatchAppState]);
+  }, [nodeSelectionOrder, dispatchAppState]);
 
 
   const handleConnectSelectedNodes = useCallback(() => {
@@ -1282,58 +1275,31 @@ function App() {
     });
   }, [saveUndoState, mapName, cdnBaseUrl]);
 
-const handleNodeClick = useCallback((nodeId) => {
-  if (mode !== 'playing') return;
+  const handleNodeClick = useCallback((nodeId) => {
+    console.log('👆 node tap:', { nodeId, mode, noteViewingTarget });
+    if (mode !== 'playing') return;
 
-  // 1) Click same node while viewing → toggle close (zoom-out)
-  if (noteViewingTarget === nodeId) {
-    if (ZOOM_TO_SELECTION && hasOriginalCamera()) {
-      restoreOriginalCamera(true); // zoom-out
+    // Click same node → close (zoom-out)
+    if (noteViewingTarget === nodeId) {
+      console.log('🔻 same-node clicked -> toggle close');
+      // This is an explicit close, not a switch — clear ALL guards
+      isSwitchingTargetsRef.current = false;
+      pendingViewTargetRef.current = null;
+      suppressEmptyCloseRef.current = false;
+      isTransitioningRef.current = false; // Clear this flag too
+      isClosingNoteViewRef.current = false; // Clear the closing guard
+      
+      // Just close - let handleCloseNoteViewing handle everything
+      handleCloseNoteViewing();
+      return;
+    } else {
+      console.log('🔺 different node clicked -> open/switch');
     }
-    dispatchAppState({ type: ACTION_TYPES.CLOSE_NOTE_VIEWING });
-    return;
-  }
 
-  // 2) Click different node while viewing → switch (zoom-in only; don't save camera again)
-  if (noteViewingTarget && noteViewingTarget !== nodeId) {
-    if (ZOOM_TO_SELECTION) {
-      fitToSelection([nodeId], {
-        animate: true,
-        padding: 80,
-        targetHalf: 'top',
-        saveCamera: false,      // reuse the already-saved camera
-        zoomLevel: 'close'
-      });
-    }
-    dispatchAppState({
-      type: ACTION_TYPES.START_NOTE_VIEWING,
-      payload: { targetId: nodeId, targetType: 'node' }
-    });
-    return;
-  }
-
-  // 3) Nothing is open → open (zoom-in + save camera once)
-  if (!noteViewingTarget) {
-    if (ZOOM_TO_SELECTION) {
-      const shouldSaveCamera = !hasOriginalCamera();
-      fitToSelection([nodeId], {
-        animate: true,
-        padding: 80,
-        targetHalf: 'top',
-        saveCamera: shouldSaveCamera, // save original camera for the first zoom-in
-        zoomLevel: 'close'
-      });
-    }
-    dispatchAppState({
-      type: ACTION_TYPES.START_NOTE_VIEWING,
-      payload: { targetId: nodeId, targetType: 'node' }
-    });
-  }
-  // In editing mode, clicking is handled by Cytoscape selection, so do nothing.
-}, [mode, noteViewingTarget, fitToSelection, hasOriginalCamera, restoreOriginalCamera, dispatchAppState]);
-
-
-
+    // Open OR switch always goes through handleStartNoteViewing.
+    handleStartNoteViewing(nodeId, 'node');
+  }, [mode, noteViewingTarget, handleStartNoteViewing, handleCloseNoteViewing]);
+      
   const handleEdgeClick = useCallback((edgeId) => {
     if (mode === 'playing') {
       // In playing mode, clicking an edge opens the note viewer
@@ -1343,6 +1309,9 @@ const handleNodeClick = useCallback((nodeId) => {
   }, [mode, handleStartNoteViewing]);
 
   const handleBackgroundClick = useCallback(() => {
+    // Set guard to prevent handleNodeSelectionChange from also closing
+    suppressEmptyCloseRef.current = true;
+
     // Clear all selections first
     dispatchAppState({ type: ACTION_TYPES.CLEAR_ALL_SELECTIONS });
     clearCytoscapeSelections();
@@ -1359,6 +1328,11 @@ const handleNodeClick = useCallback((nodeId) => {
     else if (mode === 'playing' && ZOOM_TO_SELECTION && hasOriginalCamera()) {
       restoreOriginalCamera(true);
     }
+
+    // Clear the guard after a short delay to allow future empty selection closes
+    setTimeout(() => {
+      suppressEmptyCloseRef.current = false;
+    }, 100);
   }, [mode, noteEditingTarget, noteViewingTarget, handleCloseNoteEditing, handleCloseNoteViewing, clearCytoscapeSelections, hasOriginalCamera, restoreOriginalCamera]);
 
   const areNodesConnected = useCallback((sourceId, targetId) => {

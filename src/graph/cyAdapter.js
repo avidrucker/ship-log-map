@@ -679,11 +679,17 @@ export function wireEvents(cy, handlers = {}, mode = 'editing') {
 
   cy.on('tap', 'node.entry-parent', (evt) => {
     if (mode === 'playing') {
-      const n = evt.target; const was = n.selected();
-      setTimeout(() => { if (was) n.unselect(); else if (onNodeClick) onNodeClick(n.id(), 'node'); }, 0); return;
+      const nodeId = evt.target.id();
+      // Always call onNodeClick in playing mode - let App.jsx handle the logic
+      if (onNodeClick) {
+        onNodeClick(nodeId, 'node');
+      }
+      return;
     }
+    // In editing mode, just call onNodeClick normally
     if (onNodeClick) onNodeClick(evt.target.id(), 'node');
   });
+
   cy.on('tap', 'edge', (evt) => {
     if (mode === 'playing') {
       const e = evt.target; const was = e.selected();
