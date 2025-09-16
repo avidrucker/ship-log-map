@@ -39,7 +39,7 @@ export function useGraphOperations(cy, dispatch, resetSelectionState, applyDebug
         zoom: cy.zoom(),
         position: cy.pan()
       };
-      console.log("Internal update of camera state after fit:", cameraInfo);
+      //// console.log("Internal update of camera state after fit:", cameraInfo);
       dispatch({ type: ACTION_TYPES.SET_ZOOM_INTERNAL, payload: { zoom: cameraInfo.zoom } });
       dispatch({ type: ACTION_TYPES.SET_CAMERA_POSITION_INTERNAL, payload: { position: cameraInfo.position } });
     } catch (error) {
