@@ -1,45 +1,61 @@
 // src/hooks/useGraphOperations.js
-
 import { useCallback } from 'react';
 import { incrementOrientationBy90 } from '../utils/rotation';
-import { ACTION_TYPES } from '../appStateReducer';  // Import ACTION_TYPES constants
+import { rotateNodesAndCompass } from '../utils/rotation.js';
+import { edgeId } from '../graph/ops.js';
+import { printDebug } from '../utils/debug.js';
+import { ACTION_TYPES } from '../appStateReducer';
 
 /**
  * Custom hook for graph operations
- * @param {Object} cy - Cytoscape instance
- * @param {Function} dispatch - State dispatch function
- * @param {Function} resetSelectionState - Function to reset selection state
- * @param {Function} applyDebugStyles - Function to apply debug styles
- * @param {number} currentOrientation - Current orientation in degrees
+ * @param {Object} params - Parameters object
+ * @param {Object} params.cy - Cytoscape instance function
+ * @param {Function} params.dispatch - State dispatch function
+ * @param {Object} params.graph - Graph data (nodes, edges, notes, orientation)
+ * @param {Object} params.selections - Current selections
+ * @param {Function} params.saveUndoCheckpoint - Function to save undo state
+ * @param {Function} params.setGraphData - Function to update graph data
+ * @param {Function} params.clearCytoscapeSelections - Function to clear Cytoscape selections
+ * @param {Function} params.updateNodeInPlace - Function to update node in Cytoscape
+ * @param {Function} params.getViewportCenter - Function to get viewport center
  * @returns {Object} Graph operation functions
  */
-export function useGraphOperations(cy, dispatch, resetSelectionState, applyDebugStyles, currentOrientation = 0) {
+export function useGraphOperations({
+  cy,
+  dispatch,
+  graph,
+  selections,
+  saveUndoCheckpoint,
+  setGraphData,
+  clearCytoscapeSelections,
+  updateNodeInPlace,
+  getViewportCenter
+}) {
+  const { nodes, edges, notes, orientation } = graph;
+  const { selectedNodeIds, nodeSelectionOrder } = selections; // selectedEdgeIds
+
+  // Existing operations
   const handleRotateLeft = useCallback(() => {
-    // Rotate left = counter-clockwise = subtract 90 degrees
-    const newOrientation = (currentOrientation - 90 + 360) % 360;
+    const newOrientation = (orientation - 90 + 360) % 360;
     dispatch({ type: ACTION_TYPES.SET_ORIENTATION, payload: { orientation: newOrientation } });
-  }, [dispatch, currentOrientation]);
+  }, [dispatch, orientation]);
 
   const handleRotateRight = useCallback(() => {
-    // Rotate right = clockwise = add 90 degrees
-    const newOrientation = incrementOrientationBy90(currentOrientation);
+    const newOrientation = incrementOrientationBy90(orientation);
     dispatch({ type: ACTION_TYPES.SET_ORIENTATION, payload: { orientation: newOrientation } });
-  }, [dispatch, currentOrientation]);
+  }, [dispatch, orientation]);
 
   const handleFitGraph = useCallback(() => {
-    if (!cy) return;
-    //// console.log('Fitting graph...');
+    const cyInstance = typeof cy === 'function' ? cy() : cy;
+    if (!cyInstance) return;
     
-    // Use Cytoscape's built-in fit method with padding (same as CytoscapeGraph component)
     try {
-      cy.fit(cy.nodes(), 50); // 50px padding to match CytoscapeGraph behavior
+      cyInstance.fit(cyInstance.nodes(), 50);
       
-      // Update camera info in state
       const cameraInfo = {
-        zoom: cy.zoom(),
-        position: cy.pan()
+        zoom: cyInstance.zoom(),
+        position: cyInstance.pan()
       };
-      //// console.log("Internal update of camera state after fit:", cameraInfo);
       dispatch({ type: ACTION_TYPES.SET_ZOOM_INTERNAL, payload: { zoom: cameraInfo.zoom } });
       dispatch({ type: ACTION_TYPES.SET_CAMERA_POSITION_INTERNAL, payload: { position: cameraInfo.position } });
     } catch (error) {
@@ -47,143 +63,199 @@ export function useGraphOperations(cy, dispatch, resetSelectionState, applyDebug
     }
   }, [cy, dispatch]);
 
+  // New mutation operations
+  const handleNodeMove = useCallback((nodeId, pos) => {
+    const { x: newX, y: newY } = pos;
+    printDebug('🏠 GraphOps: handleNodeMove', nodeId, newX, newY);
+    
+    saveUndoCheckpoint({ nodes, edges, notes, orientation });
+    
+    setGraphData(prev => ({
+      ...prev,
+      nodes: prev.nodes.map(n => (n.id === nodeId ? { ...n, x: newX, y: newY } : n))
+    }));
+  }, [saveUndoCheckpoint, setGraphData, nodes, edges, notes, orientation]);
+
+  const handleCreateNode = useCallback(() => {
+    printDebug('🏠 GraphOps: Create node');
+
+    let counter = 1, uniqueId, uniqueTitle;
+    do {
+      uniqueId = 'untitled' + counter;
+      uniqueTitle = 'untitled' + counter;
+      counter++;
+    } while (nodes.some(n => n.id === uniqueId || n.title === uniqueTitle));
+
+    const { x: centerX, y: centerY } = getViewportCenter();
+
+    const newNode = {
+      id: uniqueId,
+      title: uniqueTitle,
+      size: "regular",
+      color: "gray",
+      x: Math.round(centerX),
+      y: Math.round(centerY),
+      imageUrl: "unspecified"
+    };
+
+    saveUndoCheckpoint({ nodes, edges, notes, orientation });
+    setGraphData(prev => ({ ...prev, nodes: [...prev.nodes, newNode] }));
+  }, [nodes, edges, notes, orientation, getViewportCenter, saveUndoCheckpoint, setGraphData]);
+
+  const handleDeleteSelectedNodes = useCallback((nodeIds) => {
+    printDebug('🏠 GraphOps: Deleting nodes:', nodeIds);
+
+    saveUndoCheckpoint({ nodes, edges, notes, orientation });
+    
+    setGraphData(prev => {
+      const filteredNodes = prev.nodes.filter(n => !nodeIds.includes(n.id));
+      const filteredEdges = prev.edges.filter(e => !nodeIds.includes(e.source) && !nodeIds.includes(e.target));
+      return { ...prev, nodes: filteredNodes, edges: filteredEdges };
+    });
+
+    clearCytoscapeSelections();
+    dispatch({
+      type: ACTION_TYPES.SET_NODE_SELECTION,
+      payload: { nodeIds: [], selectionOrder: [] }
+    });
+  }, [nodes, edges, notes, orientation, saveUndoCheckpoint, setGraphData, clearCytoscapeSelections, dispatch]);
+
+  const handleDeleteSelectedEdges = useCallback((edgeIds) => {
+    printDebug('🏠 GraphOps: Deleting edges by id:', edgeIds);
+    
+    saveUndoCheckpoint({ nodes, edges, notes, orientation });
+    
+    setGraphData(prev => ({
+      ...prev,
+      edges: prev.edges.filter(e => !edgeIds.includes(e.id))
+    }));
+
+    clearCytoscapeSelections();
+    dispatch({
+      type: ACTION_TYPES.SET_EDGE_SELECTION,
+      payload: { edgeIds: [] }
+    });
+  }, [nodes, edges, notes, orientation, saveUndoCheckpoint, setGraphData, clearCytoscapeSelections, dispatch]);
+
+  const handleConnectSelectedNodes = useCallback(() => {
+    if (selectedNodeIds.length === 2 && nodeSelectionOrder.length === 2) {
+      const [sourceId, targetId] = nodeSelectionOrder;
+      printDebug('🏠 GraphOps: Connecting (ordered):', sourceId, '->', targetId);
+
+      saveUndoCheckpoint({ nodes, edges, notes, orientation });
+
+      setGraphData(prev => {
+        const exists = prev.edges.some(e => e.source === sourceId && e.target === targetId);
+        if (exists) return prev;
+        const newEdge = {
+          id: edgeId(sourceId, targetId),
+          source: sourceId,
+          target: targetId,
+          direction: "forward"
+        };
+        return { ...prev, edges: [...prev.edges, newEdge] };
+      });
+
+      clearCytoscapeSelections();
+      dispatch({
+        type: ACTION_TYPES.SET_NODE_SELECTION,
+        payload: { nodeIds: [], selectionOrder: [] }
+      });
+    }
+  }, [selectedNodeIds, nodeSelectionOrder, nodes, edges, notes, orientation, saveUndoCheckpoint, setGraphData, clearCytoscapeSelections, dispatch]);
+
+  const handleEdgeDirectionChange = useCallback((edgeIdArg, newDirection) => {
+    printDebug('🏠 GraphOps: Changing edge direction:', edgeIdArg, '->', newDirection);
+    
+    saveUndoCheckpoint({ nodes, edges, notes, orientation });
+    
+    setGraphData(prev => ({
+      ...prev,
+      edges: prev.edges.map(e => (e.id === edgeIdArg ? { ...e, direction: newDirection } : e))
+    }));
+  }, [nodes, edges, notes, orientation, saveUndoCheckpoint, setGraphData]);
+
+  const handleNodeSizeChange = useCallback((nodeId, newSize) => {
+    printDebug('🏠 GraphOps: Changing node size:', nodeId, '->', newSize);
+
+    saveUndoCheckpoint({ nodes, edges, notes, orientation });
+
+    updateNodeInPlace(nodeId, { size: newSize });
+
+    setGraphData(prev => ({
+      ...prev,
+      nodes: prev.nodes.map(n => (n.id === nodeId ? { ...n, size: newSize } : n))
+    }));
+  }, [nodes, edges, notes, orientation, saveUndoCheckpoint, updateNodeInPlace, setGraphData]);
+
+  const handleNodeColorChange = useCallback((nodeIds, newColor) => {
+    printDebug('🏠 GraphOps: Change color:', nodeIds, '->', newColor);
+
+    saveUndoCheckpoint({ nodes, edges, notes, orientation });
+
+    nodeIds.forEach(id => updateNodeInPlace(id, { color: newColor }));
+
+    setGraphData(prev => ({
+      ...prev,
+      nodes: prev.nodes.map(n => (nodeIds.includes(n.id) ? { ...n, color: newColor } : n))
+    }));
+  }, [nodes, edges, notes, orientation, saveUndoCheckpoint, updateNodeInPlace, setGraphData]);
+
+  const handleRotateNodesAndMap = useCallback(() => {
+    const cyInstance = typeof cy === 'function' ? cy() : cy;
+    
+    saveUndoCheckpoint({ nodes, edges, notes, orientation });
+    
+    setGraphData(prev => {
+      const { nodes: rotated } = rotateNodesAndCompass(prev.nodes, orientation);
+      printDebug('🌀 GraphOps: Rotated nodes data updated, triggering re-render:', { 
+        nodeCount: rotated.length, 
+        firstNodeBefore: prev.nodes[0] ? `(${prev.nodes[0].x}, ${prev.nodes[0].y})` : 'none',
+        firstNodeAfter: rotated[0] ? `(${rotated[0].x}, ${rotated[0].y})` : 'none'
+      });
+      
+      if (cyInstance) {
+        printDebug('🔄 GraphOps: Forcing immediate position update in Cytoscape after rotation');
+        rotated.forEach(node => {
+          const cyNode = cyInstance.getElementById(node.id);
+          if (cyNode.length > 0) {
+            cyNode.position({ x: node.x, y: node.y });
+          }
+        });
+        cyInstance.fit(cyInstance.nodes(), 50);
+      }
+      
+      return { ...prev, nodes: rotated };
+    });
+    
+    const next = ((orientation + 90) % 360 + 360) % 360;
+    dispatch({ type: ACTION_TYPES.SET_ORIENTATION, payload: { orientation: next } });
+  }, [orientation, nodes, edges, notes, saveUndoCheckpoint, setGraphData, cy, dispatch]);
+
+  // Legacy operations for backward compatibility
   const handleResetSelection = useCallback(() => {
-    if (!cy) return;
-    //// console.log('Resetting selection');
-    cy.elements().unselect();
-    resetSelectionState?.();
-  }, [cy, resetSelectionState]);
-
-  const toggleDebugMode = useCallback(() => {
-    // TODO: Add TOGGLE_DEBUG_MODE action type to appStateReducer.js
-    // dispatch({ type: ACTION_TYPES.TOGGLE_DEBUG_MODE });
-    //// console.log('Debug mode toggle not yet implemented in reducer');
-    if (cy) {
-      applyDebugStyles?.(cy);
-    }
-  }, [cy, applyDebugStyles]);
-
-  const addNode = useCallback((node) => {
-    if (!cy) return;
-    try {
-      cy.add({
-        group: 'nodes',
-        data: node,
-        position: node.position || { x: 0, y: 0 }
-      });
-      //// console.log('Node added:', node);
-    } catch (error) {
-      console.error('Error adding node:', error);
-    }
-  }, [cy]);
-
-  const addEdge = useCallback((edge) => {
-    if (!cy) return;
-    try {
-      cy.add({
-        group: 'edges',
-        data: edge
-      });
-      //// console.log('Edge added:', edge);
-    } catch (error) {
-      console.error('Error adding edge:', error);
-    }
-  }, [cy]);
-
-  const removeElement = useCallback((elementId) => {
-    if (!cy) return;
-    try {
-      const element = cy.getElementById(elementId);
-      if (element.length > 0) {
-        element.remove();
-        //// console.log('Element removed:', elementId);
-      }
-    } catch (error) {
-      console.error('Error removing element:', error);
-    }
-  }, [cy]);
-
-  const updateElementData = useCallback((elementId, data) => {
-    if (!cy) return;
-    try {
-      const element = cy.getElementById(elementId);
-      if (element.length > 0) {
-        element.data(data);
-        //// console.log('Element data updated:', elementId, data);
-      }
-    } catch (error) {
-      console.error('Error updating element data:', error);
-    }
-  }, [cy]);
-
-  const updateElementPosition = useCallback((elementId, position) => {
-    if (!cy) return;
-    try {
-      const element = cy.getElementById(elementId);
-      if (element.length > 0 && element.isNode()) {
-        element.position(position);
-        //// console.log('Node position updated:', elementId, position);
-      }
-    } catch (error) {
-      console.error('Error updating node position:', error);
-    }
-  }, [cy]);
-
-  const selectElement = useCallback((elementId) => {
-    if (!cy) return;
-    try {
-      const element = cy.getElementById(elementId);
-      if (element.length > 0) {
-        cy.elements().unselect();
-        element.select();
-        //// console.log('Element selected:', elementId);
-      }
-    } catch (error) {
-      console.error('Error selecting element:', error);
-    }
-  }, [cy]);
-
-  const getElementData = useCallback((elementId) => {
-    if (!cy) return null;
-    try {
-      const element = cy.getElementById(elementId);
-      return element.length > 0 ? element.data() : null;
-    } catch (error) {
-      console.error('Error getting element data:', error);
-      return null;
-    }
-  }, [cy]);
-
-  const getAllElements = useCallback(() => {
-    if (!cy) return { nodes: [], edges: [] };
-    try {
-      const nodes = cy.nodes().map(node => ({
-        data: node.data(),
-        position: node.position()
-      }));
-      const edges = cy.edges().map(edge => ({
-        data: edge.data()
-      }));
-      return { nodes, edges };
-    } catch (error) {
-      console.error('Error getting all elements:', error);
-      return { nodes: [], edges: [] };
-    }
-  }, [cy]);
+    const cyInstance = typeof cy === 'function' ? cy() : cy;
+    if (!cyInstance) return;
+    cyInstance.elements().unselect();
+    clearCytoscapeSelections?.();
+  }, [cy, clearCytoscapeSelections]);
 
   return {
+    // Existing operations
     handleRotateLeft,
     handleRotateRight,
     handleFitGraph,
     handleResetSelection,
-    toggleDebugMode,
-    addNode,
-    addEdge,
-    removeElement,
-    updateElementData,
-    updateElementPosition,
-    selectElement,
-    getElementData,
-    getAllElements
+    
+    // New mutation operations
+    handleNodeMove,
+    handleCreateNode,
+    handleDeleteSelectedNodes,
+    handleDeleteSelectedEdges,
+    handleConnectSelectedNodes,
+    handleEdgeDirectionChange,
+    handleNodeSizeChange,
+    handleNodeColorChange,
+    handleRotateNodesAndMap
   };
 }

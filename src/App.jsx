@@ -9,7 +9,7 @@
  *    - Replaced handleRotateMap() with graphOps.handleRotateRight() 
  *    - Removed rotateCompassOnly import (no longer needed)
  *    - Benefits: Direct Cytoscape manipulation, consistent camera updates
- *    - Note: handleRotateNodesAndMap still uses local implementation (complex node rotation)
+ *    - Note: graphOps.handleRotateNodesAndMap still uses local implementation (complex node rotation)
  * 
  * ✅ Map Loading Hook (useMapLoading) - COMPLETED
  *    - Replaced large URL monitoring useEffect with modular hook
@@ -77,7 +77,7 @@ import { saveToLocal, loadFromLocal, saveModeToLocal, loadModeFromLocal, saveUnd
 import { loadOrientationFromLocal, saveOrientationToLocal, loadCompassVisibleFromLocal, saveCompassVisibleToLocal } from './persistence/index.js';
 import { edgeId, renameNode } from "./graph/ops.js";
 import { printDebug } from "./utils/debug.js";
-import { rotateNodesAndCompass } from './utils/rotation.js';  // REFACTOR STEP 1: Removed rotateCompassOnly - now using graphOps.handleRotateRight
+// import { rotateNodesAndCompass } from './utils/rotation.js';  // REFACTOR STEP 1: Removed rotateCompassOnly - now using graphOps.handleRotateRight
 import { getCanEditFromQuery, hasAnyQueryParams } from "./utils/mapHelpers.js";
 
 // REFACTOR STEP 1: Import graph operations hook
@@ -314,15 +314,36 @@ function App() {
   });
   const [isLoadingFromCDN, setIsLoadingFromCDN] = useState(false); // Flag to prevent persistence conflicts
 
+  // Initialize undo hook
+  const { clearUndoState, saveUndoCheckpoint, applyUndoIfAvailable, canUndo } = useUndo(
+    appState, 
+    dispatchAppState, 
+    getCytoscapeInstance, 
+    clearCytoscapeSelections
+  );
+
   // REFACTOR STEP 1: Initialize graph operations hook
   // This replaces individual handleFitToView, handleRotateMap, etc. functions
-  const graphOps = useGraphOperations(
-    getCytoscapeInstance(), 
-    dispatchAppState, 
-    clearCytoscapeSelections, 
-    null, // applyDebugStyles - can be added later
-    orientation // current orientation for rotation functions
-  );
+  const graphOps = useGraphOperations({
+    cy: getCytoscapeInstance(),
+    dispatch: dispatchAppState,
+    graph: {
+      nodes: graphData.nodes,
+      edges: graphData.edges,
+      notes: graphData.notes,
+      orientation: orientation
+    },
+    selections: {
+      selectedNodeIds,
+      nodeSelectionOrder,
+      selectedEdgeIds
+    },
+    saveUndoCheckpoint,
+    setGraphData,
+    clearCytoscapeSelections,
+    updateNodeInPlace,
+    getViewportCenter
+  });
 
   // REFACTOR STEP 2: Initialize map loading hook for URL monitoring
   // This replaces the large URL monitoring useEffect in App.jsx
@@ -468,14 +489,6 @@ function App() {
     }
   }, []); // Run once on mount
 
-  // Initialize undo hook
-  const { clearUndoState, saveUndoCheckpoint, applyUndoIfAvailable, canUndo } = useUndo(
-    appState, 
-    dispatchAppState, 
-    getCytoscapeInstance, 
-    clearCytoscapeSelections
-  );
-
   const saveUndoState = useCallback(() => {
     saveUndoCheckpoint(graphData);
   }, [saveUndoCheckpoint, graphData]);
@@ -486,26 +499,9 @@ function App() {
 
   /** ---------- handlers ---------- **/
 
-  // (changed signature) receives position object {x, y}
-  const handleNodeMove = useCallback((nodeId, pos) => {
-    const { x: newX, y: newY } = pos;
-    printDebug('🏠 App: handleNodeMove', nodeId, newX, newY);
-    
-    // Save undo state before moving node
-    saveUndoState();
-    
-    setGraphData(prev => ({
-      ...prev,
-      nodes: prev.nodes.map(n => (n.id === nodeId ? { ...n, x: newX, y: newY } : n))
-    }));
-  }, [saveUndoState]);
-
   // REFACTOR STEP 1: Replace handleFitToView with hook function
   // OLD: const handleFitToView = useCallback(() => { dispatchAppState({ type: ACTION_TYPES.SET_SHOULD_FIT, payload: { shouldFit: true } }); }, []);
   // NEW: Use graphOps.handleFitGraph which directly calls cy.fit() with proper padding
-  const handleFitToView = useCallback(() => {
-    graphOps.handleFitGraph();
-  }, [graphOps]);
 
   const handleFitCompleted = useCallback(() => {
     dispatchAppState({ type: ACTION_TYPES.SET_SHOULD_FIT, payload: { shouldFit: false } });
@@ -764,44 +760,6 @@ function App() {
     }
   }, [mode, noteViewingTarget, handleCloseNoteViewing]);
 
-  // Now deletes by actual edge.id (not index)
-  const handleDeleteSelectedEdges = useCallback((edgeIds) => {
-    printDebug('🏠 App: Deleting edges by id:', edgeIds);
-    
-    // Save undo state before deleting edges
-    saveUndoState();
-    
-    setGraphData(prev => ({
-      ...prev,
-      edges: prev.edges.filter(e => !edgeIds.includes(e.id))
-    }));
-
-    clearCytoscapeSelections();
-    dispatchAppState({
-      type: ACTION_TYPES.SET_EDGE_SELECTION,
-      payload: { edgeIds: [] }
-    });
-  }, [clearCytoscapeSelections, saveUndoState]);
-
-  const handleDeleteSelectedNodes = useCallback((nodeIds) => {
-    printDebug('🏠 App: Deleting nodes:', nodeIds);
-
-    // Save undo state before deleting nodes
-    saveUndoState();
-    
-    setGraphData(prev => {
-      const nodes = prev.nodes.filter(n => !nodeIds.includes(n.id));
-      const edges = prev.edges.filter(e => !nodeIds.includes(e.source) && !nodeIds.includes(e.target));
-      return { ...prev, nodes, edges };
-    });
-
-    clearCytoscapeSelections();
-    dispatchAppState({
-      type: ACTION_TYPES.SET_NODE_SELECTION,
-      payload: { nodeIds: [], selectionOrder: [] }
-    });
-  }, [clearCytoscapeSelections, saveUndoState]);
-
   const handleNodeSelectionChange = useCallback((nodeIds) => {
     printDebug('🏠 App: Node selection changed to:', nodeIds);
 
@@ -828,64 +786,6 @@ function App() {
     }
   }, [nodeSelectionOrder, dispatchAppState]);
 
-
-  const handleConnectSelectedNodes = useCallback(() => {
-    if (selectedNodeIds.length === 2 && nodeSelectionOrder.length === 2) {
-      const [sourceId, targetId] = nodeSelectionOrder;
-      printDebug('🏠 App: Connecting (ordered):', sourceId, '->', targetId);
-
-      // Save undo state before connecting nodes
-      saveUndoState();
-
-      setGraphData(prev => {
-        const exists = prev.edges.some(e => e.source === sourceId && e.target === targetId);
-        if (exists) return prev;
-        const newEdge = {
-          id: edgeId(sourceId, targetId),
-          source: sourceId,
-          target: targetId,
-          direction: "forward"
-        };
-        return { ...prev, edges: [...prev.edges, newEdge] };
-      });
-
-      clearCytoscapeSelections();
-      dispatchAppState({
-        type: ACTION_TYPES.SET_NODE_SELECTION,
-        payload: { nodeIds: [], selectionOrder: [] }
-      });
-    }
-  }, [selectedNodeIds, nodeSelectionOrder, clearCytoscapeSelections, saveUndoState]);
-
-  // Change direction by edge.id
-  const handleEdgeDirectionChange = useCallback((edgeIdArg, newDirection) => {
-    printDebug('🏠 App: Changing edge direction:', edgeIdArg, '->', newDirection);
-    
-    // Save undo state before changing direction
-    saveUndoState();
-    
-    setGraphData(prev => ({
-      ...prev,
-      edges: prev.edges.map(e => (e.id === edgeIdArg ? { ...e, direction: newDirection } : e))
-    }));
-  }, [saveUndoState]);
-
-  const handleNodeSizeChange = useCallback((nodeId, newSize) => {
-    printDebug('🏠 App: Changing node size:', nodeId, '->', newSize);
-
-    // Save undo state before changing size
-    saveUndoState();
-
-    // instant visual
-    updateNodeInPlace(nodeId, { size: newSize });
-
-    // persist
-    setGraphData(prev => ({
-      ...prev,
-      nodes: prev.nodes.map(n => (n.id === nodeId ? { ...n, size: newSize } : n))
-    }));
-  }, [updateNodeInPlace, saveUndoState]);
-
   const handleNodeDoubleClick = useCallback((nodeId) => {
     printDebug('🏠 App: Node double-clicked:', nodeId);
     
@@ -910,8 +810,8 @@ function App() {
         break;
     }
 
-    handleNodeSizeChange(nodeId, nextSize);
-  }, [graphData.nodes, handleNodeSizeChange]);
+    graphOps.handleNodeSizeChange(nodeId, nextSize);
+  }, [graphData.nodes, graphOps]);
 
   const handleEdgeDoubleClick = useCallback((edgeId) => {
     printDebug('🏠 App: Edge double-clicked:', edgeId);
@@ -937,36 +837,8 @@ function App() {
         break;
     }
 
-    handleEdgeDirectionChange(edgeId, nextDirection);
-  }, [graphData.edges, handleEdgeDirectionChange]);
-
-  const handleCreateNode = useCallback(() => {
-    printDebug('🏠 App: Create node');
-
-    // unique id/title
-    let counter = 1, uniqueId, uniqueTitle;
-    do {
-      uniqueId = 'untitled' + counter;
-      uniqueTitle = 'untitled' + counter;
-      counter++;
-    } while (graphData.nodes.some(n => n.id === uniqueId || n.title === uniqueTitle));
-
-    const { x: centerX, y: centerY } = getViewportCenter();
-
-    const newNode = {
-      id: uniqueId,
-      title: uniqueTitle,
-      size: "regular",
-      color: "gray",
-      x: Math.round(centerX),
-      y: Math.round(centerY),
-      imageUrl: "unspecified" // Use "unspecified" for nodes without custom images
-    };
-
-    // Save undo state before creating node
-    saveUndoState();
-    setGraphData(prev => ({ ...prev, nodes: [...prev.nodes, newNode] }));
-  }, [graphData, getViewportCenter, saveUndoState]);
+    graphOps.handleEdgeDirectionChange(edgeId, nextDirection);
+  }, [graphData.edges, graphOps]);
 
   const exportMap = useCallback(() => {
     // latest positions from cy (if available)
@@ -1027,20 +899,6 @@ function App() {
     URL.revokeObjectURL(url);
   }, [graphData, exportNodePositions, mode, mapName, cdnBaseUrl, orientation, compassVisible, bgImage]);
 
-  const handleNodeColorChange = useCallback((nodeIds, newColor) => {
-    printDebug('🏠 App: Change color:', nodeIds, '->', newColor);
-
-    // Save undo state before changing color
-    saveUndoState();
-
-    nodeIds.forEach(id => updateNodeInPlace(id, { color: newColor }));
-
-    setGraphData(prev => ({
-      ...prev,
-      nodes: prev.nodes.map(n => (nodeIds.includes(n.id) ? { ...n, color: newColor } : n))
-    }));
-  }, [updateNodeInPlace, saveUndoState]);
-
   // 🔴 Live camera values (smooth BG), plus debounced reducer commits
   const {
     livePan,
@@ -1051,46 +909,6 @@ function App() {
   // REFACTOR STEP 1: Replace handleRotateMap with hook function  
   // OLD: const handleRotateMap = useCallback(() => { const next = rotateCompassOnly(orientation); dispatchAppState({ type: ACTION_TYPES.SET_ORIENTATION, payload: { orientation: next } }); }, [orientation]);
   // NEW: Use graphOps.handleRotateRight which handles the same 90° clockwise rotation
-  const handleRotateMap = useCallback(() => {
-    graphOps.handleRotateRight();
-  }, [graphOps]);
-  
-  // New: rotate all nodes AND compass (graph controls button)
-  const handleRotateNodesAndMap = useCallback(() => {
-    // Save undo first
-    saveUndoState();
-    
-    // Get the Cytoscape instance for direct manipulation
-    const cy = getCytoscapeInstance();
-    
-    setGraphData(prev => {
-      const { nodes: rotated } = rotateNodesAndCompass(prev.nodes, orientation);
-      printDebug('🌀 App: Rotated nodes data updated, triggering re-render:', { 
-        nodeCount: rotated.length, 
-        firstNodeBefore: prev.nodes[0] ? `(${prev.nodes[0].x}, ${prev.nodes[0].y})` : 'none',
-        firstNodeAfter: rotated[0] ? `(${rotated[0].x}, ${rotated[0].y})` : 'none'
-      });
-      
-      // If Cytoscape is available, immediately update positions for instant visual feedback
-      if (cy) {
-        printDebug('🔄 App: Forcing immediate position update in Cytoscape after rotation');
-        rotated.forEach(node => {
-          const cyNode = cy.getElementById(node.id);
-          if (cyNode.length > 0) {
-            cyNode.position({ x: node.x, y: node.y });
-          }
-        });
-        // Force a layout refresh to ensure everything is properly positioned
-        //// TODO: troubleshoot performance with fit calls
-        //// printDebug("Forcing Cytoscape layout refresh after map rotation");
-        cy.fit(cy.nodes(), 50);
-      }
-      
-      return { ...prev, nodes: rotated };
-    });
-    const next = ((orientation + 90) % 360 + 360) % 360; // keep normalization consistent
-    dispatchAppState({ type: ACTION_TYPES.SET_ORIENTATION, payload: { orientation: next } });
-  }, [orientation, saveUndoState, getCytoscapeInstance]);
 
   const handleToggleCompass = useCallback(() => {
     dispatchAppState({ type: ACTION_TYPES.SET_COMPASS_VISIBLE, payload: { visible: !compassVisible } });
@@ -1303,7 +1121,7 @@ function App() {
 
     // Open OR switch always goes through handleStartNoteViewing.
     handleStartNoteViewing(nodeId, 'node');
-  }, [mode, noteViewingTarget, handleStartNoteViewing, handleCloseNoteViewing]);
+  }, [mode, noteViewingTarget, handleStartNoteViewing, handleCloseNoteViewing, clearCytoscapeSelections]);
       
   const handleEdgeClick = useCallback((edgeId) => {
     if (mode === 'playing') {
@@ -1351,8 +1169,8 @@ function App() {
   useKeyboardHandlers({
     mode,
     getSelections: () => ({ selectedNodeIds, selectedEdgeIds }),
-    onDeleteSelectedNodes: handleDeleteSelectedNodes,
-    onDeleteSelectedEdges: handleDeleteSelectedEdges,
+    onDeleteSelectedNodes: graphOps.handleDeleteSelectedNodes,
+    onDeleteSelectedEdges: graphOps.handleDeleteSelectedEdges,
     graphOps,
     modalOps,
     onResetSelection: () => {
@@ -1501,14 +1319,14 @@ useEffect(() => {
         <GraphControls
           selectedNodes={selectedNodeIds}
           selectedEdges={selectedEdgeIds}
-          onCreateNode={handleCreateNode}
-          onDeleteSelectedNodes={handleDeleteSelectedNodes}
-          onDeleteSelectedEdges={handleDeleteSelectedEdges}
+          onCreateNode={graphOps.handleCreateNode}
+          onDeleteSelectedNodes={graphOps.handleDeleteSelectedNodes}
+          onDeleteSelectedEdges={graphOps.handleDeleteSelectedEdges}
           onEditSelected={handleEditSelected}
-          onConnectNodes={handleConnectSelectedNodes}
+          onConnectNodes={graphOps.handleConnectSelectedNodes}
           onExportMap={exportMap}
           onNewMap={handleNewMap}
-          onNodeColorChange={handleNodeColorChange}
+          onNodeColorChange={graphOps.handleNodeColorChange}
           areNodesConnected={areNodesConnected}
           mode={mode}
           collapsed={graphControlsCollapsed}
@@ -1517,7 +1335,7 @@ useEffect(() => {
           onOpenShareModal={modalOps.openShareModal}
           onUndo={handleUndo}
           canUndo={canUndo}
-          onRotateCompass={handleRotateMap}
+          onRotateCompass={graphOps.handleRotateRight}
           onOpenBgImageModal={openBgImageModal}
         />
       )}
@@ -1525,12 +1343,12 @@ useEffect(() => {
       <UniversalControls
         fileInputRef={fileInputRef}
         onImportFile={handleFileSelect}
-        onFitToView={handleFitToView}
+        onFitToView={graphOps.handleFitGraph}
         onModeToggle={canEdit ? handleModeToggle : undefined}
         mode={mode}
         showNoteCountOverlay={showNoteCountOverlay}
         onToggleNoteCountOverlay={handleToggleNoteCountOverlay}
-        onRotateNodesAndCompass={handleRotateNodesAndMap}
+        onRotateNodesAndCompass={graphOps.handleRotateNodesAndMap}
         orientation={orientation}
         compassVisible={compassVisible}
         onToggleCompass={handleToggleCompass}
@@ -1671,7 +1489,7 @@ useEffect(() => {
         cdnBaseUrl={cdnBaseUrl}
         selectedNodeIds={memoSelectedNodeIds}
         selectedEdgeIds={memoSelectedEdgeIds}
-        onNodeMove={handleNodeMove}
+        onNodeMove={graphOps.handleNodeMove}
         onViewportChange={onViewportChange} // 🔴 every-frame stream for BG
         initialZoom={zoomLevel}
         initialCameraPosition={memoCameraPosition}
@@ -1683,11 +1501,11 @@ useEffect(() => {
         onEdgeClick={handleEdgeClick}
         onNodeDoubleClick={handleNodeDoubleClick}
         onEdgeDoubleClick={handleEdgeDoubleClick}
-        onEdgeDirectionChange={handleEdgeDirectionChange}
-        onDeleteSelectedNodes={handleDeleteSelectedNodes}
-        onDeleteSelectedEdges={handleDeleteSelectedEdges}
-        onNodeSizeChange={handleNodeSizeChange}
-        onNodeColorChange={handleNodeColorChange}
+        onEdgeDirectionChange={graphOps.handleEdgeDirectionChange}
+        onDeleteSelectedNodes={graphOps.handleDeleteSelectedNodes}
+        onDeleteSelectedEdges={graphOps.handleDeleteSelectedEdges}
+        onNodeSizeChange={graphOps.handleNodeSizeChange}
+        onNodeColorChange={graphOps.handleNodeColorChange}
         onBackgroundClick={handleBackgroundClick}
         onCytoscapeInstanceReady={setCytoscapeInstance}
         showNoteCountOverlay={showNoteCountOverlay}
