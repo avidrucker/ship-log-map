@@ -93,6 +93,8 @@ import { useKeyboardHandlers } from "./hooks/useKeyboardHandlers.js";
 // camera hook (live viewport + debounced commits)
 import { useCamera } from "./hooks/useCamera.js";
 
+import { useUndo } from "./hooks/useUndo.js";
+
 // Add CSS for spinner animation
 const SPINNER_CSS = `
 @keyframes spin {
@@ -322,11 +324,6 @@ function App() {
     orientation // current orientation for rotation functions
   );
 
-  // Helper to clear undo state (for new/load operations) - defined early because it's used in effects
-  const clearUndoState = useCallback(() => {
-    dispatchAppState({ type: ACTION_TYPES.CLEAR_UNDO_STATE });
-  }, []);
-
   // REFACTOR STEP 2: Initialize map loading hook for URL monitoring
   // This replaces the large URL monitoring useEffect in App.jsx
   useMapLoading({
@@ -338,7 +335,6 @@ function App() {
     setCdnLoadingState,
     setIsLoadingFromCDN,
     clearCytoscapeSelections,
-    clearUndoState,
     saveModeToLocal,
     loadModeFromLocal,
     currentCdnLoadRef,
@@ -472,37 +468,21 @@ function App() {
     }
   }, []); // Run once on mount
 
-  /** ---------- helpers ---------- **/
+  // Initialize undo hook
+  const { clearUndoState, saveUndoCheckpoint, applyUndoIfAvailable, canUndo } = useUndo(
+    appState, 
+    dispatchAppState, 
+    getCytoscapeInstance, 
+    clearCytoscapeSelections
+  );
 
-  // Helper to save current graph state before making undoable changes
   const saveUndoState = useCallback(() => {
-    dispatchAppState({
-      type: ACTION_TYPES.SET_UNDO_STATE,
-      payload: { graphState: graphData }
-    });
-  }, [graphData]);
+    saveUndoCheckpoint(graphData);
+  }, [saveUndoCheckpoint, graphData]);
 
-  // Handle undo functionality
   const handleUndo = useCallback(() => {
-    if (lastUndoState) {
-      const prevState = lastUndoState; // capture for closures
-      setGraphData(prevState);
-      clearUndoState(); // Clear undo after using it
-      // Clear selections since they might reference nodes/edges that changed
-      dispatchAppState({ type: ACTION_TYPES.CLEAR_ALL_SELECTIONS });
-      clearCytoscapeSelections();
-      // --- NEW: update Cytoscape node positions to match undo state ---
-      const cy = getCytoscapeInstance();
-      if (cy && prevState.nodes) {
-        prevState.nodes.forEach(node => {
-          const cyNode = cy.getElementById(node.id);
-          if (cyNode && cyNode.length > 0) {
-            cyNode.position({ x: node.x, y: node.y });
-          }
-        });
-      }
-    }
-  }, [lastUndoState, clearUndoState, clearCytoscapeSelections, getCytoscapeInstance]);
+    applyUndoIfAvailable(setGraphData);
+  }, [applyUndoIfAvailable]);
 
   /** ---------- handlers ---------- **/
 
@@ -1536,7 +1516,7 @@ useEffect(() => {
           onOpenDebugModal={DEV_MODE ? modalOps.openDebugModal : undefined}
           onOpenShareModal={modalOps.openShareModal}
           onUndo={handleUndo}
-          canUndo={!!lastUndoState}
+          canUndo={canUndo}
           onRotateCompass={handleRotateMap}
           onOpenBgImageModal={openBgImageModal}
         />
