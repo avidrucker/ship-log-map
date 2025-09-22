@@ -91,16 +91,6 @@ export function useCytoscapeInstance() {
     }
   }, []);
   
-  // Fit view to all nodes
-  // const fitToView = useCallback((padding = 50) => {
-  //   //// TODO: troubleshoot performance with fit calls
-  //   //// console.log("Fitting view to all nodes with padding:", padding);
-  //   const cy = cytoscapeRef.current;
-  //   if (cy) {
-  //     cy.fit(cy.nodes(), padding);
-  //   }
-  // }, []);
-  
   // Get current viewport center in world coordinates
   const getViewportCenter = useCallback(() => {
     const cy = cytoscapeRef.current;
@@ -322,7 +312,6 @@ export function useCytoscapeInstance() {
     updateNodeInPlace,
     updateEdgeInPlace,
     clearCytoscapeSelections,
-    // fitToView,
     getViewportCenter,
     exportNodePositions,
     saveOriginalCamera,
