@@ -3,6 +3,50 @@ import { useCallback } from 'react';
 import { ACTION_TYPES } from '../appStateReducer';
 import { printDebug } from '../utils/debug';
 
+/**
+ * Custom hook for undo/redo operations in the graph editor
+ *
+ * Responsibilities
+ * - Manages undo state lifecycle (save checkpoints, apply undo, clear state)
+ * - Provides centralized undo logic for all graph mutations
+ * - Handles Cytoscape position synchronization after undo operations
+ * - Clears selections and undo state when undo is applied
+ *
+ * Key Functions
+ * - clearUndoState() - Clears current undo checkpoint
+ * - saveUndoCheckpoint(graphState) - Saves a graph state snapshot for undo
+ * - applyUndoIfAvailable(setGraphData) - Applies saved undo state if available
+ * - canUndo - Boolean indicating if undo operation is possible
+ *
+ * Usage Pattern
+ * ```javascript
+ * // Before making changes
+ * saveUndoCheckpoint({ nodes, edges, notes, orientation });
+ * 
+ * // Make graph mutations...
+ * 
+ * // To undo
+ * if (canUndo) {
+ *   applyUndoIfAvailable(setGraphData);
+ * }
+ * ```
+ *
+ * Contracts
+ * - Only stores one level of undo (single checkpoint)
+ * - Automatically clears selections after undo to prevent stale references
+ * - Syncs Cytoscape node positions with restored graph data
+ * - Undo state is cleared after successful application
+ *
+ * @param {Object} appState - Current application state containing undo data
+ * @param {Function} dispatchAppState - State dispatch function for reducer actions
+ * @param {Function} getCytoscapeInstance - Function that returns current Cytoscape instance
+ * @param {Function} clearCytoscapeSelections - Function to clear Cytoscape visual selections
+ * @returns {Object} Undo operation functions and state
+ * @returns {Function} returns.clearUndoState - Clears the current undo checkpoint
+ * @returns {Function} returns.saveUndoCheckpoint - Saves graph state for undo (graphState) => void
+ * @returns {Function} returns.applyUndoIfAvailable - Applies undo if available (setGraphData) => boolean
+ * @returns {boolean} returns.canUndo - Whether undo operation is currently possible
+ */
 export function useUndo(appState, dispatchAppState, getCytoscapeInstance, clearCytoscapeSelections) {
   const { undo } = appState;
 
