@@ -128,7 +128,6 @@ function App() {
     getCytoscapeInstance,
     updateNodeInPlace,
     clearCytoscapeSelections,
-    // fitToView,
     getViewportCenter,
     exportNodePositions,
     // Camera state management for zoom-to-selection
@@ -844,12 +843,12 @@ function App() {
   }, [saveUndoState, mapName, cdnBaseUrl]);
 
   const handleNodeClick = useCallback((nodeId) => {
-    console.log('👆 node tap:', { nodeId, mode, noteViewingTarget });
+    printDebug('👆 node tap:', { nodeId, mode, noteViewingTarget });
     if (mode !== 'playing') return;
 
     // Click same node → close (zoom-out)
     if (noteViewingTarget === nodeId) {
-      console.log('🔻 same-node clicked -> toggle close');
+      printDebug('🔻 same-node clicked -> toggle close');
       // This is an explicit close, not a switch — clear ALL guards
       isSwitchingTargetsRef.current = false;
       pendingViewTargetRef.current = null;
@@ -874,7 +873,7 @@ function App() {
       setTimeout(() => { suppressEmptyCloseRef.current = false; }, 0);
       return;
     } else {
-      console.log('🔺 different node clicked -> open/switch');
+      printDebug('🔺 different node clicked -> open/switch');
     }
 
     // Open OR switch always goes through handleStartNoteViewing.

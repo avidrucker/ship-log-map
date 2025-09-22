@@ -169,7 +169,7 @@ export function useImportExport({
         }
 
         // Reset camera + fit
-        console.log("useImportExport: Internally resetting camera due to file load");
+        printDebug("useImportExport: Internally resetting camera due to file load");
         dispatch({ type: ACTION_TYPES.SET_ZOOM_INTERNAL, payload: { zoom: 1 } });
         dispatch({ type: ACTION_TYPES.SET_CAMERA_POSITION_INTERNAL, payload: { position: { x: 0, y: 0 } } });
         setTimeout(() => {
@@ -243,7 +243,7 @@ export function useImportExport({
     dispatch({ type: ACTION_TYPES.SET_BG_IMAGE, payload: { bgImage: emptyBgImage } });
 
     // Camera reset - update both app state and Cytoscape instance
-    console.log("useImportExport handleNewMap: Resetting camera for new map");
+    printDebug("useImportExport handleNewMap: Resetting camera for new map");
     dispatch({ type: ACTION_TYPES.SET_ZOOM_EXTERNAL, payload: { zoom: 1 } });
     dispatch({ type: ACTION_TYPES.SET_CAMERA_POSITION_EXTERNAL, payload: { position: { x: 0, y: 0 } } });
     setTimeout(() => {
