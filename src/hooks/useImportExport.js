@@ -227,6 +227,8 @@ export function useImportExport({
     dispatch({ type: ACTION_TYPES.SET_MAP_NAME, payload: { mapName: 'default_map' } });
     dispatch({ type: ACTION_TYPES.SET_CDN_BASE_URL, payload: { cdnBaseUrl: '' } });
 
+    dispatch({ type: ACTION_TYPES.SET_LAST_LOADED_MAP_URL, payload: { mapUrl: '' } });
+
     // Reset background image underlay data
     const emptyBgImage = {
       imageUrl: "",

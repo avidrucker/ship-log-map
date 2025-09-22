@@ -319,6 +319,7 @@ function App() {
     defaultShipLogData,
     setGraphData,
     setBgImage,
+    clearUndoState,
     setCdnLoadingState,
     setIsLoadingFromCDN,
     clearCytoscapeSelections,
@@ -1049,6 +1050,9 @@ function App() {
 useEffect(() => {
   if (appState.lastLoadedMapUrl) {
     localStorage.setItem('shipLogLastLoadedMapUrl', appState.lastLoadedMapUrl);
+  } 
+  else {
+    localStorage.removeItem('shipLogLastLoadedMapUrl');
   }
 }, [appState.lastLoadedMapUrl]);
 
