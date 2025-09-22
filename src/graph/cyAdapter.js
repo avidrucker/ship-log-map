@@ -282,7 +282,9 @@ export function buildElementsFromDomain(graph, options = {}) {
     const entryChildId = `${parentId}__entry`; // child visual node
     
     // Create initial style for new nodes to prevent blip
-    const initialStyle = markAsNew ? { height: 0 } : {};
+    // ... but use classes instead of manual styles
+    const entryClasses = markAsNew ? 'entry node-entering' : 'entry';
+    
     
     return [
       {
@@ -299,8 +301,7 @@ export function buildElementsFromDomain(graph, options = {}) {
         position: { x: n.x, y: n.y },
         selectable: false,
         grabbable: false,
-        classes: 'entry',
-        style: initialStyle
+        classes: entryClasses
       }
     ];
   }).flat();
@@ -573,7 +574,7 @@ export function syncElements(cy, graph, options = {}) {
     // Full element set replace (but restore positions & camera)
     // identify new nodes and build them with zero height
 
-// Identify which nodes are truly new
+    // Identify which nodes are truly new
     const newNodeIds = new Set();
     newElements.filter(e => e.group === 'nodes' && e.data.id.endsWith('__entry')).forEach(el => {
       const parentId = el.data.parent;
@@ -582,16 +583,17 @@ export function syncElements(cy, graph, options = {}) {
       }
     });
     
-    // Modify new entry elements to have zero height
+    // Modify new entry elements to have the entering class
     const modifiedElements = newElements.map(el => {
       if (el.group === 'nodes' && el.data.id.endsWith('__entry')) {
         const parentId = el.data.parent;
         if (parentId && newNodeIds.has(parentId)) {
-          // This is a new entry node - set initial height to 0
+          // This is a new entry node - add entering class
           return {
             ...el,
-            style: { ...el.style, height: 0 },
+            classes: el.classes ? `${el.classes} node-entering` : 'entry node-entering',
             data: { ...el.data, isNewlyCreated: true }
+            // Remove: style: { ...el.style, height: 0 }
           };
         }
       }
@@ -608,35 +610,25 @@ export function syncElements(cy, graph, options = {}) {
     cy.zoom(currentZoom);
     cy.pan(currentPan);
 
-    // *** ANIMATE NEW NODES IMMEDIATELY ***
-    // No setTimeout needed - animate right away since they start at height 0
-    newNodeIds.forEach(parentId => {
-      const entryNode = cy.getElementById(`${parentId}__entry`);
-      if (entryNode.length > 0) {
-        printDebug(`🎬 [cyAdapter] Animating new entry node: ${entryNode.id()}`);
-        
-        // Get the target height based on node size
-        const nodeSize = entryNode.data('size') || 'regular';
-        const NODE_SIZE_MAP = {
-          'regular': 175,
-          'double': 350, 
-          'half': 87.5
-        };
-        const targetHeight = NODE_SIZE_MAP[nodeSize] || 175;
-        
-        // Animate to target height immediately
-        entryNode.animation({
-          style: { height: targetHeight },
-          duration: 600,
-          easing: 'ease-out'
-        }).play().promise('complete').then(() => {
-          // Remove the style override so CSS rules take over
-          entryNode.removeStyle('height');
-          entryNode.data('isNewlyCreated', null); // Clear flag
-          printDebug(`✅ [cyAdapter] Animation complete for: ${entryNode.id()}`);
-        });
-      }
-    });
+    // *** TRIGGER CSS ANIMATIONS BY REMOVING CLASSES ***
+    // Use a small delay to ensure DOM is ready, then remove entering class to trigger transition
+    setTimeout(() => {
+      newNodeIds.forEach(parentId => {
+        const entryNode = cy.getElementById(`${parentId}__entry`);
+        if (entryNode.length > 0) {
+          printDebug(`🎬 [cyAdapter] Triggering CSS animation for: ${entryNode.id()}`);
+          
+          // Remove the entering class to trigger CSS transition to normal height
+          entryNode.removeClass('node-entering');
+          
+          // Clean up the flag after animation duration
+          setTimeout(() => {
+            entryNode.data('isNewlyCreated', null);
+            printDebug(`✅ [cyAdapter] CSS animation complete for: ${entryNode.id()}`);
+          }, 600); // Match the CSS transition duration
+        }
+      });
+    }, 50); // Small delay to ensure initial state is rendered
   }
 
   // *** RESTORE NOTE COUNT NODES AFTER SYNC ***

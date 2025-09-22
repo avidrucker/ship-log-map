@@ -293,6 +293,29 @@ const entryChildInteractionRule = {
    }
 };
 
+const animationRules = [
+  // New nodes start at zero height via CSS class
+  {
+    selector: 'node.entry.node-entering',
+    style: {
+      'height': 0,
+      'transition-property': 'height',
+      'transition-duration': '300ms',
+      'transition-timing-function': 'ease-out'
+    }
+  },
+  // Add transition to the base entry node style
+  {
+    selector: 'node.entry',
+    style: {
+      // Normal height rules already defined in sizeRules, so this just ensures transition
+      'transition-property': 'height width background-position-y background-width background-height text-margin-y font-size',
+      'transition-duration': '300ms', 
+      'transition-timing-function': 'ease-out'
+    }
+  }
+];
+
 const cytoscapeStyles = [
   { selector: 'node.entry-parent', style: entryParentBase },
   { selector: 'node.entry', style: entryNodeBase },
@@ -303,6 +326,7 @@ const cytoscapeStyles = [
   ...noteCountRules,
   ...dragStateRules,
   ...parentSizeRules,
+  ...animationRules,
   entryChildInteractionRule
 ];
 

@@ -2,44 +2,42 @@
 
 import { printDebug } from '../utils/debug.js';
 
-// Animate a node's height from 0 to its target based on size data
-// Returns a promise that resolves when animation completes
-export function animateHeightIn(ele, { duration = 1000, easing = 'ease-in-out' } = {}) {
-  // Get the target height based on node size data
-  const nodeSize = ele.data('size') || 'regular';
-  const NODE_SIZE_MAP = {
-    'regular': 175,
-    'double': 350,
-    'half': 87.5
-  };
+export function animateHeightIn(ele, { duration = 600, easing = 'ease-out' } = {}) {
+  printDebug(`🎬 [appear.js] Starting CSS animation for ${ele.id()}`);
   
-  let target = NODE_SIZE_MAP[nodeSize] || 175;
+  // Ensure the node has the entering class (should start at height 0)
+  if (!ele.hasClass('node-entering')) {
+    ele.addClass('node-entering');
+    
+    // Use a small delay to ensure the class is applied, then remove it to trigger transition
+    setTimeout(() => {
+      ele.removeClass('node-entering');
+      printDebug(`✅ [appear.js] CSS animation triggered for ${ele.id()}`);
+    }, 50);
+  } else {
+    // Already has entering class, just remove it to trigger transition
+    ele.removeClass('node-entering');
+    printDebug(`✅ [appear.js] CSS animation triggered for ${ele.id()}`);
+  }
   
-  printDebug(`🎬 [appear.js] Starting animation for ${ele.id()}, size: ${nodeSize}, target height: ${target}`);
-  
-  // Ensure we start from zero height
-  ele.style('height', 0);
-
-  // Animate to the target height, then remove the bypass so stylesheet rules apply again
-  return ele
-    .animation({ style: { height: target } }, { duration, easing })
-    .play()
-    .promise('complete')
-    .then(() => {
-      ele.removeStyle('height'); // drop bypass, back to stylesheet
-      printDebug(`✅ [appear.js] Animation complete for ${ele.id()}`);
-    });
+  // Return a promise that resolves when animation completes
+  return new Promise(resolve => {
+    setTimeout(() => {
+      printDebug(`✅ [appear.js] CSS animation complete for ${ele.id()}`);
+      resolve();
+    }, duration);
+  });
 }
 
 export function installAppearOnAdd(cy, { skipInitial = true, onlyWhenFlag = null } = {}) {
   let skip = !!skipInitial;
-  printDebug(`🎬 [appear.js] Installing animation handler, skipInitial: ${skip}`);
+  printDebug(`🎬 [appear.js] Installing CSS animation handler, skipInitial: ${skip}`);
 
   // After the first render, consider app "ready" and animate subsequent adds
   if (skip) {
     cy.one('render', () => { 
       skip = false; 
-      printDebug(`🎬 [appear.js] First render complete, animations now enabled`);
+      printDebug(`🎬 [appear.js] First render complete, CSS animations now enabled`);
     });
   }
 
@@ -62,16 +60,17 @@ export function installAppearOnAdd(cy, { skipInitial = true, onlyWhenFlag = null
       return;
     }
 
-    printDebug(`🎬 [appear.js] Animating node:`, ele.id());
+    printDebug(`🎬 [appear.js] Starting CSS animation for node:`, ele.id());
     
-    // Set initial height to 0 immediately to prevent blip
-    ele.style('height', 0);
-    
-    // Defer animation to next frame to ensure initial state is rendered
+    // Trigger CSS animation
     requestAnimationFrame(() => {
       animateHeightIn(ele, { duration: 600, easing: 'ease-out' });
-      // If you used onlyWhenFlag, clear it so repeated renders won't retrigger:
-      if (onlyWhenFlag) ele.data(onlyWhenFlag, null);
+      // Clear flag after animation
+      if (onlyWhenFlag) {
+        setTimeout(() => {
+          ele.data(onlyWhenFlag, null);
+        }, 600);
+      }
     });
   };
 
