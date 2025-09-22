@@ -97,14 +97,6 @@ import { useUndo } from "./hooks/useUndo.js";
 
 import { useImportExport } from "./hooks/useImportExport.js";
 
-
-// Add CSS for spinner animation
-const SPINNER_CSS = `
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}`;
-
 /** ---------- helpers & migration ---------- **/
 
 function App() {
@@ -366,18 +358,6 @@ function App() {
   //     timestamp: new Date().toISOString()
   //   });
   // }, [graphData]);
-
-  // Add CSS for spinner animation
-  useEffect(() => {
-    const style = document.createElement('style');
-    style.textContent = SPINNER_CSS;
-    document.head.appendChild(style);
-    return () => {
-      if (document.head.contains(style)) {
-        document.head.removeChild(style);
-      }
-    };
-  }, []);
 
   // REFACTOR STEP 2: URL monitoring is now handled by useMapLoading hook
   // Previous large URL monitoring useEffect has been moved to hooks/useMapLoading.js
@@ -1193,13 +1173,14 @@ useEffect(() => {
           alignItems: 'center',
           gap: '12px'
         }}>
-          <div style={{
-            width: '20px',
-            height: '20px',
-            border: '2px solid #fff',
-            borderTop: '2px solid transparent',
+          <div 
+            className="spinner"
+            style={{
+              width: '20px',
+              height: '20px',
+              border: '2px solid #fff',
+              borderTop: '2px solid transparent',
             borderRadius: '50%',
-            animation: 'spin 1s linear infinite'
           }}></div>
           Loading map from CDN...
         </div>
