@@ -181,7 +181,7 @@ export function updateCompletedGrayscaleImages(cy, graph) {
 
 // Convert domain graph -> Cytoscape elements (now synchronous with fallback)
 export function buildElementsFromDomain(graph, options = {}) {
-  const { mode = 'editing', onImageLoaded = null, forceImageLoad = false, cdnBaseUrlOverride = undefined } = options;
+  const { mode = 'editing', onImageLoaded = null, forceImageLoad = false, cdnBaseUrlOverride = undefined, markAsNew = false } = options;
   const g = deserializeGraph(graph);
 
   // Resolve effective CDN base URL with override priority to avoid first-load race with localStorage
@@ -280,6 +280,10 @@ export function buildElementsFromDomain(graph, options = {}) {
     
     const parentId = n.id; // domain id becomes parent container id
     const entryChildId = `${parentId}__entry`; // child visual node
+    
+    // Create initial style for new nodes to prevent blip
+    const initialStyle = markAsNew ? { height: 0 } : {};
+    
     return [
       {
         group: 'nodes',
@@ -291,11 +295,12 @@ export function buildElementsFromDomain(graph, options = {}) {
       },
       {
         group: 'nodes',
-        data: { id: entryChildId, parent: parentId, label: n.title ?? '', color: n.color ?? 'gray', size: n.size ?? 'regular', imageUrl, originalImageUrl: n.imageUrl },
+        data: { id: entryChildId, parent: parentId, label: n.title ?? '', color: n.color ?? 'gray', size: n.size ?? 'regular', imageUrl, originalImageUrl: n.imageUrl, isNewlyCreated: markAsNew },
         position: { x: n.x, y: n.y },
         selectable: false,
         grabbable: false,
-        classes: 'entry'
+        classes: 'entry',
+        style: initialStyle
       }
     ];
   }).flat();
@@ -425,8 +430,8 @@ export async function mountCy({ container, graph, styles = cytoscapeStyles, mode
 
     // Install appear animation for new nodes (skip initial render)
     const detachAppearAnimation = installAppearOnAdd(cy, { 
-      skipInitial: true //,
-      // onlyWhenFlag: 'isNewlyCreated' // Optional: only animate nodes marked as new
+      skipInitial: true,
+      onlyWhenFlag: 'isNewlyCreated' // Optional: only animate nodes marked as new
     });
 
     // Attach destroy listener for placeholder unsubscribe AND animation cleanup
@@ -554,7 +559,7 @@ export function syncElements(cy, graph, options = {}) {
   const edgesChanged = JSON.stringify(currentEdges) !== JSON.stringify(newEdges);
 
   if (!nodesChanged && !edgesChanged) {
-    // Only data refresh
+    // Only data refresh - no new nodes, no animations
     newElements.forEach(newEl => {
       if (newEl.group === 'nodes') {
         const existingNode = cy.getElementById(newEl.data.id);
@@ -566,7 +571,36 @@ export function syncElements(cy, graph, options = {}) {
     });
   } else {
     // Full element set replace (but restore positions & camera)
-    cy.json({ elements: newElements });
+    // identify new nodes and build them with zero height
+
+// Identify which nodes are truly new
+    const newNodeIds = new Set();
+    newElements.filter(e => e.group === 'nodes' && e.data.id.endsWith('__entry')).forEach(el => {
+      const parentId = el.data.parent;
+      if (parentId && !existingNodeIds.has(parentId)) {
+        newNodeIds.add(parentId);
+      }
+    });
+    
+    // Modify new entry elements to have zero height
+    const modifiedElements = newElements.map(el => {
+      if (el.group === 'nodes' && el.data.id.endsWith('__entry')) {
+        const parentId = el.data.parent;
+        if (parentId && newNodeIds.has(parentId)) {
+          // This is a new entry node - set initial height to 0
+          return {
+            ...el,
+            style: { ...el.style, height: 0 },
+            data: { ...el.data, isNewlyCreated: true }
+          };
+        }
+      }
+      return el;
+    });
+
+    // Replace elements with modified ones
+    cy.json({ elements: modifiedElements });
+
     cy.nodes().forEach(node => {
       const savedPosition = currentPositions[node.id()];
       if (savedPosition) node.position(savedPosition);
@@ -574,32 +608,23 @@ export function syncElements(cy, graph, options = {}) {
     cy.zoom(currentZoom);
     cy.pan(currentPan);
 
-    // *** IMPROVED: Mark newly created entry nodes for animation ***
-    // Use a small delay to ensure DOM is ready
-    setTimeout(() => {
-      cy.nodes('.entry').forEach(entryNode => {
-    const parentId = entryNode.data('parent');
-    if (parentId && !existingNodeIds.has(parentId)) {
-      // This is a new node - trigger animation directly
-      printDebug(`🎬 [cyAdapter] Triggering animation for new entry node: ${entryNode.id()}`);
-      
-      // Mark as newly created for the appear.js system
-      entryNode.data('isNewlyCreated', true);
-      
-      // Set initial height to 0 to prevent blip
-      entryNode.style('height', 0);
-      
-      // Get the target height based on node size
-      const nodeSize = entryNode.data('size') || 'regular';
-      const NODE_SIZE_MAP = {
-        'regular': 175,
-        'double': 350, 
-        'half': 87.5
-      };
-      const targetHeight = NODE_SIZE_MAP[nodeSize] || 175;
-      
-      // Animate to target height
-      requestAnimationFrame(() => {
+    // *** ANIMATE NEW NODES IMMEDIATELY ***
+    // No setTimeout needed - animate right away since they start at height 0
+    newNodeIds.forEach(parentId => {
+      const entryNode = cy.getElementById(`${parentId}__entry`);
+      if (entryNode.length > 0) {
+        printDebug(`🎬 [cyAdapter] Animating new entry node: ${entryNode.id()}`);
+        
+        // Get the target height based on node size
+        const nodeSize = entryNode.data('size') || 'regular';
+        const NODE_SIZE_MAP = {
+          'regular': 175,
+          'double': 350, 
+          'half': 87.5
+        };
+        const targetHeight = NODE_SIZE_MAP[nodeSize] || 175;
+        
+        // Animate to target height immediately
         entryNode.animation({
           style: { height: targetHeight },
           duration: 600,
@@ -610,10 +635,8 @@ export function syncElements(cy, graph, options = {}) {
           entryNode.data('isNewlyCreated', null); // Clear flag
           printDebug(`✅ [cyAdapter] Animation complete for: ${entryNode.id()}`);
         });
-      });
-    }
-  });
-    }, 500);
+      }
+    });
   }
 
   // *** RESTORE NOTE COUNT NODES AFTER SYNC ***
