@@ -29,6 +29,7 @@ import { convertImageToGrayscale } from "../utils/grayscaleUtils.js";
 import { getCdnBaseUrl } from "../utils/cdnHelpers.js";
 import { loadImageWithFallback, imageCache, getDefaultPlaceholderSvg, ensureDefaultPlaceholderLoaded, onDefaultPlaceholderLoaded } from "../utils/imageLoader.js";
 import { printDebug } from "../utils/debug.js"; // printWarn
+import { installAppearOnAdd } from '../anim/appear.js';
 
 // Cache for grayscale images to avoid reprocessing
 const GRAYSCALE_CACHE_KEY = 'shipLogGrayscaleCache';
@@ -421,9 +422,23 @@ export async function mountCy({ container, graph, styles = cytoscapeStyles, mode
       pixelRatio: 1,
       layout: { name: 'preset' }
     });
-    // Attach destroy listener for placeholder unsubscribe
-    try { cy.on('destroy', () => { try { unsubscribePlaceholder(); } catch { /* noop */ } }); } catch { /* noop */ }
-  
+
+    // Install appear animation for new nodes (skip initial render)
+    const detachAppearAnimation = installAppearOnAdd(cy, { 
+      skipInitial: true //,
+      // onlyWhenFlag: 'isNewlyCreated' // Optional: only animate nodes marked as new
+    });
+
+    // Attach destroy listener for placeholder unsubscribe AND animation cleanup
+    try { 
+      cy.on('destroy', () => { 
+        try { 
+          unsubscribePlaceholder(); 
+          detachAppearAnimation?.(); // Clean up animation listener
+        } catch { /* noop */ } 
+      }); 
+    } catch { /* noop */ }
+
     currentActiveCy = cy; // mark active
     
     // Apply any queued image updates that completed before this active instance was ready
@@ -451,8 +466,21 @@ export async function mountCy({ container, graph, styles = cytoscapeStyles, mode
       pixelRatio: 1,
       layout: { name: 'preset' }
     });
-    try { cy.on('destroy', () => { try { unsubscribePlaceholder(); } catch { /* noop */ } }); } catch { /* noop */ }
-  
+    // Install appear animation for new nodes (skip initial render)
+    const detachAppearAnimation = installAppearOnAdd(cy, { 
+      skipInitial: true,
+      onlyWhenFlag: 'isNewlyCreated' // Optional: only animate nodes marked as new
+    });
+    
+    try { 
+      cy.on('destroy', () => { 
+        try { 
+          unsubscribePlaceholder(); 
+          detachAppearAnimation?.(); // Clean up animation listener
+        } catch { /* noop */ } 
+      }); 
+    } catch { /* noop */ }
+
     currentActiveCy = cy; // mark active
 
     if (pendingNodeImageUpdates.length) {
@@ -468,6 +496,9 @@ export async function mountCy({ container, graph, styles = cytoscapeStyles, mode
 
 // Replace elements with a fresh build from the domain state
 export function syncElements(cy, graph, options = {}) {
+  // Track which nodes are new for animation
+  const existingNodeIds = new Set(cy.nodes('.entry-parent').map(n => n.id()));
+  
   // Local helper used by the deferred post-pass below
   const onImageLoaded = (nodeId, imageUrl) => {
     if (!cy || cy.destroyed()) return;
@@ -542,6 +573,47 @@ export function syncElements(cy, graph, options = {}) {
     });
     cy.zoom(currentZoom);
     cy.pan(currentPan);
+
+    // *** IMPROVED: Mark newly created entry nodes for animation ***
+    // Use a small delay to ensure DOM is ready
+    setTimeout(() => {
+      cy.nodes('.entry').forEach(entryNode => {
+    const parentId = entryNode.data('parent');
+    if (parentId && !existingNodeIds.has(parentId)) {
+      // This is a new node - trigger animation directly
+      printDebug(`🎬 [cyAdapter] Triggering animation for new entry node: ${entryNode.id()}`);
+      
+      // Mark as newly created for the appear.js system
+      entryNode.data('isNewlyCreated', true);
+      
+      // Set initial height to 0 to prevent blip
+      entryNode.style('height', 0);
+      
+      // Get the target height based on node size
+      const nodeSize = entryNode.data('size') || 'regular';
+      const NODE_SIZE_MAP = {
+        'regular': 175,
+        'double': 350, 
+        'half': 87.5
+      };
+      const targetHeight = NODE_SIZE_MAP[nodeSize] || 175;
+      
+      // Animate to target height
+      requestAnimationFrame(() => {
+        entryNode.animation({
+          style: { height: targetHeight },
+          duration: 600,
+          easing: 'ease-out'
+        }).play().promise('complete').then(() => {
+          // Remove the style override so CSS rules take over
+          entryNode.removeStyle('height');
+          entryNode.data('isNewlyCreated', null); // Clear flag
+          printDebug(`✅ [cyAdapter] Animation complete for: ${entryNode.id()}`);
+        });
+      });
+    }
+  });
+    }, 500);
   }
 
   // *** RESTORE NOTE COUNT NODES AFTER SYNC ***

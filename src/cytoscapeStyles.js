@@ -34,6 +34,9 @@ const entryNodeBase = {
   "shape": "rectangle",
   "width": NODE_SIZES.regular.width,
   "height": NODE_SIZES.regular.height,
+  // "transition-property": "height",
+  // "transition-duration": "1s",
+  // "transition-timing-function": "ease-in-out",
 
   // Text
   "label": "data(label)",
