@@ -549,6 +549,30 @@ export function syncElements(cy, graph, options = {}) {
     try {
       // Check if a note count node with this ID already exists
       if (cy.getElementById(nodeData.id).length === 0) {
+        
+        // FOR NODE NOTE COUNTS: Check if parent still exists
+        if (nodeData.id.endsWith('__noteCount') && !nodeData.classes.includes('edge-note-count')) {
+          const parentId = nodeData.data.parent;
+          const parentExists = parentId && cy.getElementById(parentId).length > 0;
+          
+          if (!parentExists) {
+            printDebug(`🧹 [cyAdapter] Skipping restoration of orphaned node note-count: ${nodeData.id} (parent ${parentId} no longer exists)`);
+            return; // Skip this note count node
+          }
+        }
+        
+        // FOR EDGE NOTE COUNTS: Check if edge still exists  
+        if (nodeData.classes.includes('edge-note-count')) {
+          const edgeId = nodeData.data.edgeId;
+          const edgeExists = edgeId && cy.getElementById(edgeId).length > 0;
+          
+          if (!edgeExists) {
+            printDebug(`🧹 [cyAdapter] Skipping restoration of orphaned edge note-count: ${nodeData.id} (edge ${edgeId} no longer exists)`);
+            return; // Skip this note count node
+          }
+        }
+        
+        // Only restore if parent/edge still exists
         const restoredNode = cy.add({
           group: 'nodes',
           data: nodeData.data,
@@ -568,6 +592,34 @@ export function syncElements(cy, graph, options = {}) {
       }
     } catch (error) {
       console.warn(`Failed to restore note count node ${nodeData.id}:`, error);
+    }
+  });
+
+  // *** CLEAN UP ANY REMAINING ORPHANED NOTE COUNTS ***
+  // This handles edge cases where note counts might still be orphaned
+  cy.nodes('.note-count').forEach(n => {
+    let shouldRemove = false;
+    
+    // Check node note counts
+    if (n.id().endsWith('__noteCount') && !n.hasClass('edge-note-count')) {
+      const parent = n.parent();
+      if (parent.length === 0 || !parent.hasClass('entry-parent')) {
+        shouldRemove = true;
+        printDebug(`🧹 [cyAdapter] Removing orphaned node note-count after sync: ${n.id()}`);
+      }
+    }
+    
+    // Check edge note counts
+    if (n.hasClass('edge-note-count')) {
+      const edgeId = n.data('edgeId');
+      if (!edgeId || cy.getElementById(edgeId).length === 0) {
+        shouldRemove = true;
+        printDebug(`🧹 [cyAdapter] Removing orphaned edge note-count after sync: ${n.id()}`);
+      }
+    }
+    
+    if (shouldRemove) {
+      cy.remove(n);
     }
   });
 
@@ -679,7 +731,7 @@ export function syncElements(cy, graph, options = {}) {
 
 export function wireEvents(cy, handlers = {}, mode = 'editing') {
   printDebug(`🔌 [cyAdapter] Wiring events (parent-only) mode=${mode}`);
-  const { onNodeSelectionChange, onEdgeSelectionChange, onNodeClick, onEdgeClick, onNodeDoubleClick, onEdgeDoubleClick, onBackgroundClick, onNodeMove, onZoomChange, onCameraMove } = handlers;
+  const { onNodeSelectionChange, onEdgeSelectionChange, onNodeClick, onEdgeClick, onNodeDoubleClick, onEdgeDoubleClick, onBackgroundClick, onNodeMove } = handlers; //onZoomChange, onCameraMove
 
   // Helper to sync selection/active classes from parent to entry child
   const syncParentStateToChild = (parent) => {
