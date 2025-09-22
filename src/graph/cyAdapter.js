@@ -494,6 +494,21 @@ export function syncElements(cy, graph, options = {}) {
 
   printDebug(`🔄 [cyAdapter] Syncing elements`);
 
+// *** PRESERVE NOTE COUNT NODES BEFORE SYNC ***
+  const noteCountNodes = [];
+  cy.nodes('.note-count').forEach(node => {
+    noteCountNodes.push({
+      id: node.id(),
+      data: { ...node.data() },
+      position: { ...node.position() },
+      classes: node.classes().join(' '),
+      selected: node.selected(),
+      hidden: node.hasClass('hidden')
+    });
+  });
+  
+  printDebug(`🔄 [cyAdapter] Preserved ${noteCountNodes.length} note count nodes before sync`);
+
   // Preserve camera & positions
   const currentZoom = cy.zoom();
   const currentPan = cy.pan();
@@ -528,6 +543,33 @@ export function syncElements(cy, graph, options = {}) {
     cy.zoom(currentZoom);
     cy.pan(currentPan);
   }
+
+  // *** RESTORE NOTE COUNT NODES AFTER SYNC ***
+  noteCountNodes.forEach(nodeData => {
+    try {
+      // Check if a note count node with this ID already exists
+      if (cy.getElementById(nodeData.id).length === 0) {
+        const restoredNode = cy.add({
+          group: 'nodes',
+          data: nodeData.data,
+          position: nodeData.position,
+          classes: nodeData.classes
+        });
+        
+        // Restore selection and visibility state
+        if (nodeData.selected) {
+          restoredNode.select();
+        }
+        if (nodeData.hidden) {
+          restoredNode.addClass('hidden');
+        }
+        
+        printDebug(`✅ [cyAdapter] Restored note count node: ${nodeData.id}`);
+      }
+    } catch (error) {
+      console.warn(`Failed to restore note count node ${nodeData.id}:`, error);
+    }
+  });
 
   // Enforce grabbable only on parents; children always ungrabbable
   const expectedParentGrabbable = mode === 'editing';
@@ -796,6 +838,29 @@ export function ensureNoteCountNodes(cy, notes, visible) {
   cy._noteCountUpdating = true;
   
   try {
+
+    // Clean up orphaned note-count nodes first (nodes whose parents no longer exist)
+    cy.nodes('.note-count').forEach(n => {
+      const isNodeNote = n.id().endsWith('__noteCount') && n.parent() && n.parent().length > 0 && n.parent().hasClass('entry-parent');
+      const isEdgeNote = n.id().endsWith('__noteCount') && n.hasClass('edge-note-count');
+      
+      // For edge notes, check if the corresponding edge still exists
+      if (isEdgeNote) {
+        const edgeId = n.data('edgeId');
+        if (edgeId && cy.getElementById(edgeId).length === 0) {
+          printDebug(`🧹 [cyAdapter] Removing orphaned edge note-count for missing edge: ${edgeId}`);
+          cy.remove(n);
+          return;
+        }
+      }
+      
+      // Remove if it's neither a valid node note nor edge note
+      if (!isNodeNote && !isEdgeNote) {
+        printDebug(`🧹 [cyAdapter] Removing orphaned note-count node: ${n.id()}`);
+        cy.remove(n);
+      }
+    });
+
     // Handle node note-counts (only create if count > 0)
     cy.nodes('.entry-parent').forEach(parent => {
       const id = parent.id();
