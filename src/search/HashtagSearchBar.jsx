@@ -69,8 +69,8 @@ export default function HashtagSearchBar({ nodes, edges, getNodeNotes, getEdgeNo
         close();
       }
     }
-    document.addEventListener('mousedown', onDocClick);
-    return () => document.removeEventListener('mousedown', onDocClick);
+    document.addEventListener('click', onDocClick, true);
+    return () => document.removeEventListener('click', onDocClick, true);
   }, [isOpen, close]);
 
   function addSuggestionToTokens(s) {
@@ -92,7 +92,9 @@ export default function HashtagSearchBar({ nodes, edges, getNodeNotes, getEdgeNo
       parts[parts.length - 1] = tokenToAdd;
       setInput(parts.join(' ') + ' ');
     }
+
     setSuggestions([]);
+    setActiveIdx(0);
   }
 
   function runSearch() {
@@ -152,9 +154,12 @@ export default function HashtagSearchBar({ nodes, edges, getNodeNotes, getEdgeNo
       setActiveIdx(i => Math.max(i - 1, 0));
     } else if (e.key === 'Enter') {
       e.preventDefault();
-      if (suggestions.length > 0 && currentWord) {
+      // If there are suggestions AND we have a current word being typed, convert to chip
+      if (suggestions.length > 0 && currentWord.trim()) {
         addSuggestionToTokens(suggestions[activeIdx] || suggestions[0]);
-      } else {
+      } 
+      // If we have tokens (chips) in the input, run the search
+      else if (tokens.length > 0) {
         runSearch();
       }
     } else if (e.key === 'Escape') {
@@ -229,7 +234,13 @@ export default function HashtagSearchBar({ nodes, edges, getNodeNotes, getEdgeNo
                 aria-selected={i === activeIdx}
                 className={`pa2 pointer ${i === activeIdx ? 'bg-gray' : ''}`}
                 onMouseEnter={() => setActiveIdx(i)}
-                onMouseDown={(e) => { e.preventDefault(); addSuggestionToTokens(s); }}
+                onClick={(e) => { 
+                  e.preventDefault(); 
+                  e.stopPropagation();
+                  addSuggestionToTokens(s);
+                  // Refocus input after selection
+                  setTimeout(() => inputRef.current?.focus(), 0); 
+                }}
               >
                 {s}
               </li>
