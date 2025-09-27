@@ -78,11 +78,11 @@ export default function HashtagSearchBar({ nodes, edges, getNodeNotes, getEdgeNo
     let tokenToAdd;
     
     if (s.startsWith('#')) {
-      // It's a hashtag suggestion, normalize it
-      tokenToAdd = s.slice(1).toLowerCase(); // Remove # and lowercase
+      // It's a hashtag suggestion - keep the # symbol to distinguish from place names
+      tokenToAdd = s.toLowerCase(); // Keep the # prefix: "#beds"
     } else {
-      // It's a label suggestion, use as-is (already lowercased)
-      tokenToAdd = s.toLowerCase();
+      // It's a place name suggestion - wrap in quotes
+      tokenToAdd = `"${s.toLowerCase()}"`;
     }
     
     const parts = input.trim().split(/\s+/).filter(Boolean);

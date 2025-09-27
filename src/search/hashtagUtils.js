@@ -20,12 +20,34 @@ export function extractHashtagsFromText(text) {
 }
 
 // Split a user query into tokens (words) — lowercase, unique
-export function tokenizeQuery(input) {
-  if (!input) return [];
-  const raw = input
-    .toLowerCase()
-    .split(/\s+/)
-    .map(s => s.trim())
-    .filter(Boolean);
-  return [...new Set(raw)];
+// export function tokenizeQuery(input) {
+//   if (!input) return [];
+//   const raw = input
+//     .toLowerCase()
+//     .split(/\s+/)
+//     .map(s => s.trim())
+//     .filter(Boolean);
+//   return [...new Set(raw)];
+// }
+export function tokenizeQuery(query) {
+  if (!query) return [];
+  
+  // Split by spaces but preserve quoted strings and hashtags
+  const tokens = [];
+  const parts = query.trim().split(/\s+/).filter(Boolean);
+  
+  for (const part of parts) {
+    if (part.startsWith('"') && part.endsWith('"')) {
+      // Quoted string - keep as is
+      tokens.push(part);
+    } else if (part.startsWith('#')) {
+      // Hashtag - keep the # symbol
+      tokens.push(part);
+    } else {
+      // Regular word
+      tokens.push(part.toLowerCase());
+    }
+  }
+  
+  return tokens;
 }
