@@ -20,15 +20,6 @@ export function extractHashtagsFromText(text) {
 }
 
 // Split a user query into tokens (words) — lowercase, unique
-// export function tokenizeQuery(input) {
-//   if (!input) return [];
-//   const raw = input
-//     .toLowerCase()
-//     .split(/\s+/)
-//     .map(s => s.trim())
-//     .filter(Boolean);
-//   return [...new Set(raw)];
-// }
 export function tokenizeQuery(query) {
   if (!query) return [];
   
