@@ -94,8 +94,6 @@ ul li::marker {
   height: 100%;
 }
 
-.debug * { outline: 1px solid gold; }
-
 @keyframes spin {
   0% { 
     transform: rotate(0deg); 
