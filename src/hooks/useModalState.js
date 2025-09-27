@@ -18,7 +18,7 @@ import { ACTION_TYPES } from '../appStateReducer';
  * @param {Function} [opts.closeBgImageModal] - from useBgImageState()
  */
 export function useModalState(dispatchAppState, appState, opts = {}) {
-  const { openBgImageModal, closeBgImageModal } = opts;
+  const { openBgImageModal, closeBgImageModal, bgImageModalOpen } = opts;
 
   // Local-only Share modal (no reducer coupling)
   const [isShareModalOpen, setShareModalOpen] = useState(false);
@@ -71,26 +71,23 @@ export function useModalState(dispatchAppState, appState, opts = {}) {
   const isNoteViewerOpen = !!appState?.selections?.noteViewing?.targetId;
 
   const isAnyModalOpen = useMemo(() => {
-    const anyReducerModal =
-      isDebugOpen || isNoteEditorOpen || isNoteViewerOpen;
-    const anyBg =
-      typeof appState?.bgImage?.visible === 'boolean'
-        ? false // visibility != modal open; modal is managed in useBgImageState
-        : false;
-    return anyReducerModal || anyBg || isShareModalOpen;
-  }, [isDebugOpen, isNoteEditorOpen, isNoteViewerOpen, isShareModalOpen, appState]);
+    const anyReducerModal = isDebugOpen || isNoteEditorOpen || isNoteViewerOpen;
+    const bgModalOpen = !!bgImageModalOpen; // Use the passed bg modal state
+    return anyReducerModal || bgModalOpen || isShareModalOpen;
+  }, [isDebugOpen, isNoteEditorOpen, isNoteViewerOpen, isShareModalOpen, bgImageModalOpen]);
 
   const closeAllModals = useCallback(() => {
     if (isDebugOpen) closeDebugModal();
     if (isNoteEditorOpen) closeNoteEditor();
     if (isNoteViewerOpen) closeNoteViewer();
     if (isShareModalOpen) closeShareModal();
-    if (typeof closeBgImageModal === 'function') closeBgImageModal();
+    if (bgImageModalOpen && typeof closeBgImageModal === 'function') closeBgImageModal();
   }, [
     isDebugOpen,
     isNoteEditorOpen,
     isNoteViewerOpen,
     isShareModalOpen,
+    bgImageModalOpen, // Add this dependency
     closeDebugModal,
     closeNoteEditor,
     closeNoteViewer,

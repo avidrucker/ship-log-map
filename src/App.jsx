@@ -235,7 +235,8 @@ function App() {
   // Centralized modal helpers (note editor/viewer/debug via reducer, share via local)
   const modalOps = useModalState(dispatchAppState, appState, {
     openBgImageModal,
-    closeBgImageModal
+    closeBgImageModal,
+    bgImageModalOpen
   });
 
   // Initialize undo hook
