@@ -30,7 +30,7 @@ import { getCdnBaseUrl } from "../utils/cdnHelpers.js";
 import { loadImageWithFallback, imageCache, getDefaultPlaceholderSvg, ensureDefaultPlaceholderLoaded, onDefaultPlaceholderLoaded } from "../utils/imageLoader.js";
 import { printDebug } from "../utils/debug.js"; // printWarn
 import { installAppearOnAdd } from '../anim/appear.js';
-import { isSearchInProgress } from '../search/searchHighlighter.js';
+import { isSearchInProgress, isCurrentSearchSelection, getCurrentSearchIds } from '../search/searchHighlighter.js';
 
 // Cache for grayscale images to avoid reprocessing
 const GRAYSCALE_CACHE_KEY = 'shipLogGrayscaleCache';
@@ -839,10 +839,13 @@ export function wireEvents(cy, handlers = {}, mode = 'editing') {
     const parent = evt.target; 
     syncParentStateToChild(parent);
 
-    if (evt.type === 'select') {
-      printDebug(`🎯 Node select event: ${parent.id()}, search in progress: ${isSearchInProgress()}, has search glow: ${parent.hasClass('search-glow')}`);
-    } else {
-      printDebug(`❌ Node unselect event: ${parent.id()}, search in progress: ${isSearchInProgress()}`);
+    printDebug(`🎯 ${evt.type} event: ${parent.id()}, search in progress: ${isSearchInProgress()}, current search IDs: [${getCurrentSearchIds().join(', ')}]`);
+
+    if (evt.type === 'unselect') {
+      printDebug(`❌ UNSELECT EVENT: ${parent.id()}`);
+      printDebug(`❌ Stack trace:`, new Error().stack); // ← Add this to see what called it
+      printDebug(`❌ Search in progress: ${isSearchInProgress()}`);
+      printDebug(`❌ Current search IDs: [${getCurrentSearchIds().join(', ')}]`);
     }
 
     // *** CLEAR SEARCH HIGHLIGHTS WHEN NODE SELECTION CHANGES ***
@@ -850,18 +853,20 @@ export function wireEvents(cy, handlers = {}, mode = 'editing') {
     // *** ONLY CLEAR SEARCH HIGHLIGHTS IF NOT IN PROGRESS ***
     if (evt.type === 'select' && !isSearchInProgress()) {
       setTimeout(() => {
-        const hasAnySearchGlow = cy.elements('.search-glow').length > 0;
-        const thisNodeHasGlow = parent.hasClass('search-glow');
+        const selectedNodes = cy.$('node.entry-parent:selected');
+        const isSearchRelatedSelection = selectedNodes.some(n => isCurrentSearchSelection(n.id()));
         
-        printDebug(`🧹 Checking if should clear highlights: thisNodeHasGlow=${thisNodeHasGlow}, hasAnySearchGlow=${hasAnySearchGlow}`);
-
-        if (!thisNodeHasGlow && !hasAnySearchGlow) {
-          printDebug(`🧹 CLEARING search highlights due to non-search node selection`);
+        printDebug(`🧹 Selection check: search-related=${isSearchRelatedSelection}`);
+        
+        if (!isSearchRelatedSelection) {
+          printDebug(`🧹 CLEARING search highlights - non-search selection detected`);
           cy.elements('.search-glow').removeClass('search-glow');
+          // Clear the search tracking since user made a new selection
+          // (you'll need to import clearCurrentSearch)
         } else {
-          printDebug(`🧹 NOT clearing search highlights - search elements detected`);
+          printDebug(`🧹 NOT clearing search highlights - maintaining search selection`);
         }
-      }, 0);
+      }, 10);
     }
 
     if (onNodeSelectionChange) {
@@ -888,8 +893,17 @@ export function wireEvents(cy, handlers = {}, mode = 'editing') {
 
   if (mode === 'playing') {
     cy.on('select', (evt) => {
+      // *** DON'T INTERFERE WITH SEARCH OPERATIONS ***
+      if (isSearchInProgress()) {
+        printDebug(`🎮 Playing mode: ignoring select event during search for ${evt.target.id()}`);
+        return; // Let search handle multi-selection
+      }
+      
       if (evt.target.isNode() || evt.target.isEdge()) {
-        const selected = evt.target; setTimeout(() => { cy.elements().not(selected).unselect(); }, 0);
+        const selected = evt.target; 
+        setTimeout(() => { 
+          cy.elements().not(selected).unselect(); 
+        }, 0);
       }
     });
   }
