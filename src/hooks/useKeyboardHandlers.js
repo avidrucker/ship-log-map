@@ -57,13 +57,22 @@ export function useKeyboardHandlers({
       // GENERAL SHORTCUTS
       // ---------------------------
       if (key === 'escape') {
-        if (modalOps?.isAnyModalOpen()) {
+        // Check if any modal is open (it's a boolean property, not a function!)
+        if (modalOps && modalOps.isAnyModalOpen) {
+          printDebug("closing modals");
           modalOps.closeAllModals();
-        } else if (graphOps?.handleResetSelection) {
+          return;
+        } else if (graphOps && typeof graphOps.handleResetSelection === 'function') {
+          printDebug("resetting selection");
           graphOps.handleResetSelection();
-        } else if (onResetSelection) {
+          return;
+        } else if (onResetSelection && typeof onResetSelection === 'function') {
+          printDebug("???")
           onResetSelection();
+          return;
         }
+        printDebug("doing nothing")
+        // If nothing to do, just return silently - no error
         return;
       }
 
@@ -74,14 +83,28 @@ export function useKeyboardHandlers({
         return;
       }
 
-      // Fit (F)
+      // Fit (F) - but NOT if Ctrl/Cmd is pressed (that's for search)
       if (key === 'f') {
+        const mod = event.ctrlKey || event.metaKey;
+        if (mod) {
+          // Ctrl+F is for search, don't handle it here
+          return;
+        }
         graphOps?.handleFitGraph?.();
         return;
       }
 
       // Rotate (R / Shift+R)
       if (key === 'r') {
+
+        if (mode !== 'editing') return;
+
+        const mod = event.ctrlKey || event.metaKey;
+        if (mod) {
+          // Ctrl+F is for search, don't handle it here
+          return;
+        }
+
         if (event.shiftKey) graphOps?.handleRotateLeft?.();
         else graphOps?.handleRotateRight?.();
         return;
@@ -89,12 +112,26 @@ export function useKeyboardHandlers({
 
       // Toggle BG modal (B)
       if (key === 'b') {
+
+        const mod = event.ctrlKey || event.metaKey;
+        if (mod) {
+          // Ctrl+F is for search, don't handle it here
+          return;
+        }
+
         modalOps?.toggleBgImageModal?.();
         return;
       }
 
       // Toggle Share modal (S)
       if (key === 's') {
+
+        const mod = event.ctrlKey || event.metaKey;
+        if (mod) {
+          // Ctrl+F is for search, don't handle it here
+          return;
+        }
+
         modalOps?.isShareModalOpen ? modalOps.closeShareModal() : modalOps.openShareModal();
         return;
       }
