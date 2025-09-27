@@ -171,7 +171,7 @@ export default function HashtagSearchBar({ nodes, edges, getNodeNotes, getEdgeNo
        }}
     >
       <div
-        className="center mt3 br3 shadow-4 bg-white black"
+        className="center mt3 br3 shadow-4 bg-black"
         style={{
           maxWidth: 720,
           pointerEvents: 'auto',
@@ -215,7 +215,7 @@ export default function HashtagSearchBar({ nodes, edges, getNodeNotes, getEdgeNo
                 key={s}
                 role="option"
                 aria-selected={i === activeIdx}
-                className={`pa2 pointer ${i === activeIdx ? 'bg-light-gray' : ''}`}
+                className={`pa2 pointer ${i === activeIdx ? 'bg-gray' : ''}`}
                 onMouseEnter={() => setActiveIdx(i)}
                 onMouseDown={(e) => { e.preventDefault(); addSuggestionToTokens(s); }}
               >
