@@ -106,8 +106,9 @@
 - [x] Implement CDN link validation to ensure that the provided CDN link appears to be a validly correctly formed URL
 - [ ] Implement CDN link testing/verification to make sure that the provided CDN link is reachable and contains a valid JSON map file
 - [x] Fix bug where modifying a graph in editing mode in any way appears to disable (turn off visually) note count nodes (and the note counts on is still toggled) but the note count nodes should be unaffected visually unless a node was deleted with notes on it
-- [ ] Fix bug where back button can't take you back to a previous map loaded from query params, but it should be able to (i.e. creating a new blank map should delete the previous/current map address from local storage)
+- [x] Fix bug where back button can't take you back to a previous map loaded from query params, but it should be able to (i.e. creating a new blank map should delete the previous/current map address from local storage)
 - [x] Fix bug where when deleting a node that the orphaned note count nodes are not also visually deleted, but they should be
+- [ ] Implement default menu UI state that can show simply the hamburger icons instead of hamburger icons + words with toggle button "Min UI" / "Max UI" in the Universal Controls section
 
 Notes for Future Features
 - Listing out "layers" which show things such as electrical lines, water lines, Internet, etc. that can be toggled on and off
