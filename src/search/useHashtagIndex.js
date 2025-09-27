@@ -1,5 +1,8 @@
+// src/search/useHashtagIndex.js
+
 import { useEffect, useMemo, useState } from 'react';
 import { extractHashtagsFromText, normalizeTag, tokenizeQuery } from './hashtagUtils';
+import { printDebug } from '../utils/debug';
 
 // Default extractors; override via props if your shapes differ
 const defaultNodeNotes = node => {
@@ -35,6 +38,8 @@ export function useHashtagIndex({
     const fullNamesMap = new Map(); // nodeId -> fullPlaceName
     const wordToFullNamesMap = new Map(); // word -> Set(fullPlaceNames)
 
+    printDebug('🔍 Starting indexing process...');
+
     // Index hashtags from notes (unchanged)
     for (const n of nodes) {
       const tags = extractHashtagsFromText(getNodeNotes(n));
@@ -51,6 +56,8 @@ export function useHashtagIndex({
         
         if (!fullName) continue;
         
+        printDebug(`📍 Indexing place: "${fullName}" (ID: ${n.id})`);
+
         // Store the full place name for this node
         fullNamesMap.set(n.id, fullName);
         
@@ -63,9 +70,11 @@ export function useHashtagIndex({
         // Index individual words to point back to full place names
         const words = fullNameLower.split(/\s+/).filter(word => word.length > 0);
         
+        printDebug(`📝 Words for "${fullName}":`, words);
+
         for (const word of words) {
           // Skip very common words
-          if (['the', 'a', 'an', 'of', 'in', 'at', 'on', 'to'].includes(word)) {
+          if (['a', 'an', 'of', 'in', 'at', 'on', 'to'].includes(word)) {
             continue;
           }
           
@@ -80,6 +89,8 @@ export function useHashtagIndex({
             wordToFullNamesMap.set(word, new Set());
           }
           wordToFullNamesMap.get(word).add(fullName); // Store original case
+        
+          printDebug(`🔗 Indexed word "${word}" -> place "${fullName}"`);
         }
       }
     }
@@ -105,61 +116,83 @@ export function useHashtagIndex({
     // Store the new maps for full place name handling
     setWordToFullNamesMap(wordToFullNamesMap);
     setFullNamesMap(fullNamesMap);
+    printDebug('✅ Indexing complete');
+    printDebug(`📊 Total places indexed: ${fullNamesMap.size}`);
+    printDebug(`📊 Total words indexed: ${wordToFullNamesMap.size}`);
+    printDebug(`📊 Sample full names:`, Array.from(fullNamesMap.values()).slice(0, 5));
   }, [nodes, edges, getNodeNotes, getEdgeNotes]);
 
-  // Updated suggestions that include both hashtags and labels
-  function getSuggestions(prefix, limit = 12) {
-    const p = (prefix || '').toLowerCase();
-    if (!p) return [];
-    
-    const suggestions = [];
-    const seenSuggestions = new Set();
-    
-    // Add hashtag matches (with # prefix)
+  // Updated suggestions that include both hashtags and labels,
+  // and checks for multi-word and word-order matching
+  // Suggestions obey "mode":
+  // - Hashtag mode: first token starts with '#': suggest ONLY hashtags (by last token prefix)
+  // - Phrase mode: 2+ words, no '#': suggest ONLY full place names that start with the ENTIRE input
+  // - Single-word mixed: 1 word, no '#': suggest hashtags AND place names that start with the word
+  function getSuggestions(input, limit = 12) {
+    const raw = (input || '').trim();
+    if (!raw) return [];
+    const q = raw.toLowerCase();
+    const words = q.split(/\s+/);
+    const firstIsHash = words[0]?.startsWith('#');
+    const multiWord = words.length > 1;
+
+    const out = [];
+    const seen = new Set();
+
+    // 1) Hashtag mode
+    if (firstIsHash) {
+      const last = words[words.length - 1].replace(/^#/, '');
+      if (!last) return [];
+      for (const tag of allTagsSorted) {
+        if (tag.startsWith(last)) {
+          const s = '#' + tag;
+          if (!seen.has(s)) {
+            out.push(s); seen.add(s);
+            if (out.length >= limit) break;
+          }
+        }
+      }
+      return out;
+    }
+
+    // 2) Phrase mode (multi-word, no '#'): ONLY full names that start with the ENTIRE input
+    if (multiWord) {
+      for (const fullName of fullNamesMap.values()) {
+        if (fullName.toLowerCase().startsWith(q)) {
+          if (!seen.has(fullName)) {
+            out.push(fullName); seen.add(fullName);
+            if (out.length >= limit) break;
+          }
+        }
+      }
+      return out;
+    }
+
+    // 3) Single-word mixed: BOTH hashtags and place names by the word prefix
+    const w = words[0];
     for (const tag of allTagsSorted) {
-      if (tag.startsWith(p)) {
-        const suggestion = '#' + tag;
-        if (!seenSuggestions.has(suggestion)) {
-          suggestions.push(suggestion);
-          seenSuggestions.add(suggestion);
-          if (suggestions.length >= limit) return suggestions;
+      if (tag.startsWith(w)) {
+        const s = '#' + tag;
+        if (!seen.has(s)) {
+          out.push(s); seen.add(s);
+          if (out.length >= limit) break;
         }
       }
     }
-    
-    // Add full place names that start with the prefix
-    for (const label of allLabelsSorted) {
-      if (label.startsWith(p)) {
-        // Check if this is a full place name (has spaces or corresponds to a full name)
-        const nodeIdsWithThisLabel = labelIndex.get(label);
-        if (nodeIdsWithThisLabel) {
-          // Get the full place names for these nodes
-          for (const nodeId of nodeIdsWithThisLabel) {
-            const fullName = fullNamesMap.get(nodeId);
-            if (fullName && !seenSuggestions.has(fullName)) {
-              suggestions.push(fullName);
-              seenSuggestions.add(fullName);
-              if (suggestions.length >= limit) return suggestions;
+    if (out.length < limit) {
+      for (const [word, fullNames] of wordToFullNamesMap) {
+        if (word.startsWith(w)) {
+          for (const fullName of fullNames) {
+            if (!seen.has(fullName)) {
+              out.push(fullName); seen.add(fullName);
+              if (out.length >= limit) break;
             }
           }
         }
+        if (out.length >= limit) break;
       }
     }
-    
-    // Add full place names whose component words start with the prefix
-    for (const [word, fullNames] of wordToFullNamesMap) {
-      if (word.startsWith(p)) {
-        for (const fullName of fullNames) {
-          if (!seenSuggestions.has(fullName)) {
-            suggestions.push(fullName);
-            seenSuggestions.add(fullName);
-            if (suggestions.length >= limit) return suggestions;
-          }
-        }
-      }
-    }
-    
-    return suggestions;
+    return out;
   }
 
   // Updated search function to handle both hashtags and labels
@@ -167,6 +200,27 @@ export function useHashtagIndex({
   function findMatchesFromTokens(tokens) {
     if (!tokens.length) return { nodeIds: new Set(), edgeIds: new Set() };
 
+    // Special case: if we have multiple unquoted tokens that could form a place name,
+    // try to match them as a combined place name first
+    if (tokens.length > 1 && tokens.every(tok => !tok.startsWith('#') && !tok.startsWith('"'))) {
+      const combinedSearch = tokens.join(' ').toLowerCase();
+      
+      // Try to find an exact place name match first
+      for (const [nodeId, fullName] of fullNamesMap) {
+        if (fullName.toLowerCase() === combinedSearch) {
+          return { nodeIds: new Set([nodeId]), edgeIds: new Set() };
+        }
+      }
+      
+      // If no exact match, try prefix matching on the combined string
+      for (const [nodeId, fullName] of fullNamesMap) {
+        if (fullName.toLowerCase().startsWith(combinedSearch)) {
+          return { nodeIds: new Set([nodeId]), edgeIds: new Set() };
+        }
+      }
+    }
+
+    // Process individual tokens
     const perTokenNodeSets = [];
     const perTokenEdgeSets = [];
 
@@ -176,14 +230,20 @@ export function useHashtagIndex({
 
       // Check if it's a quoted full place name
       if (tok.startsWith('"') && tok.endsWith('"')) {
-        const fullNameToSearch = tok.slice(1, -1); // Remove quotes
+        const fullNameToSearch = tok.slice(1, -1).toLowerCase(); // Remove quotes and lowercase
         
-        // Find nodes with this exact full name
+        printDebug(`Searching for quoted place name: "${fullNameToSearch}"`);
+        printDebug(`Available full names:`, Array.from(fullNamesMap.values()).slice(0, 5));
+        
+        // Find nodes with this exact full name (case insensitive)
         for (const [nodeId, fullName] of fullNamesMap) {
           if (fullName.toLowerCase() === fullNameToSearch) {
+            printDebug(`Found match: ${nodeId} -> ${fullName}`);
             nodeUnion.add(nodeId);
           }
         }
+        
+        printDebug(`Quoted search results: ${nodeUnion.size} nodes found`);
       } 
       // Check if it's a hashtag search (starts with #)
       else if (tok.startsWith('#')) {

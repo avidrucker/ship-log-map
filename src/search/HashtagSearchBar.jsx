@@ -37,29 +37,24 @@ export default function HashtagSearchBar({ nodes, edges, getNodeNotes, getEdgeNo
     }
   }, [isOpen]);
 
-  // Update suggestions only for the "current word" being typed
+  // Tokens for running the search; suggestions now use the FULL input (mode-based)
   const tokens = useMemo(() => tokenizeQuery(input), [input]);
-  const currentWord = useMemo(() => {
-    const m = input.trimEnd();
-    const parts = m.split(/\s+/);
-    const last = parts[parts.length - 1] || '';
-    return last.toLowerCase();
-  }, [input]);
 
   const getSuggestionsRef = useRef(getSuggestions);
   getSuggestionsRef.current = getSuggestions;
 
   useEffect(() => {
     if (!isOpen) return;
-    if (!currentWord) {
+    const q = input.trim();
+    if (!q) {
       setSuggestions([]);
       setActiveIdx(0);
       return;
     }
-    const suggs = getSuggestionsRef.current(currentWord, 12);
+    const suggs = getSuggestionsRef.current(input, 12);
     setSuggestions(suggs);
     setActiveIdx(0);
-  }, [currentWord, isOpen]);
+  }, [input, isOpen]);
 
   // Click off to close (on mobile overlay)
   useEffect(() => {
@@ -74,23 +69,24 @@ export default function HashtagSearchBar({ nodes, edges, getNodeNotes, getEdgeNo
   }, [isOpen, close]);
 
   function addSuggestionToTokens(s) {
-    // Handle both hashtag suggestions (#tag) and label suggestions (word)
-    let tokenToAdd;
-    
-    if (s.startsWith('#')) {
-      // It's a hashtag suggestion - keep the # symbol to distinguish from place names
-      tokenToAdd = s.toLowerCase(); // Keep the # prefix: "#beds"
+    // Insert suggestion *as shown*. No lowercasing, no quotes.
+    const trimmed = input.trim();
+    const parts = trimmed.split(/\s+/).filter(Boolean);
+    const isHashtagSuggestion = s.startsWith('#');
+    const startsWithHash = trimmed.startsWith('#');
+    const multiWordNoHash = !startsWithHash && parts.length > 1 && !isHashtagSuggestion;
+
+    if (multiWordNoHash) {
+      // Phrase mode: replace the ENTIRE input with the chosen full place name
+      setInput(s + ' ');
     } else {
-      // It's a place name suggestion - wrap in quotes
-      tokenToAdd = `"${s.toLowerCase()}"`;
-    }
-    
-    const parts = input.trim().split(/\s+/).filter(Boolean);
-    if (parts.length === 0) {
-      setInput(tokenToAdd + ' ');
-    } else {
-      parts[parts.length - 1] = tokenToAdd;
-      setInput(parts.join(' ') + ' ');
+      // Hashtag mode or single-word: replace the last token
+      if (parts.length === 0) {
+        setInput(s + ' ');
+      } else {
+        parts[parts.length - 1] = s;
+        setInput(parts.join(' ') + ' ');
+      }
     }
 
     setSuggestions([]);
@@ -107,8 +103,7 @@ export default function HashtagSearchBar({ nodes, edges, getNodeNotes, getEdgeNo
         cy,
         nodeIds: Array.from(nodeIds),
         edgeIds: Array.from(edgeIds),
-        alsoSelect: true,
-        pulse: true
+        alsoSelect: true
       });
     }
 
@@ -143,6 +138,13 @@ export default function HashtagSearchBar({ nodes, edges, getNodeNotes, getEdgeNo
         });
       }
     }
+
+    // Clear suggestions dropdown
+    setSuggestions([]);
+    setActiveIdx(0);
+
+    // Optionally close the entire search bar
+    // close();
   }
 
   function onKeyDown(e) {
@@ -154,8 +156,8 @@ export default function HashtagSearchBar({ nodes, edges, getNodeNotes, getEdgeNo
       setActiveIdx(i => Math.max(i - 1, 0));
     } else if (e.key === 'Enter') {
       e.preventDefault();
-      // If there are suggestions AND we have a current word being typed, convert to chip
-      if (suggestions.length > 0 && currentWord.trim()) {
+      // If there are suggestions, commit the active one
+      if (suggestions.length > 0) {
         addSuggestionToTokens(suggestions[activeIdx] || suggestions[0]);
       } 
       // If we have tokens (chips) in the input, run the search
@@ -226,7 +228,7 @@ export default function HashtagSearchBar({ nodes, edges, getNodeNotes, getEdgeNo
 
         {/* Suggestions dropdown */}
         {suggestions.length > 0 && (
-          <ul className="list ma0 pa0" role="listbox" aria-label="Hashtag suggestions">
+          <ul className="list ma0 pa0" role="listbox" aria-label="Suggestions">
             {suggestions.map((s, i) => (
               <li
                 key={s}
