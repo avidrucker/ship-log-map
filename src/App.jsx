@@ -97,7 +97,25 @@ import { useUndo } from "./hooks/useUndo.js";
 
 import { useImportExport } from "./hooks/useImportExport.js";
 
+import { SearchUIProvider, useSearchUI } from './search/SearchUIContext';
+
+import HashtagSearchBar from './search/HashtagSearchBar.jsx';
+
+import { useGlobalSearchHotkeys } from './search/useGlobalSearchHotkeys.js';
+
+import MobileSearchButton from './search/MobileSearchButton.jsx';
+
 /** ---------- helpers & migration ---------- **/
+// Memoize the notes object itself to prevent unnecessary re-renders
+const createGetNodeNotes = (notes) => (node) => {
+  const nodeNotes = notes?.[node.id];
+  return Array.isArray(nodeNotes) ? nodeNotes : [];
+};
+
+const createGetEdgeNotes = (notes) => (edge) => {
+  const edgeNotes = notes?.[edge.id];
+  return Array.isArray(edgeNotes) ? edgeNotes : [];
+};
 
 function App() {
   
@@ -142,6 +160,12 @@ function App() {
     toggleVisible: toggleBgImageVisible,
     calibration: bgCalibration
   } = useBgImageState();
+
+  // Get search UI context for opening the search bar
+  const { open: openSearchBar, isOpen } = useSearchUI();
+
+  // Set up global hotkeys for search (Ctrl+F to open, Escape is handled by the search bar itself)
+  useGlobalSearchHotkeys(openSearchBar);
 
   // ---------- graph (nodes/edges/notes/mode) ----------
   const [graphData, setGraphData] = useState(() => {
@@ -1036,247 +1060,265 @@ useEffect(() => {
   }
 }, [appState.lastLoadedMapUrl]);
 
+  const getNodeNotes = useMemo(() => createGetNodeNotes(graphData.notes), [graphData.notes]);
+  const getEdgeNotes = useMemo(() => createGetEdgeNotes(graphData.notes), [graphData.notes]);
+
   /** ---------- render ---------- **/
   return (
-    <div className="App">
-      {/* Background image underlay */}
-      {bgImage.imageUrl && bgImage.visible && (
-        <BgImageLayer
-          url={bgImage.imageUrl}
-          visible={bgImage.visible}
-          opacity={bgImage.opacity}
-          pan={livePan}              // 🔴 live pan (every frame)
-          zoom={liveZoom}            // 🔴 live zoom (every frame)
-          calibration={ bgCalibration
-            // keep your existing semantics: scale is a percentage
-            // tx: bgImage.x,                  // world offset X (same units as node positions)
-            // ty: bgImage.y,                  // world offset Y
-            // s: (bgImage.scale ?? 100) / 100 // world units per image pixel
-          }
+      <div className="App">
+        <HashtagSearchBar
+          nodes={graphData.nodes}  // ✅ Use graphData.nodes
+          edges={graphData.edges}  // ✅ Use graphData.edges
+          getNodeNotes={getNodeNotes}  // ✅ Extract notes for nodes
+          getEdgeNotes={getEdgeNotes}  // ✅ Extract notes for edges
+          getCy={getCytoscapeInstance}  // ✅ Use the existing hook function
         />
-      )}
 
-      {canEdit && (
-        <GraphControls
-          selectedNodes={selectedNodeIds}
-          selectedEdges={selectedEdgeIds}
-          onCreateNode={graphOps.handleCreateNode}
-          onDeleteSelectedNodes={graphOps.handleDeleteSelectedNodes}
-          onDeleteSelectedEdges={graphOps.handleDeleteSelectedEdges}
-          onEditSelected={handleEditSelected}
-          onConnectNodes={graphOps.handleConnectSelectedNodes}
-          onExportMap={() => exportGraphToJson(exportNodePositions)}
-          onNewMap={handleNewMap}
-          onNodeColorChange={graphOps.handleNodeColorChange}
-          areNodesConnected={areNodesConnected}
+        {/* Mobile Search Button - only visible on mobile, top center */}
+        <div className={`fixed top-0 left-0 right-0 z-999 pa2 dn-m dn-l tc w-100 ${isOpen ? 'dn' : ''}`}>
+            <div className="dib">
+              <MobileSearchButton />
+            </div>
+        </div>
+
+        {/* Background image underlay */}
+        {bgImage.imageUrl && bgImage.visible && (
+          <BgImageLayer
+            url={bgImage.imageUrl}
+            visible={bgImage.visible}
+            opacity={bgImage.opacity}
+            pan={livePan}              // 🔴 live pan (every frame)
+            zoom={liveZoom}            // 🔴 live zoom (every frame)
+            calibration={ bgCalibration
+              // keep your existing semantics: scale is a percentage
+              // tx: bgImage.x,                  // world offset X (same units as node positions)
+              // ty: bgImage.y,                  // world offset Y
+              // s: (bgImage.scale ?? 100) / 100 // world units per image pixel
+            }
+          />
+        )}
+
+        {canEdit && (
+          <GraphControls
+            selectedNodes={selectedNodeIds}
+            selectedEdges={selectedEdgeIds}
+            onCreateNode={graphOps.handleCreateNode}
+            onDeleteSelectedNodes={graphOps.handleDeleteSelectedNodes}
+            onDeleteSelectedEdges={graphOps.handleDeleteSelectedEdges}
+            onEditSelected={handleEditSelected}
+            onConnectNodes={graphOps.handleConnectSelectedNodes}
+            onExportMap={() => exportGraphToJson(exportNodePositions)}
+            onNewMap={handleNewMap}
+            onNodeColorChange={graphOps.handleNodeColorChange}
+            areNodesConnected={areNodesConnected}
+            mode={mode}
+            collapsed={graphControlsCollapsed}
+            onToggleCollapsed={toggleGraphControls}
+            onOpenDebugModal={DEV_MODE ? modalOps.openDebugModal : undefined}
+            onOpenShareModal={modalOps.openShareModal}
+            onUndo={handleUndo}
+            canUndo={canUndo}
+            onRotateCompass={graphOps.handleRotateRight}
+            onOpenBgImageModal={openBgImageModal}
+          />
+        )}
+
+        <UniversalControls
+          fileInputRef={fileInputRef}
+          onImportFile={handleFileSelect}
+          onFitToView={graphOps.handleFitGraph}
+          onModeToggle={canEdit ? handleModeToggle : undefined}
           mode={mode}
-          collapsed={graphControlsCollapsed}
-          onToggleCollapsed={toggleGraphControls}
-          onOpenDebugModal={DEV_MODE ? modalOps.openDebugModal : undefined}
-          onOpenShareModal={modalOps.openShareModal}
-          onUndo={handleUndo}
-          canUndo={canUndo}
-          onRotateCompass={graphOps.handleRotateRight}
-          onOpenBgImageModal={openBgImageModal}
+          showNoteCountOverlay={showNoteCountOverlay}
+          onToggleNoteCountOverlay={handleToggleNoteCountOverlay}
+          onRotateNodesAndCompass={graphOps.handleRotateNodesAndMap}
+          orientation={orientation}
+          compassVisible={compassVisible}
+          onToggleCompass={handleToggleCompass}
+          collapsed={universalMenuCollapsed}
+          onToggleCollapsed={toggleUniversalMenu}
+          cdnBaseUrl={cdnBaseUrl}
+          onLoadFromCdn={handleLoadFromCdnButton}
+          bgImage={bgImage}
+          onToggleBgImageVisible={toggleBgImageVisible}
         />
-      )}
 
-      <UniversalControls
-        fileInputRef={fileInputRef}
-        onImportFile={handleFileSelect}
-        onFitToView={graphOps.handleFitGraph}
-        onModeToggle={canEdit ? handleModeToggle : undefined}
-        mode={mode}
-        showNoteCountOverlay={showNoteCountOverlay}
-        onToggleNoteCountOverlay={handleToggleNoteCountOverlay}
-        onRotateNodesAndCompass={graphOps.handleRotateNodesAndMap}
-        orientation={orientation}
-        compassVisible={compassVisible}
-        onToggleCompass={handleToggleCompass}
-        collapsed={universalMenuCollapsed}
-        onToggleCollapsed={toggleUniversalMenu}
-        cdnBaseUrl={cdnBaseUrl}
-        onLoadFromCdn={handleLoadFromCdnButton}
-        bgImage={bgImage}
-        onToggleBgImageVisible={toggleBgImageVisible}
-      />
-
-      <NoteEditorModal
-        targetId={noteEditingTarget}
-        targetType={noteEditingType}
-        currentTitle={noteEditingTarget ? (noteEditingType === "node" 
-          ? graphData.nodes.find(n => n.id === noteEditingTarget)?.title || ""
-          : noteEditingTarget) : ""}
-        currentImageUrl={noteEditingTarget && noteEditingType === "node" 
-          ? graphData.nodes.find(n => n.id === noteEditingTarget)?.imageUrl || ""
-          : ""}
-        notes={noteEditingTarget ? (graphData.notes?.[noteEditingTarget] || []) : []}
-        mapName={mapName}
-        onUpdateNotes={handleUpdateNotes}
-        onUpdateTitle={handleUpdateTitle}
-        onUpdateImage={handleUpdateImage}
-        onClose={handleCloseNoteEditing}
-      />
-
-      <NoteViewerModal
-        targetId={noteViewingTarget}
-        notes={noteViewingTarget ? (graphData.notes?.[noteViewingTarget] || []) : []}
-        onClose={handleCloseNoteViewing}
-      />
-
-      {DEV_MODE && (
-        <DebugModal
-          isOpen={debugModalOpen}
-          onClose={modalOps.closeDebugModal}
-          debugData={getDebugData()}
-          getCytoscapeInstance={getCytoscapeInstance}
+        <NoteEditorModal
+          targetId={noteEditingTarget}
+          targetType={noteEditingType}
+          currentTitle={noteEditingTarget ? (noteEditingType === "node" 
+            ? graphData.nodes.find(n => n.id === noteEditingTarget)?.title || ""
+            : noteEditingTarget) : ""}
+          currentImageUrl={noteEditingTarget && noteEditingType === "node" 
+            ? graphData.nodes.find(n => n.id === noteEditingTarget)?.imageUrl || ""
+            : ""}
+          notes={noteEditingTarget ? (graphData.notes?.[noteEditingTarget] || []) : []}
+          mapName={mapName}
+          onUpdateNotes={handleUpdateNotes}
+          onUpdateTitle={handleUpdateTitle}
+          onUpdateImage={handleUpdateImage}
+          onClose={handleCloseNoteEditing}
         />
-      )}
 
-      <ShareModal
-        isOpen={modalOps.isShareModalOpen}
-        onClose={modalOps.closeShareModal}
-        mapName={mapName}
-        cdnBaseUrl={cdnBaseUrl}
-      />
+        <NoteViewerModal
+          targetId={noteViewingTarget}
+          notes={noteViewingTarget ? (graphData.notes?.[noteViewingTarget] || []) : []}
+          onClose={handleCloseNoteViewing}
+        />
 
-      {(!CAMERA_INFO_HIDDEN && canEdit) && (
-        <CameraInfo
-          zoom={zoomLevel}
-          pan={cameraPosition}
-          selectedNodeIds={selectedNodeIds}
-          selectedEdgeIds={selectedEdgeIds}
+        {DEV_MODE && (
+          <DebugModal
+            isOpen={debugModalOpen}
+            onClose={modalOps.closeDebugModal}
+            debugData={getDebugData()}
+            getCytoscapeInstance={getCytoscapeInstance}
+          />
+        )}
+
+        <ShareModal
+          isOpen={modalOps.isShareModalOpen}
+          onClose={modalOps.closeShareModal}
+          mapName={mapName}
+          cdnBaseUrl={cdnBaseUrl}
+        />
+
+        {(!CAMERA_INFO_HIDDEN && canEdit) && (
+          <CameraInfo
+            zoom={zoomLevel}
+            pan={cameraPosition}
+            selectedNodeIds={selectedNodeIds}
+            selectedEdgeIds={selectedEdgeIds}
+            mode={mode}
+            mapName={mapName}
+            onMapNameChange={setMapName}
+            cdnBaseUrl={cdnBaseUrl}
+            onCdnBaseUrlChange={setCdnBaseUrlHandler}
+            collapsed={cameraInfoCollapsed}
+            onToggleCollapsed={toggleCameraInfo}
+          />
+        )}
+
+        <ErrorDisplay error={loadError} onClearError={clearError} />
+
+        {/* CDN Loading Indicator */}
+        {cdnLoadingState.isLoading && (
+          <div style={{
+            position: 'fixed',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            background: 'rgba(0, 0, 0, 0.8)',
+            color: '#fff',
+            padding: '20px',
+            borderRadius: '8px',
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px'
+          }}>
+            <div 
+              className="spinner"
+              style={{
+                width: '20px',
+                height: '20px',
+                border: '2px solid #fff',
+                borderTop: '2px solid transparent',
+              borderRadius: '50%',
+            }}></div>
+            Loading map from CDN...
+          </div>
+        )}
+
+        {/* CDN Error Display */}
+        {cdnLoadingState.error && (
+          <div style={{
+            position: 'fixed',
+            top: '20px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: '#d32f2f',
+            color: '#fff',
+            padding: '12px 20px',
+            borderRadius: '6px',
+            zIndex: 9999,
+            maxWidth: '500px',
+            textAlign: 'center'
+          }}>
+            <div style={{ fontWeight: 'bold', marginBottom: '8px' }}>CDN Loading Error</div>
+            <div style={{ fontSize: '14px', marginBottom: '12px' }}>{cdnLoadingState.error}</div>
+            <button
+              onClick={() => setCdnLoadingState({ isLoading: false, error: null })}
+              style={{
+                background: '#fff',
+                color: '#d32f2f',
+                border: 'none',
+                padding: '6px 12px',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '12px',
+                fontWeight: 'bold'
+              }}
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+
+        <CytoscapeGraph
+          key={`graph-${cdnBaseUrl || 'none'}`}
+          nodes={memoNodes}
+          edges={memoEdges}
           mode={mode}
           mapName={mapName}
-          onMapNameChange={setMapName}
           cdnBaseUrl={cdnBaseUrl}
-          onCdnBaseUrlChange={setCdnBaseUrlHandler}
-          collapsed={cameraInfoCollapsed}
-          onToggleCollapsed={toggleCameraInfo}
+          selectedNodeIds={memoSelectedNodeIds}
+          selectedEdgeIds={memoSelectedEdgeIds}
+          onNodeMove={graphOps.handleNodeMove}
+          onViewportChange={onViewportChange} // 🔴 every-frame stream for BG
+          initialZoom={zoomLevel}
+          initialCameraPosition={memoCameraPosition}
+          shouldFitOnNextRender={shouldFitOnNextRender}
+          onFitCompleted={handleFitCompleted}
+          onEdgeSelectionChange={handleEdgeSelectionChange}
+          onNodeSelectionChange={handleNodeSelectionChange}
+          onNodeClick={handleNodeClick}
+          onEdgeClick={handleEdgeClick}
+          onNodeDoubleClick={handleNodeDoubleClick}
+          onEdgeDoubleClick={handleEdgeDoubleClick}
+          onEdgeDirectionChange={graphOps.handleEdgeDirectionChange}
+          onDeleteSelectedNodes={graphOps.handleDeleteSelectedNodes}
+          onDeleteSelectedEdges={graphOps.handleDeleteSelectedEdges}
+          onNodeSizeChange={graphOps.handleNodeSizeChange}
+          onNodeColorChange={graphOps.handleNodeColorChange}
+          onBackgroundClick={handleBackgroundClick}
+          onCytoscapeInstanceReady={setCytoscapeInstance}
+          showNoteCountOverlay={showNoteCountOverlay}
+          notes={memoNotes}
         />
-      )}
 
-      <ErrorDisplay error={loadError} onClearError={clearError} />
+        {compassVisible && (
+          <div style={{ position: 'absolute', bottom: '10px', right: '10px', zIndex: 900, width: '60px', height: '60px', pointerEvents: 'none', opacity: 0.9 }}>
+            <svg viewBox="0 0 100 100" style={{ width: '100%', height: '100%', transform: `rotate(${orientation}deg)` }}>
+              <circle cx="50" cy="50" r="48" fill="rgba(0,0,0,0.4)" stroke="#fff" strokeWidth="2" />
+              <polygon points="50,15 60,50 50,45 40,50" fill="#ff5252" />
+              <polygon points="50,85 40,50 50,55 60,50" fill="#fff" />
+              <text x="50" y="20" textAnchor="middle" fontSize="12" fill="#fff" fontFamily="sans-serif">N</text>
+              <text x="50" y="95" textAnchor="middle" fontSize="12" fill="#fff" fontFamily="sans-serif">S</text>
+              <text x="15" y="55" textAnchor="middle" fontSize="12" fill="#fff" fontFamily="sans-serif">W</text>
+              <text x="85" y="55" textAnchor="middle" fontSize="12" fill="#fff" fontFamily="sans-serif">E</text>
+            </svg>
+          </div>
+        )}
 
-      {/* CDN Loading Indicator */}
-      {cdnLoadingState.isLoading && (
-        <div style={{
-          position: 'fixed',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          background: 'rgba(0, 0, 0, 0.8)',
-          color: '#fff',
-          padding: '20px',
-          borderRadius: '8px',
-          zIndex: 9999,
-          display: 'flex',
-          alignItems: 'center',
-          gap: '12px'
-        }}>
-          <div 
-            className="spinner"
-            style={{
-              width: '20px',
-              height: '20px',
-              border: '2px solid #fff',
-              borderTop: '2px solid transparent',
-            borderRadius: '50%',
-          }}></div>
-          Loading map from CDN...
-        </div>
-      )}
-
-      {/* CDN Error Display */}
-      {cdnLoadingState.error && (
-        <div style={{
-          position: 'fixed',
-          top: '20px',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          background: '#d32f2f',
-          color: '#fff',
-          padding: '12px 20px',
-          borderRadius: '6px',
-          zIndex: 9999,
-          maxWidth: '500px',
-          textAlign: 'center'
-        }}>
-          <div style={{ fontWeight: 'bold', marginBottom: '8px' }}>CDN Loading Error</div>
-          <div style={{ fontSize: '14px', marginBottom: '12px' }}>{cdnLoadingState.error}</div>
-          <button
-            onClick={() => setCdnLoadingState({ isLoading: false, error: null })}
-            style={{
-              background: '#fff',
-              color: '#d32f2f',
-              border: 'none',
-              padding: '6px 12px',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontSize: '12px',
-              fontWeight: 'bold'
-            }}
-          >
-            Dismiss
-          </button>
-        </div>
-      )}
-
-      <CytoscapeGraph
-        key={`graph-${cdnBaseUrl || 'none'}`}
-        nodes={memoNodes}
-        edges={memoEdges}
-        mode={mode}
-        mapName={mapName}
-        cdnBaseUrl={cdnBaseUrl}
-        selectedNodeIds={memoSelectedNodeIds}
-        selectedEdgeIds={memoSelectedEdgeIds}
-        onNodeMove={graphOps.handleNodeMove}
-        onViewportChange={onViewportChange} // 🔴 every-frame stream for BG
-        initialZoom={zoomLevel}
-        initialCameraPosition={memoCameraPosition}
-        shouldFitOnNextRender={shouldFitOnNextRender}
-        onFitCompleted={handleFitCompleted}
-        onEdgeSelectionChange={handleEdgeSelectionChange}
-        onNodeSelectionChange={handleNodeSelectionChange}
-        onNodeClick={handleNodeClick}
-        onEdgeClick={handleEdgeClick}
-        onNodeDoubleClick={handleNodeDoubleClick}
-        onEdgeDoubleClick={handleEdgeDoubleClick}
-        onEdgeDirectionChange={graphOps.handleEdgeDirectionChange}
-        onDeleteSelectedNodes={graphOps.handleDeleteSelectedNodes}
-        onDeleteSelectedEdges={graphOps.handleDeleteSelectedEdges}
-        onNodeSizeChange={graphOps.handleNodeSizeChange}
-        onNodeColorChange={graphOps.handleNodeColorChange}
-        onBackgroundClick={handleBackgroundClick}
-        onCytoscapeInstanceReady={setCytoscapeInstance}
-        showNoteCountOverlay={showNoteCountOverlay}
-        notes={memoNotes}
-      />
-
-      {compassVisible && (
-        <div style={{ position: 'absolute', bottom: '10px', right: '10px', zIndex: 900, width: '60px', height: '60px', pointerEvents: 'none', opacity: 0.9 }}>
-          <svg viewBox="0 0 100 100" style={{ width: '100%', height: '100%', transform: `rotate(${orientation}deg)` }}>
-            <circle cx="50" cy="50" r="48" fill="rgba(0,0,0,0.4)" stroke="#fff" strokeWidth="2" />
-            <polygon points="50,15 60,50 50,45 40,50" fill="#ff5252" />
-            <polygon points="50,85 40,50 50,55 60,50" fill="#fff" />
-            <text x="50" y="20" textAnchor="middle" fontSize="12" fill="#fff" fontFamily="sans-serif">N</text>
-            <text x="50" y="95" textAnchor="middle" fontSize="12" fill="#fff" fontFamily="sans-serif">S</text>
-            <text x="15" y="55" textAnchor="middle" fontSize="12" fill="#fff" fontFamily="sans-serif">W</text>
-            <text x="85" y="55" textAnchor="middle" fontSize="12" fill="#fff" fontFamily="sans-serif">E</text>
-          </svg>
-        </div>
-      )}
-
-      <BgImageModal
-        isOpen={bgImageModalOpen}
-        onClose={closeBgImageModal}
-        bgImage={bgImage}
-        onChange={changeBgImage}
-        onLoadImage={loadImageFile}
-        onDeleteImage={deleteImage}
-      />
-    </div>
+        <BgImageModal
+          isOpen={bgImageModalOpen}
+          onClose={closeBgImageModal}
+          bgImage={bgImage}
+          onChange={changeBgImage}
+          onLoadImage={loadImageFile}
+          onDeleteImage={deleteImage}
+        />
+      </div>
   );
 }
 

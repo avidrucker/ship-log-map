@@ -313,6 +313,16 @@ const animationRules = [
       'transition-duration': '300ms', 
       'transition-timing-function': 'ease-out'
     }
+  },
+  {
+    selector: '.search-glow',
+    style: {
+      'border-width': 7,
+      'border-color': '#ffd700',           // golden outline
+      'transition-property': 'border-width, border-color',
+      'transition-duration': '400ms',
+      'transition-timing-function': 'ease-in-out'
+    }
   }
 ];
 

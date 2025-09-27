@@ -13,6 +13,7 @@
 
 import React from 'react';
 import { HamburgerIcon } from "./HamburgerIcon";
+import { useSearchUI } from '../search/SearchUIContext';
 
 function UniversalControls({
   fileInputRef,
@@ -33,6 +34,9 @@ function UniversalControls({
   bgImage,
   onToggleBgImageVisible
 }) {
+
+  const { open } = useSearchUI();
+
   if (collapsed) {
     return (
       <div style={{ position: 'absolute', left: '10px', bottom: '10px', zIndex: 1000 }}>
@@ -88,6 +92,13 @@ function UniversalControls({
           Mode
         </button>
       )}
+      <button 
+        style={{ padding: '6px 10px', background: 'purple', color: '#fff', border: '1px solid purple', cursor: 'pointer' }}
+        onClick={open}
+        title="Search Hashtags"
+      >
+        Search
+      </button>
       <button
         style={{ padding: '6px 10px', background: '#1976d2', color: '#fff', border: '1px solid #0d47a1', cursor: 'pointer' }}
         onClick={() => fileInputRef.current?.click()}

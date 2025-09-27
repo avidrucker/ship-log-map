@@ -30,6 +30,7 @@ import { getCdnBaseUrl } from "../utils/cdnHelpers.js";
 import { loadImageWithFallback, imageCache, getDefaultPlaceholderSvg, ensureDefaultPlaceholderLoaded, onDefaultPlaceholderLoaded } from "../utils/imageLoader.js";
 import { printDebug } from "../utils/debug.js"; // printWarn
 import { installAppearOnAdd } from '../anim/appear.js';
+import { isSearchInProgress } from '../search/searchHighlighter.js';
 
 // Cache for grayscale images to avoid reprocessing
 const GRAYSCALE_CACHE_KEY = 'shipLogGrayscaleCache';
@@ -835,14 +836,49 @@ export function wireEvents(cy, handlers = {}, mode = 'editing') {
 
   // Selection events (parents only)
   cy.on('select unselect', 'node.entry-parent', (evt) => {
-    const parent = evt.target; syncParentStateToChild(parent);
+    const parent = evt.target; 
+    syncParentStateToChild(parent);
+
+    if (evt.type === 'select') {
+      printDebug(`🎯 Node select event: ${parent.id()}, search in progress: ${isSearchInProgress()}, has search glow: ${parent.hasClass('search-glow')}`);
+    } else {
+      printDebug(`❌ Node unselect event: ${parent.id()}, search in progress: ${isSearchInProgress()}`);
+    }
+
+    // *** CLEAR SEARCH HIGHLIGHTS WHEN NODE SELECTION CHANGES ***
+    // Only clear if this is a new selection (not part of search results)
+    // *** ONLY CLEAR SEARCH HIGHLIGHTS IF NOT IN PROGRESS ***
+    if (evt.type === 'select' && !isSearchInProgress()) {
+      setTimeout(() => {
+        const hasAnySearchGlow = cy.elements('.search-glow').length > 0;
+        const thisNodeHasGlow = parent.hasClass('search-glow');
+        
+        printDebug(`🧹 Checking if should clear highlights: thisNodeHasGlow=${thisNodeHasGlow}, hasAnySearchGlow=${hasAnySearchGlow}`);
+
+        if (!thisNodeHasGlow && !hasAnySearchGlow) {
+          printDebug(`🧹 CLEARING search highlights due to non-search node selection`);
+          cy.elements('.search-glow').removeClass('search-glow');
+        } else {
+          printDebug(`🧹 NOT clearing search highlights - search elements detected`);
+        }
+      }, 0);
+    }
+
     if (onNodeSelectionChange) {
       const ids = cy.$('node.entry-parent:selected').map(n => n.id());
+      printDebug(`📊 Node selection changed to: (${ids.length}) [${ids.join(', ')}]`);
       onNodeSelectionChange(ids);
     }
   });
-  cy.on('select unselect', 'edge', () => {
-    if (onEdgeSelectionChange) onEdgeSelectionChange(cy.$('edge:selected').map(e => e.id()));
+
+  cy.on('select unselect', 'edge', (evt) => {
+    // *** CLEAR SEARCH HIGHLIGHTS WHEN EDGE SELECTION CHANGES ***
+  // Only clear if this is a new selection (not part of search results)
+  if (evt.type === 'select' && !evt.target.hasClass('search-glow')) {
+    cy.elements('.search-glow').removeClass('search-glow');
+  }
+  
+  if (onEdgeSelectionChange) onEdgeSelectionChange(cy.$('edge:selected').map(e => e.id()));
   });
 
   // Grab/drag state -> active styling
@@ -896,7 +932,16 @@ export function wireEvents(cy, handlers = {}, mode = 'editing') {
     }
     if (onEdgeClick) onEdgeClick(evt.target.id(), 'edge');
   });
-  cy.on('tap', (evt) => { if (evt.target === cy) { cy.elements().unselect(); if (onBackgroundClick) onBackgroundClick(); } });
+  
+  // when tapping on the background (deselect all)
+  cy.on('tap', (evt) => { 
+    if (evt.target === cy) { 
+      cy.elements().unselect(); 
+      // *** CLEAR SEARCH HIGHLIGHTS WHEN CLICKING BACKGROUND ***
+      cy.elements('.search-glow').removeClass('search-glow');
+      if (onBackgroundClick) onBackgroundClick(); 
+    } 
+  });
 
   cy.on('dbltap', 'node.entry-parent', (evt) => { if (mode !== 'editing') return; if (onNodeDoubleClick) onNodeDoubleClick(evt.target.id()); });
   cy.on('dbltap', 'edge', (evt) => { if (mode !== 'editing') return; if (onEdgeDoubleClick) onEdgeDoubleClick(evt.target.id()); });
