@@ -74,12 +74,24 @@ export default function HashtagSearchBar({ nodes, edges, getNodeNotes, getEdgeNo
   }, [isOpen, close]);
 
   function addSuggestionToTokens(s) {
-    // Replace the current last word with the chosen suggestion
-    const withHash = s.startsWith('#') ? s : `#${s}`;
-    const norm = withHash.slice(1).toLowerCase();
+    // Handle both hashtag suggestions (#tag) and label suggestions (word)
+    let tokenToAdd;
+    
+    if (s.startsWith('#')) {
+      // It's a hashtag suggestion, normalize it
+      tokenToAdd = s.slice(1).toLowerCase(); // Remove # and lowercase
+    } else {
+      // It's a label suggestion, use as-is (already lowercased)
+      tokenToAdd = s.toLowerCase();
+    }
+    
     const parts = input.trim().split(/\s+/).filter(Boolean);
-    parts[parts.length - 1] = norm;
-    setInput(parts.join(' ') + ' ');
+    if (parts.length === 0) {
+      setInput(tokenToAdd + ' ');
+    } else {
+      parts[parts.length - 1] = tokenToAdd;
+      setInput(parts.join(' ') + ' ');
+    }
     setSuggestions([]);
   }
 
@@ -184,9 +196,9 @@ export default function HashtagSearchBar({ nodes, edges, getNodeNotes, getEdgeNo
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={onKeyDown}
-            placeholder="Search hashtags…  (tip: type two words for AND)"
+            placeholder="Search hashtags & places…"
             className="input-reset pa2 w-100 bn"
-            aria-label="Search hashtags"
+            aria-label="Search hashtags and places"
             autoCapitalize="off"
             autoCorrect="off"
             spellCheck="false"
