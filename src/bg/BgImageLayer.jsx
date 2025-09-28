@@ -59,6 +59,7 @@ function BgImageLayer({
     <img
       src={url}
       alt=""
+      className="bg-map-fixed"
       style={{
         position: "absolute",
         left: 0,
