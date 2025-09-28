@@ -49,17 +49,65 @@ export function useGraphOperations({
     const cyInstance = typeof cy === 'function' ? cy() : cy;
     if (!cyInstance) return;
     
+    // Get all nodes for fitting
+    const allNodes = cyInstance.nodes();
+    
     try {
-      cyInstance.fit(cyInstance.nodes(), 50);
       
-      const cameraInfo = {
-        zoom: cyInstance.zoom(),
-        position: cyInstance.pan()
-      };
-      dispatch({ type: ACTION_TYPES.SET_ZOOM_INTERNAL, payload: { zoom: cameraInfo.zoom } });
-      dispatch({ type: ACTION_TYPES.SET_CAMERA_POSITION_INTERNAL, payload: { position: cameraInfo.position } });
+      if (allNodes.length === 0) {
+        printDebug('🎥 GraphOps: No nodes to fit, centering view');
+        // No nodes to fit to, animate to center
+        cyInstance.animate({
+          pan: { x: 0, y: 0 },
+          zoom: 1
+        }, {
+          duration: 400,
+          easing: 'ease-in-out',
+          complete: () => {
+            dispatch({ type: ACTION_TYPES.SET_ZOOM_INTERNAL, payload: { zoom: 1 } });
+            dispatch({ type: ACTION_TYPES.SET_CAMERA_POSITION_INTERNAL, payload: { position: { x: 0, y: 0 } } });
+          }
+        });
+        return;
+      }
+
+      printDebug('🎥 GraphOps: Animating fit to all nodes');
+
+      // Use animate with fit option for smooth transition
+      cyInstance.animate({
+        fit: {
+          eles: allNodes,
+          padding: 50
+        }
+      }, {
+        duration: 400,
+        easing: 'ease-in-out',
+        complete: () => {
+          // Update app state with the new camera position after animation
+          const finalZoom = cyInstance.zoom();
+          const finalPan = cyInstance.pan();
+          
+          printDebug('🎥 GraphOps: Fit animation complete', { zoom: finalZoom, pan: finalPan });
+          
+          dispatch({ type: ACTION_TYPES.SET_ZOOM_INTERNAL, payload: { zoom: finalZoom } });
+          dispatch({ type: ACTION_TYPES.SET_CAMERA_POSITION_INTERNAL, payload: { position: finalPan } });
+        }
+      });
     } catch (error) {
-      console.error('Error fitting graph:', error);
+      console.error('Error animating fit to graph:', error);
+      // Fallback to instant fit if animation fails
+      try {
+        cyInstance.fit(allNodes || cyInstance.nodes(), 50);
+        
+        const cameraInfo = {
+          zoom: cyInstance.zoom(),
+          position: cyInstance.pan()
+        };
+        dispatch({ type: ACTION_TYPES.SET_ZOOM_INTERNAL, payload: { zoom: cameraInfo.zoom } });
+        dispatch({ type: ACTION_TYPES.SET_CAMERA_POSITION_INTERNAL, payload: { position: cameraInfo.position } });
+      } catch (fallbackError) {
+        console.error('Error with fallback fit:', fallbackError);
+      }
     }
   }, [cy, dispatch]);
 
