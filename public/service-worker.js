@@ -24,8 +24,8 @@ const CORE_URLS = [
   `${BASE_URL}manifest.webmanifest`,
   `${BASE_URL}offline.html`,
   // Icons (you will add these soon)
-  `${BASE_URL}logo-192.png`,
-  `${BASE_URL}logo-512.png`,
+  `${BASE_URL}logo192.png`,
+  `${BASE_URL}logo512.png`,
 ];
 
 // Message channel (optional): allow page to request immediate activation
