@@ -149,7 +149,7 @@ function CameraInfo({ zoom, pan, selectedNodeIds, selectedEdgeIds, mode, mapName
         textTransform: "uppercase",
         fontSize: "14px"
       }}>
-        {mode === 'editing' ? 'Editing' : 'Playing'}
+        Mode: {mode === 'editing' ? 'Editing' : 'Playing'}
       </div>
       {/* Map Name Field */}
       <div style={{ marginBottom: "8px" }}>
