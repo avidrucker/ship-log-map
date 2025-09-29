@@ -146,7 +146,6 @@ function CameraInfo({ zoom, pan, selectedNodeIds, selectedEdgeIds, mode, mapName
       <div style={{ 
         color: mode === 'editing' ? "#4caf50" : "#2196f3",
         fontWeight: "bold",
-        marginBottom: "8px",
         textTransform: "uppercase",
         fontSize: "14px"
       }}>
@@ -157,6 +156,7 @@ function CameraInfo({ zoom, pan, selectedNodeIds, selectedEdgeIds, mode, mapName
       <div style={{ 
         color: "#888",
         fontSize: "10px",
+        marginBottom: "8px",
         fontFamily: "monospace"
       }}>
         v{packageJson.version}
