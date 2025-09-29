@@ -3,8 +3,8 @@
 // We test pure logic: rotateNodes90Clockwise, reducer orientation updates, and App handler wiring expectations.
 // Since App is large, we focus on verifying node coordinate transformation and orientation increments.
 
-import { rotateNodes90Clockwise } from './utils/rotation.js';
-import { appStateReducer, ACTION_TYPES, initialAppState } from './appStateReducer.js';
+import { rotateNodes90Clockwise } from './rotation.js';
+import { appStateReducer, ACTION_TYPES, initialAppState } from '../appStateReducer.js';
 
 function makeNode(id, x, y) { return { id, title: id, x, y, size: 'regular', color: 'gray' }; }
 
