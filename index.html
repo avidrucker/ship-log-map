@@ -1,14 +1,29 @@
 <!doctype html>
-<html lang="en" class="debug-off">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/ship-log-map/vite.svg" />
+    <!-- Root path works in dev; Vite rebases on build to /ship-log-map/... -->
+    <link rel="icon" href="/ship-log-map/favicon.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- PWA: Manifest + meta -->
+    <link rel="manifest" href="/ship-log-map/manifest.webmanifest" />
+    <meta name="theme-color" content="#0f172a" />
+
+    <!-- Modern capability hint (keep the Apple tag too if you like) -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <!-- Optional (legacy iOS hint): -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+    <link rel="apple-touch-icon" href="/icon-192.png" />
+
     <title>Web App Map</title>
-    <script type="module" crossorigin src="/ship-log-map/assets/index-gIFFTZ0p.js"></script>
+    <script type="module" crossorigin src="/ship-log-map/assets/index-BRDxX-At.js"></script>
     <link rel="stylesheet" crossorigin href="/ship-log-map/assets/index-DXbWauZm.css">
   </head>
   <body>
     <div id="root"></div>
+    
   </body>
 </html>

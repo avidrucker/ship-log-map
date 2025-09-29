@@ -1,0 +1,16 @@
+{
+  "name": "Web Map App",
+  "short_name": "WebMap",
+  "id": "/ship-log-map/",
+  "start_url": "/ship-log-map/?source=pwa",
+  "scope": "/ship-log-map/",
+  "display": "standalone",
+  "display_override": ["standalone", "window-controls-overlay"],
+  "theme_color": "#0f172a",
+  "background_color": "#ffffff",
+  "description": "Outer Wilds-inspired rumor map with nodes, edges, notes, and images — now offline-capable.",
+  "icons": [
+    { "src": "/ship-log-map/logo192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/ship-log-map/logo512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
