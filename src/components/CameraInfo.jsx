@@ -163,8 +163,8 @@ function CameraInfo({ zoom, pan, selectedNodeIds, selectedEdgeIds, mode, mapName
       </div>
 
       {/* Map Name Field */}
-      <div style={{ marginBottom: "8px" }}>
-        <div style={{ color: "#888", fontSize: "10px", marginBottom: "2px" }}>Map Name:</div>
+      <div style={{ marginBottom: "8px", display: "flex", alignItems: "center", gap: "4px" }}>
+        <div style={{ color: "#888", fontSize: "10px", display: "inline-block" }}>Map Name:</div>
         {isEditingMapName ? (
           <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
             <input
