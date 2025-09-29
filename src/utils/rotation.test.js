@@ -3,6 +3,7 @@
 // We test pure logic: rotateNodes90Clockwise, reducer orientation updates, and App handler wiring expectations.
 // Since App is large, we focus on verifying node coordinate transformation and orientation increments.
 
+import { describe, test, expect } from '@jest/globals';
 import { rotateNodes90Clockwise } from './rotation.js';
 import { appStateReducer, ACTION_TYPES, initialAppState } from '../appStateReducer.js';
 
