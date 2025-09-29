@@ -24,6 +24,7 @@ import React, { useState, useCallback, useEffect, useRef } from "react";
 import { DEV_MODE } from "../config/features";
 import FpsCounter from "./FpsCounter";
 import { HamburgerIcon } from "./HamburgerIcon";
+import packageJson from '../../package.json';
 
 function CameraInfo({ zoom, pan, selectedNodeIds, selectedEdgeIds, mode, mapName, onMapNameChange, cdnBaseUrl, onCdnBaseUrlChange, collapsed, onToggleCollapsed }) {
   const [isEditingMapName, setIsEditingMapName] = useState(false);
@@ -151,6 +152,17 @@ function CameraInfo({ zoom, pan, selectedNodeIds, selectedEdgeIds, mode, mapName
       }}>
         Mode: {mode === 'editing' ? 'Editing' : 'Playing'}
       </div>
+
+      {/* Add version display here */}
+      <div style={{ 
+        color: "#888",
+        fontSize: "10px",
+        marginBottom: "8px",
+        fontFamily: "monospace"
+      }}>
+        v{packageJson.version}
+      </div>
+
       {/* Map Name Field */}
       <div style={{ marginBottom: "8px" }}>
         <div style={{ color: "#888", fontSize: "10px", marginBottom: "2px" }}>Map Name:</div>
