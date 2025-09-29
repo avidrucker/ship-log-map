@@ -21,8 +21,18 @@ jobs:
     - name: Install dependencies
       run: npm install
 
+    - name: Inject version into Service Worker
+      run: |
+        VERSION=$(node -p "require('./package.json').version")
+        sed -i "s/^const APP_VERSION = '.*';/const APP_VERSION = '${VERSION}';/" public/service-worker.js
+
     - name: Build the app
       run: npm run build
+
+    - name: List built files
+      run: |
+        echo "Built files in dist/:"
+        find dist -maxdepth 2 -type f | sort
 
     - name: Configure Git author
       run: |

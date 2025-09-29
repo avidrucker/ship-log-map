@@ -18,6 +18,7 @@ import './index.css'
 import App from './App.jsx'
 import ErrorBoundary from './components/ErrorBoundary.jsx'
 import { SearchUIProvider } from './search/SearchUIContext'
+import { registerSW } from './swRegistration.js';
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
@@ -28,3 +29,5 @@ createRoot(document.getElementById('root')).render(
     </ErrorBoundary>
   </StrictMode>
 )
+
+registerSW();
