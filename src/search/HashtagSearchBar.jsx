@@ -68,33 +68,8 @@ export default function HashtagSearchBar({ nodes, edges, getNodeNotes, getEdgeNo
     return () => document.removeEventListener('click', onDocClick, true);
   }, [isOpen, close]);
 
-  function addSuggestionToTokens(s) {
-    // Insert suggestion *as shown*. No lowercasing, no quotes.
-    const trimmed = input.trim();
-    const parts = trimmed.split(/\s+/).filter(Boolean);
-    const isHashtagSuggestion = s.startsWith('#');
-    const startsWithHash = trimmed.startsWith('#');
-    const multiWordNoHash = !startsWithHash && parts.length > 1 && !isHashtagSuggestion;
-
-    if (multiWordNoHash) {
-      // Phrase mode: replace the ENTIRE input with the chosen full place name
-      setInput(s + ' ');
-    } else {
-      // Hashtag mode or single-word: replace the last token
-      if (parts.length === 0) {
-        setInput(s + ' ');
-      } else {
-        parts[parts.length - 1] = s;
-        setInput(parts.join(' ') + ' ');
-      }
-    }
-
-    setSuggestions([]);
-    setActiveIdx(0);
-  }
-
-  function runSearch() {
-    const toks = tokenizeQuery(input);
+  function executeSearch(searchTerm) {
+    const toks = tokenizeQuery(searchTerm);
     const { nodeIds, edgeIds } = findMatchesFromTokens(toks);
 
     const cy = getCy?.();
@@ -138,13 +113,60 @@ export default function HashtagSearchBar({ nodes, edges, getNodeNotes, getEdgeNo
         });
       }
     }
+  }
 
+  // Click off to close (on mobile overlay)
+  useEffect(() => {
+    function onDocClick(e) {
+      if (!isOpen) return;
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        close();
+      }
+    }
+    document.addEventListener('click', onDocClick, true);
+    return () => document.removeEventListener('click', onDocClick, true);
+  }, [isOpen, close]);
+
+  function addSuggestionToTokens(s) {
+    const isHashtagSuggestion = s.startsWith('#');
+    
+    // Clear suggestions immediately
+    setSuggestions([]);
+    setActiveIdx(0);
+    
+    if (isHashtagSuggestion) {
+      // For hashtag suggestions: add to input and continue typing
+      const trimmed = input.trim();
+      const parts = trimmed.split(/\s+/).filter(Boolean);
+      
+      if (parts.length === 0) {
+        setInput(s + ' ');
+      } else {
+        parts[parts.length - 1] = s;
+        setInput(parts.join(' ') + ' ');
+      }
+      
+      // Keep input focused for continuing to type
+      setTimeout(() => inputRef.current?.focus(), 0);
+    } else {
+      // For place name suggestions: set input and immediately search
+      setInput(s);
+      setTimeout(() => {
+        executeSearch(s);
+        close();
+      }, 0);
+    }
+  }
+
+  function runSearch() {
+    executeSearch(input);
+    
     // Clear suggestions dropdown
     setSuggestions([]);
     setActiveIdx(0);
 
-    // Optionally close the entire search bar
-    // close();
+    // Close the search bar after manual search
+    close();
   }
 
   function onKeyDown(e) {
