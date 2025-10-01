@@ -110,6 +110,10 @@
 - [x] Fix bug where when deleting a node that the orphaned note count nodes are not also visually deleted, but they should be
 - [ ] Implement default menu UI state that can show simply the hamburger icons instead of hamburger icons + words with toggle button "Min UI" / "Max UI" in the Universal Controls section
 - [x] Implement zoom to fit animation that smoothly zooms and pans the camera to fit the entire graph in the viewport when clicking the "fit to screen" button or pressing the "F" key (use the already built zoom animation from zooming to fit a node/edge/selection)
+- [ ] make it so that, when clicking on a place name suggestion, the app immediately searches for the place clicked
+- [ ] make it so that, once hashtags have been selected that it only takes one extra press of enter to do the search, and not 2 more presses
+- [ ] add the abode, the puppy house, the dog house, milking stanchion 2, the 2 water tanks by the Octagon for GYG map 
+- [ ] replace custom styling with tachyons as much as possible
 
 Notes for Future Features
 - Listing out "layers" which show things such as electrical lines, water lines, Internet, etc. that can be toggled on and off
