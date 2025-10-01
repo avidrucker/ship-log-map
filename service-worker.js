@@ -5,7 +5,7 @@
  * It will only control pages under /ship-log-map/ (non-overlapping with other apps).
  */
 
-const APP_VERSION = '0.1.0'; // <-- CI will inject package.json version (see README/CI step)
+const APP_VERSION = '0.1.1'; // <-- CI will inject package.json version (see README/CI step)
 const CACHE_PREFIX = 'ship-log-map';
 const PRECACHE = `${CACHE_PREFIX}-precache-v${APP_VERSION}`;
 const RUNTIME = `${CACHE_PREFIX}-runtime-v${APP_VERSION}`;
