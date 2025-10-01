@@ -10,6 +10,17 @@ import { tokenizeQuery } from './hashtagUtils';
  * - Mobile-first: small screen shows only the icon (you render the icon near the top bar); tap opens
  * - Desktop: Ctrl/Cmd+F or "Search" button opens and autofocuses input
  *
+ * Search Behavior:
+ * 1. Type "#bed" → Shows #beds suggestion
+ * 2. Press Enter → Selects #beds, input becomes "#beds ", suggestions cleared (no more #beds shown)
+ * 3. Press Enter again → Executes search and closes search bar
+ * Or:
+ * 1. Type "#bed" → Shows #beds suggestion
+ * 2. Press Enter → Selects #beds, input becomes "#beds "
+ * 3. Type "#wat" → Shows #water suggestions (but NOT #beds anymore)
+ * 4. Press Enter → Selects #water, input becomes "#beds #water "
+ * 5. Press Enter → Executes search with both hashtags
+ *
  * Props:
  *  - nodes, edges: your current graph domain arrays
  *  - getNodeNotes(node?), getEdgeNotes(edge?) -> string(s)  (optional extractors)
@@ -51,10 +62,33 @@ export default function HashtagSearchBar({ nodes, edges, getNodeNotes, getEdgeNo
       setActiveIdx(0);
       return;
     }
-    const suggs = getSuggestionsRef.current(input, 12);
-    setSuggestions(suggs);
+    
+    // Get raw suggestions
+    const rawSuggs = getSuggestionsRef.current(input, 12);
+    
+    // Filter out hashtags that are already in the input
+    const existingHashtags = new Set();
+    const inputTokens = tokenizeQuery(input);
+    
+    // Collect all hashtags already in the input
+    for (const token of inputTokens) {
+      if (token.startsWith('#')) {
+        existingHashtags.add(token);
+      }
+    }
+    
+    // Filter suggestions to exclude already-selected hashtags
+    const filteredSuggs = rawSuggs.filter(suggestion => {
+      // If it's a hashtag suggestion and it's already in the input, exclude it
+      if (suggestion.startsWith('#') && existingHashtags.has(suggestion)) {
+        return false;
+      }
+      return true;
+    });
+
+    setSuggestions(filteredSuggs);
     setActiveIdx(0);
-  }, [input, isOpen]);
+  }, [input, isOpen, tokens]);
 
   // Click off to close (on mobile overlay)
   useEffect(() => {
