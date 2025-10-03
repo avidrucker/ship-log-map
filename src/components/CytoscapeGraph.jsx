@@ -134,7 +134,7 @@ function CytoscapeGraph({
       cy.off('add remove', 'node', scheduleEdgeCountUpdate);
     };
     return cleanup;
-  }, [showNoteCountOverlay]);
+  }, []);
 
   // ------------------- Mount once -------------------
   useEffect(() => {

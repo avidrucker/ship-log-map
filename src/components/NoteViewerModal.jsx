@@ -11,6 +11,7 @@
  */
 
 import React, { useEffect } from "react";
+import TypewriterText from './TypewriterText.jsx';
 
 // TODO: refactor out color styles to CSS stylesheet
 const BLUE_OUTLINE_COLOR = "#5878b6";
@@ -18,7 +19,8 @@ const BLUE_OUTLINE_COLOR = "#5878b6";
 function NoteViewerModal({
   targetId,
   notes, // array of note strings for this target
-  onClose
+  onClose,
+  shouldTypewriter = false
 }) {
   // Add keyboard event listener for Escape key
   useEffect(() => {
@@ -70,22 +72,6 @@ function NoteViewerModal({
         position: "relative",
         pointerEvents: "auto" // enable interaction within modal
       }}>
-        {/*<button
-          onClick={onClose}
-          style={{
-            background: "transparent",
-            color: BLUE_OUTLINE_COLOR,
-            border: "none",
-            padding: "6px 12px",
-            cursor: "pointer",
-            fontSize: "14px",
-            position: "absolute",
-            top: "10px",
-            right: "10px"
-          }}
-        >
-          ✕
-        </button>*/}
 
       {/* Notes List */}
       <div style={{
@@ -120,7 +106,7 @@ function NoteViewerModal({
                 wordBreak: "break-word",
                 fontSize: "14px",
               }}>
-                {note}
+                {shouldTypewriter ? (<TypewriterText text={note} enabled />) : (note)}
               </li>
             ))}
           </ul>

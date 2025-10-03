@@ -106,6 +106,7 @@ import { useGlobalSearchHotkeys } from './search/useGlobalSearchHotkeys.js';
 import MobileSearchButton from './search/MobileSearchButton.jsx';
 
 import useVisited from './hooks/useVisited.js';
+import { makeVisitedLookup } from './utils/visitedLookup.js';
 
 /** ---------- helpers & migration ---------- **/
 // Memoize the notes object itself to prevent unnecessary re-renders
@@ -478,6 +479,15 @@ function App() {
     clearForMap: clearVisitedForMap
   } = useVisited(mapName);
 
+  // Decide typewriter-on-first-open here; keep it outside the modal API.
+  const typewriterRef = useRef(false);
+
+  // Memoized visited lookup: isUnseen(id) -> boolean
+  const isUnseen = useMemo(
+    () => makeVisitedLookup({ nodes: graphData.nodes, edges: graphData.edges, visited }),
+    [graphData.nodes, graphData.edges, visited]
+  );
+
   /** ---------- handlers ---------- **/
 
   // REFACTOR STEP 1: Replace handleFitToView with hook function
@@ -534,9 +544,19 @@ function App() {
       payload: { targetId, targetType }
     });
 
+        // ---- NEW: compute first-open flag, then mark visited ----
+    // Only typewriter the first time we open a given id (and only if there's content)
+    const hasContent =
+      (Array.isArray(graphData?.notes?.[targetId]) ? graphData.notes[targetId].join('\n\n') : (graphData?.notes?.[targetId] || '')).trim().length > 0;
+    const unseenNow = isUnseen(targetId);
+    typewriterRef.current = Boolean(unseenNow && hasContent);
+
+    if (targetType === 'node') markNodeVisited(targetId);
+    else if (targetType === 'edge') markEdgeVisited(targetId);
+
     // NOTE: we now clear the guards when the new selection actually lands
     // (see handleNodeSelectionChange).
-  }, [fitToSelection, noteViewingTarget, hasOriginalCamera]);
+  }, [fitToSelection, noteViewingTarget, hasOriginalCamera, graphData, isUnseen, markNodeVisited, markEdgeVisited]);
 
   // Update handleCloseNoteViewing to check the transition flag
   const handleCloseNoteViewing = useCallback(() => {
@@ -861,8 +881,6 @@ function App() {
     printDebug('👆 node tap:', { nodeId, mode, noteViewingTarget });
     if (mode !== 'playing') return;
 
-    markNodeVisited(nodeId);
-
     // Click same node → close (zoom-out)
     if (noteViewingTarget === nodeId) {
       printDebug('🔻 same-node clicked -> toggle close');
@@ -895,18 +913,15 @@ function App() {
 
     // Open OR switch always goes through handleStartNoteViewing.
     handleStartNoteViewing(nodeId, 'node');
-  }, [mode, noteViewingTarget, handleStartNoteViewing, handleCloseNoteViewing, clearCytoscapeSelections, markNodeVisited]);
+  }, [mode, noteViewingTarget, handleStartNoteViewing, handleCloseNoteViewing, clearCytoscapeSelections]);
       
   const handleEdgeClick = useCallback((edgeId) => {
     if (mode === 'playing') {
-
-      markEdgeVisited(edgeId);
-
       // In playing mode, clicking an edge opens the note viewer
       handleStartNoteViewing(edgeId, "edge");
     }
     // In editing mode, clicking does nothing (selection is handled by Cytoscape)
-  }, [mode, handleStartNoteViewing, markEdgeVisited]);
+  }, [mode, handleStartNoteViewing]);
 
   const handleBackgroundClick = useCallback(() => {
     // Set guard to prevent handleNodeSelectionChange from also closing
@@ -1180,6 +1195,7 @@ useEffect(() => {
           targetId={noteViewingTarget}
           notes={noteViewingTarget ? (graphData.notes?.[noteViewingTarget] || []) : []}
           onClose={handleCloseNoteViewing}
+          shouldTypewriter={typewriterRef.current}
         />
 
         {DEV_MODE && (
