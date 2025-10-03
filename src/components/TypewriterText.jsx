@@ -9,44 +9,52 @@ import * as React from 'react';
 export default function TypewriterText({
   text = '',
   enabled = false,
-  intervalMs = 18,  // speed; tweak to taste
+  durationMs = 1500, // ← Total duration
   className = ''
 }) {
   const [out, setOut] = React.useState(() => (enabled ? '' : text));
-  const iRef = React.useRef(0);
-  const timerRef = React.useRef(null);
+  const rafRef = React.useRef(null);
+  const startTimeRef = React.useRef(null);
 
   React.useEffect(() => {
-    // If not enabled, show all immediately
     if (!enabled) {
       setOut(text);
       return;
     }
-    // Reset
-    setOut('');
-    iRef.current = 0;
 
-    // Guard empty text
+    setOut('');
+    startTimeRef.current = null;
+
     if (!text || text.length === 0) return;
 
-    timerRef.current = setInterval(() => {
-      iRef.current += 1;
-      if (iRef.current >= text.length) {
-        setOut(text);
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      } else {
-        setOut(text.slice(0, iRef.current));
+    const animate = (currentTime) => {
+      if (!startTimeRef.current) {
+        startTimeRef.current = currentTime;
       }
-    }, intervalMs);
 
-    return () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
+      const elapsed = currentTime - startTimeRef.current;
+      const progress = Math.min(elapsed / durationMs, 1);
+      const charCount = Math.floor(progress * text.length);
+
+      setOut(text.slice(0, charCount));
+
+      if (progress < 1) {
+        rafRef.current = requestAnimationFrame(animate);
+      } else {
+        setOut(text); // Ensure full text
+        rafRef.current = null;
       }
     };
-  }, [enabled, text, intervalMs]);
+
+    rafRef.current = requestAnimationFrame(animate);
+
+    return () => {
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+    };
+  }, [enabled, text, durationMs]);
 
   return <div className={className} style={{ whiteSpace: 'pre-wrap' }}>{out}</div>;
 }
