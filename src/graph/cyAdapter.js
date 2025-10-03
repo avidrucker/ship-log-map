@@ -13,7 +13,7 @@
  * - mountCy(container, opts) -> cy
  * - syncElements(cy, {nodes, edges})
  * - wireEvents(cy, callbacks)
- * - updateNoteCounts(cy, counts)
+ * - updateOverlays(cy, notes, showNoteCountOverlay)
  *
  * Contracts
  * - Receives dumb data (no Cytoscape instances); returns no domain mutations.
@@ -31,12 +31,12 @@ import { loadImageWithFallback, imageCache, getDefaultPlaceholderSvg, ensureDefa
 import { printDebug } from "../utils/debug.js"; // printWarn
 import { installAppearOnAdd } from '../anim/appear.js';
 import { isSearchInProgress, isCurrentSearchSelection, getCurrentSearchIds } from '../search/searchHighlighter.js';
+import { ensure as ensureOverlays, refreshPositions as refreshOverlayPositions, attach as attachOverlayManager, detach as detachOverlayManager, setNoteCountsVisible } from './overlayManager.js';
 
 // Cache for grayscale images to avoid reprocessing
 const GRAYSCALE_CACHE_KEY = 'shipLogGrayscaleCache';
 const grayscaleCache = new Map();
 const pendingConversions = new Set();
-const BASE_NODE_HEIGHT = 175;
 
 // Track pending image loads to prevent duplicate requests
 const pendingImageLoads = new Set();
@@ -180,6 +180,48 @@ export function updateCompletedGrayscaleImages(cy, graph) {
   return updated;
 }
 
+/**
+ * Update overlays from a notes object and visibility flag.
+ * IMPORTANT: While a node is being dragged, we only reposition overlays
+ * (cheap) instead of re-ensuring/recreating them (expensive). This stops
+ * badges from “flying” or snapping.
+ */
+export function updateOverlays(cy, notes, showNoteCountOverlay, visited = null) {
+  if (!cy || cy.destroyed()) return;
+
+  // If drag in progress, just reposition what already exists.
+  const dragging = !!cy.scratch('_overlay_dragging');
+  if (dragging) {
+    refreshOverlayPositions(cy);
+    setNoteCountsVisible(cy, showNoteCountOverlay);
+    return;
+  }
+  
+  // Build node/edge note counts from notes object
+  const nodeNoteCounts = new Map();
+  const edgeNoteCounts = new Map();
+  
+  Object.entries(notes).forEach(([id, noteArray]) => {
+    const count = Array.isArray(noteArray) ? noteArray.length : 0;
+    if (count > 0) {
+      const ele = cy.getElementById(id);
+      if (ele.length) {
+        if (ele.isNode()) nodeNoteCounts.set(id, count);
+        else if (ele.isEdge()) edgeNoteCounts.set(id, count);
+      }
+    }
+  });
+  
+  // Ensure overlays exist & are correct
+  ensureOverlays(cy, {
+    nodeNoteCounts,
+    edgeNoteCounts,
+    visited: visited || { nodes: new Set(), edges: new Set() }
+  });
+
+  setNoteCountsVisible(cy, showNoteCountOverlay);
+}
+
 // Convert domain graph -> Cytoscape elements (now synchronous with fallback)
 export function buildElementsFromDomain(graph, options = {}) {
   const { mode = 'editing', onImageLoaded = null, forceImageLoad = false, cdnBaseUrlOverride = undefined, markAsNew = false } = options;
@@ -206,8 +248,7 @@ export function buildElementsFromDomain(graph, options = {}) {
     // Handle "unspecified" or missing image URLs -> use CDN placeholder if available, else test icon
     if (!imageUrl || imageUrl === "unspecified") {
       imageUrl = defaultPlaceholder || TEST_ICON_SVG;
-    }    // If not a data URL and not the test SVG, check if we need to use the loader system
-    else if (imageUrl !== TEST_ICON_SVG && !imageUrl.startsWith('data:')) {
+    } else if (imageUrl !== TEST_ICON_SVG && !imageUrl.startsWith('data:')) {
       printDebug(`🔍 [cyAdapter] Processing non-data-URL image: ${imageUrl}, forceImageLoad: ${forceImageLoad}`);
       const cacheKey = `${g.mapName || ''}:${imageUrl}`;
       if (imageCache.has(cacheKey)) {
@@ -219,7 +260,7 @@ export function buildElementsFromDomain(graph, options = {}) {
         if (!pendingImageLoads.has(loadKey)) {
           pendingImageLoads.add(loadKey);
           printDebug(`🔄 [cyAdapter] Starting image load for: ${imageUrl}`);
-          // IMPORTANT: we must update the CHILD node ("id__entry") because that's where imageUrl lives.
+          // IMPORTANT: update the CHILD node ("id__entry") where imageUrl lives.
           const parentIdForNode = n.id;
           const entryChildIdForNode = `${parentIdForNode}__entry`;
           const originalImageUrl = imageUrl;
@@ -263,7 +304,6 @@ export function buildElementsFromDomain(graph, options = {}) {
          imageUrl.startsWith('data:image/webp;')) && 
         imageUrl !== TEST_ICON_SVG) {
       
-      // Try to find grayscale version using original path first, then data URL
       const originalPath = n.imageUrl; // The original filename
       let cached = grayscaleCache.get(originalPath);
       if (!cached || typeof cached !== 'string') {
@@ -281,11 +321,7 @@ export function buildElementsFromDomain(graph, options = {}) {
     
     const parentId = n.id; // domain id becomes parent container id
     const entryChildId = `${parentId}__entry`; // child visual node
-    
-    // Create initial style for new nodes to prevent blip
-    // ... but use classes instead of manual styles
     const entryClasses = markAsNew ? 'entry node-entering' : 'entry';
-    
     
     return [
       {
@@ -307,8 +343,6 @@ export function buildElementsFromDomain(graph, options = {}) {
     ];
   }).flat();
 
-  // Process edges (unchanged)
-
   const edges = g.edges.map(e => ({
     group: "edges",
     data: {
@@ -317,7 +351,7 @@ export function buildElementsFromDomain(graph, options = {}) {
       target: e.target,
       direction: e.direction ?? "forward"
     },
-    selectable: true // Always selectable, but behavior differs by mode
+    selectable: true
   }));
 
   return [...nodes, ...edges];
@@ -365,16 +399,16 @@ export async function mountCy({ container, graph, styles = cytoscapeStyles, mode
 
     const isActive = currentActiveCy === cy && !cy.destroyed();
     if (!isActive) {
-      // Queue and also attempt to apply to active instance directly
       console.warn(`🔁 [cyAdapter] Received image for inactive/destroyed instance. Forwarding to active instance. node=${nodeId}`);
-      pendingNodeImageUpdates.push({ nodeId, imageUrl });        if (currentActiveCy && !currentActiveCy.destroyed()) {
-          const activeNode = currentActiveCy.getElementById(nodeId);
-          if (activeNode.length) {
-            activeNode.data('imageUrl', imageUrl);
-            currentActiveCy.style().update();
-            printDebug(`✅ [cyAdapter] Applied image update to active instance for node ${nodeId}`);
-          }
+      pendingNodeImageUpdates.push({ nodeId, imageUrl });
+      if (currentActiveCy && !currentActiveCy.destroyed()) {
+        const activeNode = currentActiveCy.getElementById(nodeId);
+        if (activeNode.length) {
+          activeNode.data('imageUrl', imageUrl);
+          currentActiveCy.style().update();
+          printDebug(`✅ [cyAdapter] Applied image update to active instance for node ${nodeId}`);
         }
+      }
       return;
     }
 
@@ -396,8 +430,6 @@ export async function mountCy({ container, graph, styles = cytoscapeStyles, mode
 
   // Check if any images need to be loaded
   const { nodes } = graph;
-  // On every mount, clear any stale pendingImageLoads from previous (StrictMode) mount so loads can re-subscribe
-  // (We keep cache entries; only the in-flight markers are reset.)
   if (typeof window !== 'undefined' && pendingImageLoads.size > 0) {
     printDebug(`♻️ [cyAdapter] Clearing ${pendingImageLoads.size} stale pendingImageLoads for new mount`);
     pendingImageLoads.clear();
@@ -408,15 +440,14 @@ export async function mountCy({ container, graph, styles = cytoscapeStyles, mode
       return false;
     }
     const cacheKey = `${graph.mapName || ''}:${imageUrl}`;
-    return !imageCache.has(cacheKey); // Needs loading if not in cache
+    return !imageCache.has(cacheKey);
   });
 
-  const cdnBaseUrlOverride = graph.cdnBaseUrl; // pass through (avoid race with localStorage persistence)
+  const cdnBaseUrlOverride = graph.cdnBaseUrl;
 
   if (needsImageLoading) {
     printDebug(`⏳ [cyAdapter] Some images need loading, mounting with placeholders first...`);
     
-    // Mount with placeholders first for immediate display
     const elements = buildElementsFromDomain(graph, { mode, onImageLoaded, forceImageLoad: true, cdnBaseUrlOverride });
     printDebug(`🚀 [cyAdapter] Mounting cytoscape with image loading enabled`);
     
@@ -425,30 +456,33 @@ export async function mountCy({ container, graph, styles = cytoscapeStyles, mode
       style: styles,
       elements,
       selectionType: mode === 'editing' ? "additive" : "single",
-      // wheelSensitivity: 0.5,
       pixelRatio: 1,
+      motionBlur: false,
+      textureOnViewport: true,
       layout: { name: 'preset' }
     });
 
-    // Install appear animation for new nodes (skip initial render)
     const detachAppearAnimation = installAppearOnAdd(cy, { 
       skipInitial: true,
-      onlyWhenFlag: 'isNewlyCreated' // Optional: only animate nodes marked as new
+      onlyWhenFlag: 'isNewlyCreated'
     });
 
-    // Attach destroy listener for placeholder unsubscribe AND animation cleanup
+    attachOverlayManager(cy);
+// Kill any queued animations that were scheduled pre-attach
+try { cy.$('node.edge-note-count, node.edge-unseen, node.note-count, node.unseen').stop(true, true); } catch {}
+
     try { 
       cy.on('destroy', () => { 
         try { 
           unsubscribePlaceholder(); 
-          detachAppearAnimation?.(); // Clean up animation listener
+          detachAppearAnimation?.();
+          detachOverlayManager(cy);
         } catch { /* noop */ } 
       }); 
     } catch { /* noop */ }
 
-    currentActiveCy = cy; // mark active
+    currentActiveCy = cy;
     
-    // Apply any queued image updates that completed before this active instance was ready
     if (pendingNodeImageUpdates.length) {
       printDebug(`📦 [cyAdapter] Applying ${pendingNodeImageUpdates.length} queued image updates after mount`);
       pendingNodeImageUpdates.splice(0).forEach(({ nodeId, imageUrl }) => {
@@ -460,7 +494,6 @@ export async function mountCy({ container, graph, styles = cytoscapeStyles, mode
   } else {
     printDebug(`✅ [cyAdapter] All images are cached, mounting with cached images...`);
     
-    // All images are cached, build with them directly
     const elements = buildElementsFromDomain(graph, { mode, onImageLoaded, forceImageLoad: false, cdnBaseUrlOverride });
     printDebug(`🚀 [cyAdapter] Mounting cytoscape with cached images`);
     
@@ -469,26 +502,32 @@ export async function mountCy({ container, graph, styles = cytoscapeStyles, mode
       style: styles,
       elements,
       selectionType: mode === 'editing' ? "additive" : "single",
-      // wheelSensitivity: 0.5,
       pixelRatio: 1,
+      motionBlur: false,
+      textureOnViewport: true,
       layout: { name: 'preset' }
     });
-    // Install appear animation for new nodes (skip initial render)
+
     const detachAppearAnimation = installAppearOnAdd(cy, { 
       skipInitial: true,
-      onlyWhenFlag: 'isNewlyCreated' // Optional: only animate nodes marked as new
+      onlyWhenFlag: 'isNewlyCreated'
     });
     
+    attachOverlayManager(cy);
+// Kill any queued animations that were scheduled pre-attach
+try { cy.$('node.edge-note-count, node.edge-unseen, node.note-count, node.unseen').stop(true, true); } catch {}
+
     try { 
       cy.on('destroy', () => { 
         try { 
           unsubscribePlaceholder(); 
-          detachAppearAnimation?.(); // Clean up animation listener
+          detachAppearAnimation?.();
+          detachOverlayManager(cy);
         } catch { /* noop */ } 
       }); 
     } catch { /* noop */ }
 
-    currentActiveCy = cy; // mark active
+    currentActiveCy = cy;
 
     if (pendingNodeImageUpdates.length) {
       printDebug(`📦 [cyAdapter] Applying ${pendingNodeImageUpdates.length} queued image updates after mount (cached path)`);
@@ -503,13 +542,10 @@ export async function mountCy({ container, graph, styles = cytoscapeStyles, mode
 
 // Replace elements with a fresh build from the domain state
 export function syncElements(cy, graph, options = {}) {
-  // Track which nodes are new for animation
   const existingNodeIds = new Set(cy.nodes('.entry-parent').map(n => n.id()));
   
-  // Local helper used by the deferred post-pass below
   const onImageLoaded = (nodeId, imageUrl) => {
     if (!cy || cy.destroyed()) return;
-    // Make sure we're updating the child entry node
     if (nodeId && !nodeId.endsWith('__entry')) {
       const possibleChild = `${nodeId}__entry`;
       if (cy.getElementById(possibleChild).length > 0) nodeId = possibleChild;
@@ -523,8 +559,6 @@ export function syncElements(cy, graph, options = {}) {
 
   const { mode = 'editing' } = options;
 
-  // Build elements with placeholders (forceImageLoad: false) —
-  // actual network loads will be handled by the post-pass we add below.
   const newElements = buildElementsFromDomain(
     graph,
     { ...options, onImageLoaded, forceImageLoad: false, cdnBaseUrlOverride: graph.cdnBaseUrl }
@@ -532,22 +566,6 @@ export function syncElements(cy, graph, options = {}) {
 
   printDebug(`🔄 [cyAdapter] Syncing elements`);
 
-// *** PRESERVE NOTE COUNT NODES BEFORE SYNC ***
-  const noteCountNodes = [];
-  cy.nodes('.note-count').forEach(node => {
-    noteCountNodes.push({
-      id: node.id(),
-      data: { ...node.data() },
-      position: { ...node.position() },
-      classes: node.classes().join(' '),
-      selected: node.selected(),
-      hidden: node.hasClass('hidden')
-    });
-  });
-  
-  printDebug(`🔄 [cyAdapter] Preserved ${noteCountNodes.length} note count nodes before sync`);
-
-  // Preserve camera & positions
   const currentZoom = cy.zoom();
   const currentPan = cy.pan();
   const currentPositions = {};
@@ -561,7 +579,6 @@ export function syncElements(cy, graph, options = {}) {
   const edgesChanged = JSON.stringify(currentEdges) !== JSON.stringify(newEdges);
 
   if (!nodesChanged && !edgesChanged) {
-    // Only data refresh - no new nodes, no animations
     newElements.forEach(newEl => {
       if (newEl.group === 'nodes') {
         const existingNode = cy.getElementById(newEl.data.id);
@@ -572,10 +589,6 @@ export function syncElements(cy, graph, options = {}) {
       }
     });
   } else {
-    // Full element set replace (but restore positions & camera)
-    // identify new nodes and build them with zero height
-
-    // Identify which nodes are truly new
     const newNodeIds = new Set();
     newElements.filter(e => e.group === 'nodes' && e.data.id.endsWith('__entry')).forEach(el => {
       const parentId = el.data.parent;
@@ -584,24 +597,20 @@ export function syncElements(cy, graph, options = {}) {
       }
     });
     
-    // Modify new entry elements to have the entering class
     const modifiedElements = newElements.map(el => {
       if (el.group === 'nodes' && el.data.id.endsWith('__entry')) {
         const parentId = el.data.parent;
         if (parentId && newNodeIds.has(parentId)) {
-          // This is a new entry node - add entering class
           return {
             ...el,
             classes: el.classes ? `${el.classes} node-entering` : 'entry node-entering',
             data: { ...el.data, isNewlyCreated: true }
-            // Remove: style: { ...el.style, height: 0 }
           };
         }
       }
       return el;
     });
 
-    // Replace elements with modified ones
     cy.json({ elements: modifiedElements });
 
     cy.nodes().forEach(node => {
@@ -611,107 +620,21 @@ export function syncElements(cy, graph, options = {}) {
     cy.zoom(currentZoom);
     cy.pan(currentPan);
 
-    // *** TRIGGER CSS ANIMATIONS BY REMOVING CLASSES ***
-    // Use a small delay to ensure DOM is ready, then remove entering class to trigger transition
     setTimeout(() => {
       newNodeIds.forEach(parentId => {
         const entryNode = cy.getElementById(`${parentId}__entry`);
         if (entryNode.length > 0) {
           printDebug(`🎬 [cyAdapter] Triggering CSS animation for: ${entryNode.id()}`);
-          
-          // Remove the entering class to trigger CSS transition to normal height
           entryNode.removeClass('node-entering');
-          
-          // Clean up the flag after animation duration
           setTimeout(() => {
             entryNode.data('isNewlyCreated', null);
             printDebug(`✅ [cyAdapter] CSS animation complete for: ${entryNode.id()}`);
-          }, 600); // Match the CSS transition duration
+          }, 600);
         }
       });
-    }, 50); // Small delay to ensure initial state is rendered
+    }, 50);
   }
 
-  // *** RESTORE NOTE COUNT NODES AFTER SYNC ***
-  noteCountNodes.forEach(nodeData => {
-    try {
-      // Check if a note count node with this ID already exists
-      if (cy.getElementById(nodeData.id).length === 0) {
-        
-        // FOR NODE NOTE COUNTS: Check if parent still exists
-        if (nodeData.id.endsWith('__noteCount') && !nodeData.classes.includes('edge-note-count')) {
-          const parentId = nodeData.data.parent;
-          const parentExists = parentId && cy.getElementById(parentId).length > 0;
-          
-          if (!parentExists) {
-            printDebug(`🧹 [cyAdapter] Skipping restoration of orphaned node note-count: ${nodeData.id} (parent ${parentId} no longer exists)`);
-            return; // Skip this note count node
-          }
-        }
-        
-        // FOR EDGE NOTE COUNTS: Check if edge still exists  
-        if (nodeData.classes.includes('edge-note-count')) {
-          const edgeId = nodeData.data.edgeId;
-          const edgeExists = edgeId && cy.getElementById(edgeId).length > 0;
-          
-          if (!edgeExists) {
-            printDebug(`🧹 [cyAdapter] Skipping restoration of orphaned edge note-count: ${nodeData.id} (edge ${edgeId} no longer exists)`);
-            return; // Skip this note count node
-          }
-        }
-        
-        // Only restore if parent/edge still exists
-        const restoredNode = cy.add({
-          group: 'nodes',
-          data: nodeData.data,
-          position: nodeData.position,
-          classes: nodeData.classes
-        });
-        
-        // Restore selection and visibility state
-        if (nodeData.selected) {
-          restoredNode.select();
-        }
-        if (nodeData.hidden) {
-          restoredNode.addClass('hidden');
-        }
-        
-        printDebug(`✅ [cyAdapter] Restored note count node: ${nodeData.id}`);
-      }
-    } catch (error) {
-      console.warn(`Failed to restore note count node ${nodeData.id}:`, error);
-    }
-  });
-
-  // *** CLEAN UP ANY REMAINING ORPHANED NOTE COUNTS ***
-  // This handles edge cases where note counts might still be orphaned
-  cy.nodes('.note-count').forEach(n => {
-    let shouldRemove = false;
-    
-    // Check node note counts
-    if (n.id().endsWith('__noteCount') && !n.hasClass('edge-note-count')) {
-      const parent = n.parent();
-      if (parent.length === 0 || !parent.hasClass('entry-parent')) {
-        shouldRemove = true;
-        printDebug(`🧹 [cyAdapter] Removing orphaned node note-count after sync: ${n.id()}`);
-      }
-    }
-    
-    // Check edge note counts
-    if (n.hasClass('edge-note-count')) {
-      const edgeId = n.data('edgeId');
-      if (!edgeId || cy.getElementById(edgeId).length === 0) {
-        shouldRemove = true;
-        printDebug(`🧹 [cyAdapter] Removing orphaned edge note-count after sync: ${n.id()}`);
-      }
-    }
-    
-    if (shouldRemove) {
-      cy.remove(n);
-    }
-  });
-
-  // Enforce grabbable only on parents; children always ungrabbable
   const expectedParentGrabbable = mode === 'editing';
   cy.nodes().forEach(n => {
     if (n.hasClass('entry-parent')) {
@@ -721,7 +644,6 @@ export function syncElements(cy, graph, options = {}) {
     }
   });
 
-  // Ensure each parent has an entry child
   cy.nodes('.entry-parent').forEach(parent => {
     const parentId = parent.id();
     const entryChildId = `${parentId}__entry`;
@@ -732,7 +654,7 @@ export function syncElements(cy, graph, options = {}) {
           id: entryChildId,
           parent: parentId,
           label: parent.data('label') || '',
-          size: parent.data('size') || 'regular',
+        size: parent.data('size') || 'regular',
           color: parent.data('color') || 'gray'
         },
         position: parent.position(),
@@ -743,11 +665,6 @@ export function syncElements(cy, graph, options = {}) {
     }
   });
 
-  // ────────────────────────────────────────────────────────────────
-  // Deferred image bootstrapping (Fix A.2):
-  // If we previously built with placeholders because cdnBaseUrl was unknown,
-  // start exactly one load per missing image now that we (likely) have it.
-  // ────────────────────────────────────────────────────────────────
   try {
     const g = deserializeGraph(graph);
     const mapName = g.mapName || 'default_map';
@@ -759,16 +676,15 @@ export function syncElements(cy, graph, options = {}) {
       g.nodes.forEach(n => {
         const orig = n.imageUrl;
         if (!orig || orig === 'unspecified' || typeof orig !== 'string') return;
-        if (orig.startsWith('data:')) return; // already resolved/cached
+        if (orig.startsWith('data:')) return;
 
         const loadKey = `${mapName}:${orig}`;
-        if (imageCache.has(loadKey)) return;          // already cached
-        if (pendingImageLoads.has(loadKey)) {         // already loading
+        if (imageCache.has(loadKey)) return;
+        if (pendingImageLoads.has(loadKey)) {
           printDebug(`⏳ [cyAdapter] syncElements: image already loading ${orig}`);
           return;
         }
 
-        // Mark in-flight and start the network load
         pendingImageLoads.add(loadKey);
         printDebug(`🔄 [cyAdapter] syncElements: starting deferred image load for ${orig}`);
 
@@ -779,7 +695,6 @@ export function syncElements(cy, graph, options = {}) {
             pendingImageLoads.delete(loadKey);
             if (!dataUrl) return;
 
-            // Optional grayscale, mirroring mountCy behavior
             let finalUrl = dataUrl;
             if (
               GRAYSCALE_IMAGES &&
@@ -800,7 +715,6 @@ export function syncElements(cy, graph, options = {}) {
             if (cy && !cy.destroyed()) {
               onImageLoaded(entryChildId, finalUrl);
             } else {
-              // If instance disappeared mid-load, queue for next active instance
               pendingNodeImageUpdates.push({ nodeId: entryChildId, imageUrl: finalUrl });
             }
           })
@@ -814,14 +728,15 @@ export function syncElements(cy, graph, options = {}) {
     printDebug(`⚠️ [cyAdapter] syncElements: deferred image bootstrapping failed: ${e?.message || e}`);
   }
 
+  refreshOverlayPositions(cy);
+
   return cy;
 }
 
 export function wireEvents(cy, handlers = {}, mode = 'editing') {
   printDebug(`🔌 [cyAdapter] Wiring events (parent-only) mode=${mode}`);
-  const { onNodeSelectionChange, onEdgeSelectionChange, onNodeClick, onEdgeClick, onNodeDoubleClick, onEdgeDoubleClick, onBackgroundClick, onNodeMove } = handlers; //onZoomChange, onCameraMove
+  const { onNodeSelectionChange, onEdgeSelectionChange, onNodeClick, onEdgeClick, onNodeDoubleClick, onEdgeDoubleClick, onBackgroundClick, onNodeMove } = handlers;
 
-  // Helper to sync selection/active classes from parent to entry child
   const syncParentStateToChild = (parent) => {
     const parentId = parent.id();
     const entryChildId = `${parentId}__entry`;
@@ -831,10 +746,8 @@ export function wireEvents(cy, handlers = {}, mode = 'editing') {
     if (parent.grabbed() || parent.active()) child.addClass('parent-active'); else child.removeClass('parent-active');
   };
 
-  // Initial pass
   cy.nodes('.entry-parent').forEach(syncParentStateToChild);
 
-  // Selection events (parents only)
   cy.on('select unselect', 'node.entry-parent', (evt) => {
     const parent = evt.target; 
     syncParentStateToChild(parent);
@@ -843,14 +756,11 @@ export function wireEvents(cy, handlers = {}, mode = 'editing') {
 
     if (evt.type === 'unselect') {
       printDebug(`❌ UNSELECT EVENT: ${parent.id()}`);
-      printDebug(`❌ Stack trace:`, new Error().stack); // ← Add this to see what called it
+      printDebug(`❌ Stack trace:`, new Error().stack);
       printDebug(`❌ Search in progress: ${isSearchInProgress()}`);
       printDebug(`❌ Current search IDs: [${getCurrentSearchIds().join(', ')}]`);
     }
 
-    // *** CLEAR SEARCH HIGHLIGHTS WHEN NODE SELECTION CHANGES ***
-    // Only clear if this is a new selection (not part of search results)
-    // *** ONLY CLEAR SEARCH HIGHLIGHTS IF NOT IN PROGRESS ***
     if (evt.type === 'select' && !isSearchInProgress()) {
       setTimeout(() => {
         const selectedNodes = cy.$('node.entry-parent:selected');
@@ -861,8 +771,6 @@ export function wireEvents(cy, handlers = {}, mode = 'editing') {
         if (!isSearchRelatedSelection) {
           printDebug(`🧹 CLEARING search highlights - non-search selection detected`);
           cy.elements('.search-glow').removeClass('search-glow');
-          // Clear the search tracking since user made a new selection
-          // (you'll need to import clearCurrentSearch)
         } else {
           printDebug(`🧹 NOT clearing search highlights - maintaining search selection`);
         }
@@ -877,28 +785,25 @@ export function wireEvents(cy, handlers = {}, mode = 'editing') {
   });
 
   cy.on('select unselect', 'edge', (evt) => {
-    // *** CLEAR SEARCH HIGHLIGHTS WHEN EDGE SELECTION CHANGES ***
-  // Only clear if this is a new selection (not part of search results)
-  if (evt.type === 'select' && !evt.target.hasClass('search-glow')) {
-    cy.elements('.search-glow').removeClass('search-glow');
-  }
-  
-  if (onEdgeSelectionChange) onEdgeSelectionChange(cy.$('edge:selected').map(e => e.id()));
+    if (evt.type === 'select' && !evt.target.hasClass('search-glow')) {
+      cy.elements('.search-glow').removeClass('search-glow');
+    }
+    if (onEdgeSelectionChange) onEdgeSelectionChange(cy.$('edge:selected').map(e => e.id()));
   });
 
-  // Grab/drag state -> active styling
+  // Drag state -> also flag dragging so updateOverlays() only repositions
   cy.on('grab free drag', 'node.entry-parent', (evt) => {
     syncParentStateToChild(evt.target);
+    if (evt.type === 'grab' || evt.type === 'drag') cy.scratch('_overlay_dragging', true);
+    if (evt.type === 'free') cy.scratch('_overlay_dragging', false);
   });
 
   if (mode === 'playing') {
     cy.on('select', (evt) => {
-      // *** DON'T INTERFERE WITH SEARCH OPERATIONS ***
       if (isSearchInProgress()) {
         printDebug(`🎮 Playing mode: ignoring select event during search for ${evt.target.id()}`);
-        return; // Let search handle multi-selection
+        return;
       }
-      
       if (evt.target.isNode() || evt.target.isEdge()) {
         const selected = evt.target; 
         setTimeout(() => { 
@@ -910,48 +815,34 @@ export function wireEvents(cy, handlers = {}, mode = 'editing') {
 
   cy.on('tap', 'node.entry-parent', (evt) => {
     const nodeId = evt.target.id();
-    
     if (mode === 'playing') {
-      // Always call onNodeClick in playing mode - let App.jsx handle the logic
-      if (onNodeClick) {
-        onNodeClick(nodeId, 'node');
-      }
-      
-      // Handle selection state explicitly in playing mode
+      if (onNodeClick) onNodeClick(nodeId, 'node');
       const node = evt.target;
       const wasSelected = node.selected();
-      
       setTimeout(() => {
-        if (wasSelected) {
-          // If it was selected, unselect it
-          node.unselect();
-        } else {
-          // If it wasn't selected, select it (but App.jsx will handle the note viewing)
-          cy.elements().unselect(); // Clear other selections first
+        if (wasSelected) node.unselect();
+        else {
+          cy.elements().unselect();
           node.select();
         }
       }, 0);
-      
       return;
     }
-    
-    // In editing mode, just call onNodeClick normally
     if (onNodeClick) onNodeClick(evt.target.id(), 'node');
   });
 
   cy.on('tap', 'edge', (evt) => {
     if (mode === 'playing') {
       const e = evt.target; const was = e.selected();
-      setTimeout(() => { if (was) e.unselect(); else if (onEdgeClick) onEdgeClick(e.id(), 'edge'); }, 0); return;
+      setTimeout(() => { if (was) e.unselect(); else if (onEdgeClick) onEdgeClick(e.id(), 'edge'); }, 0); 
+      return;
     }
     if (onEdgeClick) onEdgeClick(evt.target.id(), 'edge');
   });
   
-  // when tapping on the background (deselect all)
   cy.on('tap', (evt) => { 
     if (evt.target === cy) { 
       cy.elements().unselect(); 
-      // *** CLEAR SEARCH HIGHLIGHTS WHEN CLICKING BACKGROUND ***
       cy.elements('.search-glow').removeClass('search-glow');
       if (onBackgroundClick) onBackgroundClick(); 
     } 
@@ -964,26 +855,16 @@ export function wireEvents(cy, handlers = {}, mode = 'editing') {
   cy.on('dragfree', 'node.entry-parent', (evt) => {
     syncParentStateToChild(evt.target);
     if (onNodeMove) { const { x, y } = evt.target.position(); onNodeMove(evt.target.id(), { x, y }); }
-    
-    // Update edge note-count positions immediately after drag
-    // We need to get notes from somewhere - let's add it to the handlers
-    if (handlers.notes) {
-      updateNoteCounts(cy, handlers.notes);
-    }
+    refreshOverlayPositions(cy);
   });
 
-  // Add mouseup, wheel, touchend, and touchmove listeners to trigger camera update only after pan/zoom ends
   const container = cy.container();
 
   function handleCameraUpdate(source) {
     printDebug(`Camera update triggered by: ${source}`);
-    // if (handlers.onZoomChange) handlers.onZoomChange(cy.zoom());
-    // if (handlers.onCameraMove) handlers.onCameraMove({ x: cy.pan().x, y: cy.pan().y });
   }
 
-  function mouseupHandler() {
-    handleCameraUpdate('mouseup');
-  }
+  function mouseupHandler() { handleCameraUpdate('mouseup'); }
   container.addEventListener('mouseup', mouseupHandler);
 
   let wheelTimer = null;
@@ -992,13 +873,11 @@ export function wireEvents(cy, handlers = {}, mode = 'editing') {
     wheelTimer = setTimeout(() => {
       handleCameraUpdate('wheel');
       wheelTimer = null;
-    }, 200); // 200ms debounce after last wheel event
+    }, 200);
   }
   container.addEventListener('wheel', debouncedWheelHandler);
 
-  function touchEndHandler() {
-    handleCameraUpdate('touchend');
-  }
+  function touchEndHandler() { handleCameraUpdate('touchend'); }
   container.addEventListener('touchend', touchEndHandler);
 
   let touchMoveTimer = null;
@@ -1007,7 +886,7 @@ export function wireEvents(cy, handlers = {}, mode = 'editing') {
     touchMoveTimer = setTimeout(() => {
       handleCameraUpdate('touchmove');
       touchMoveTimer = null;
-    }, 120); // 120ms debounce after last touchmove
+    }, 120);
   }
   container.addEventListener('touchmove', debouncedTouchMoveHandler);
 
@@ -1024,206 +903,6 @@ export function wireEvents(cy, handlers = {}, mode = 'editing') {
     if (wheelTimer) clearTimeout(wheelTimer);
     if (touchMoveTimer) clearTimeout(touchMoveTimer);
   };
-}
-
-export function ensureNoteCountNodes(cy, notes, visible) {
-  if (!cy) return; 
-  if (cy._noteCountUpdating) return; 
-  
-  // Ensure cy is not destroyed before proceeding
-  if (cy.destroyed()) return;
-  
-  cy._noteCountUpdating = true;
-  
-  try {
-
-    // Clean up orphaned note-count nodes first (nodes whose parents no longer exist)
-    cy.nodes('.note-count').forEach(n => {
-      const isNodeNote = n.id().endsWith('__noteCount') && n.parent() && n.parent().length > 0 && n.parent().hasClass('entry-parent');
-      const isEdgeNote = n.id().endsWith('__noteCount') && n.hasClass('edge-note-count');
-      
-      // For edge notes, check if the corresponding edge still exists
-      if (isEdgeNote) {
-        const edgeId = n.data('edgeId');
-        if (edgeId && cy.getElementById(edgeId).length === 0) {
-          printDebug(`🧹 [cyAdapter] Removing orphaned edge note-count for missing edge: ${edgeId}`);
-          cy.remove(n);
-          return;
-        }
-      }
-      
-      // Remove if it's neither a valid node note nor edge note
-      if (!isNodeNote && !isEdgeNote) {
-        printDebug(`🧹 [cyAdapter] Removing orphaned note-count node: ${n.id()}`);
-        cy.remove(n);
-      }
-    });
-
-    // Handle node note-counts (only create if count > 0)
-    cy.nodes('.entry-parent').forEach(parent => {
-      const id = parent.id();
-      const size = parent.data('size') || 'regular';
-      const count = Array.isArray(notes[id]) ? notes[id].length : 0;
-      const noteId = `${id}__noteCount`;
-      let noteNode = cy.getElementById(noteId);
-      
-      if (count > 0) {
-        // Create or update node with notes
-        if (noteNode.empty()) {
-          noteNode = cy.add({ 
-            group: 'nodes', 
-            data: { id: noteId, parent: id, label: String(count), size }, 
-            position: parent.position(), 
-            selectable: false, 
-            grabbable: false, 
-            classes: 'note-count' 
-          });
-        } else {
-          noteNode.data('label', String(count));
-          noteNode.data('size', size);
-        }
-        if (visible) noteNode.removeClass('hidden'); 
-        else noteNode.addClass('hidden');
-      } else {
-        // Remove node if no notes
-        if (!noteNode.empty()) {
-          cy.remove(noteNode);
-        }
-      }
-    });
-
-    // Handle edge note-counts (only create if count > 0)
-    cy.edges().forEach(edge => {
-      try {
-        const id = edge.id();
-        const count = Array.isArray(notes[id]) ? notes[id].length : 0;
-        const noteId = `${id}__noteCount`;
-        let noteNode = cy.getElementById(noteId);
-
-        if (count > 0) {
-          // Calculate midpoint position
-          const sourceNode = edge.source();
-          const targetNode = edge.target();
-          
-          // Skip if edge references non-existent nodes
-          if (!sourceNode || !targetNode || sourceNode.length === 0 || targetNode.length === 0) {
-            return;
-          }
-          
-          const srcPos = sourceNode.position();
-          const tgtPos = targetNode.position();
-          const offsetY = -BASE_NODE_HEIGHT / 8;
-          const midX = (srcPos.x + tgtPos.x) / 2;
-          const midY = (srcPos.y + tgtPos.y) / 2 + offsetY;
-
-          if (noteNode.empty()) {
-            noteNode = cy.add({
-              group: 'nodes',
-              data: { 
-                id: noteId, 
-                edgeId: edge.id(),
-                label: String(count), 
-                size: 'small' 
-              },
-              position: { x: midX, y: midY },
-              selectable: false,
-              grabbable: false,
-              classes: 'note-count edge-note-count'
-            });
-          } else {
-            noteNode.data('label', String(count));
-            noteNode.position({ x: midX, y: midY });
-          }
-          if (visible) noteNode.removeClass('hidden'); 
-          else noteNode.addClass('hidden');
-        } else {
-          // Remove edge note-count if no notes
-          if (!noteNode.empty()) {
-            cy.remove(noteNode);
-          }
-        }
-      } catch (error) {
-        console.warn(`Failed to process edge note-count for edge ${edge.id()}:`, error);
-      }
-    });
-
-    // Clean up orphaned note-count nodes
-    cy.nodes('.note-count').forEach(n => {
-      const isNodeNote = n.id().endsWith('__noteCount') && n.parent() && n.parent().hasClass('entry-parent');
-      const isEdgeNote = n.id().endsWith('__noteCount') && n.hasClass('edge-note-count');
-      if (!isNodeNote && !isEdgeNote) {
-        cy.remove(n);
-      }
-    });
-  } finally { 
-    cy._noteCountUpdating = false; 
-  }
-}
-
-export function updateEdgeCountNodePositions(cy) {
-  // For each edge-note-count node, compute the midpoint of its edge
-  const counters = cy.$('node.edge-note-count');
-  counters.forEach(n => {
-    const edgeId = n.data('edgeId');
-    if (!edgeId) return;
-    const e = cy.getElementById(edgeId);
-    if (!e || e.empty()) return;
-
-    const p1 = e.source().position();
-    const p2 = e.target().position();
-    const offsetY = -BASE_NODE_HEIGHT / 8;
-    const mid = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 + offsetY };
-
-    n.position(mid);
-  });
-}
-
-export function updateNoteCounts(cy, notes) {
-  if (!cy || cy._noteCountUpdating) return;
-  
-  // Ensure cy is not destroyed before proceeding
-  if (cy.destroyed()) return;
-  
-  // Update node note-counts
-  cy.nodes('.note-count').forEach(n => {
-    const parent = n.parent(); 
-    if (!parent.empty()) { 
-      const id = parent.id(); 
-      const count = Array.isArray(notes[id]) ? notes[id].length : 0; 
-      n.data('label', String(count)); 
-      n.data('size', parent.data('size') || 'regular'); 
-    }
-  });
-  
-  // Update edge note-counts and their positions
-  cy.nodes('.edge-note-count').forEach(n => {
-    try {
-      const edgeId = n.id().replace('__noteCount', '');
-      const count = Array.isArray(notes[edgeId]) ? notes[edgeId].length : 0;
-      n.data('label', String(count));
-      
-      // Recompute position in case edge moved
-      const edge = cy.getElementById(edgeId);
-      if (edge && edge.length) {
-        const sourceNode = edge.source();
-        const targetNode = edge.target();
-        
-        // Skip if edge references non-existent nodes
-        if (!sourceNode || !targetNode || sourceNode.length === 0 || targetNode.length === 0) {
-          return;
-        }
-        
-        const srcPos = sourceNode.position();
-        const tgtPos = targetNode.position();
-        const offsetY = -BASE_NODE_HEIGHT / 8;
-        const midX = (srcPos.x + tgtPos.x) / 2;
-        const midY = (srcPos.y + tgtPos.y) / 2 + offsetY;
-        n.position({ x: midX, y: midY });
-      }
-    } catch (error) {
-      console.warn(`Failed to update edge note-count for node ${n.id()}:`, error);
-    }
-  });
 }
 
 export function clearGrayscaleCache() {
@@ -1244,7 +923,6 @@ export function clearGrayscaleCache() {
 }
 
 // Force immediate image update for a specific node
-// This is used when an image is imported and we want to see it immediately
 export async function forceNodeImageUpdate(nodeId, imagePath, mapName, cdnBaseUrl, immediateImageUrl = null) {
   printDebug(`🔄 [cyAdapter] Forcing image update for node ${nodeId} with path: ${imagePath}`);
   
@@ -1262,24 +940,20 @@ export async function forceNodeImageUpdate(nodeId, imagePath, mapName, cdnBaseUr
   try {
     let imageUrl;
     
-    // If we have an immediate image URL (e.g., from fresh import), use it
     if (immediateImageUrl) {
       printDebug(`⚡ [cyAdapter] Using immediate image URL for node ${nodeId}`);
       imageUrl = immediateImageUrl;
     } else {
-      // Otherwise, load from cache/CDN as usual
       imageUrl = await loadImageWithFallback(imagePath, mapName, cdnBaseUrl);
       printDebug(`✅ [cyAdapter] Loaded image for immediate update: ${imageUrl.substring(0, 50)}...`);
     }
     
-    // Apply grayscale if enabled (but not for SVG placeholders)
     let finalImageUrl = imageUrl;
     if (GRAYSCALE_IMAGES && !imageUrl.includes('data:image/svg+xml')) {
       finalImageUrl = await preprocessImageToGrayscale(imageUrl, imagePath);
       printDebug(`🎨 [cyAdapter] Applied grayscale for immediate update`);
     }
     
-    // Update the node immediately
     node.data('imageUrl', finalImageUrl);
     currentActiveCy.style().update();
     printDebug(`✅ [cyAdapter] Successfully updated node ${nodeId} image immediately`);

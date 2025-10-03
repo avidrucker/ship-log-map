@@ -24,8 +24,9 @@ import React, { useEffect, useRef } from "react";
 import {
   mountCy, syncElements, wireEvents,
   hasPendingGrayscaleConversions, updateCompletedGrayscaleImages,
-  ensureNoteCountNodes, updateNoteCounts, updateEdgeCountNodePositions
+  updateOverlays
 } from "../graph/cyAdapter.js";
+import { setNoteCountsVisible, refreshPositions as refreshOverlayPositions } from '../graph/overlayManager.js';
 import { printDebug, printError, printWarn } from "../utils/debug.js";
 
 function CytoscapeGraph({
@@ -101,7 +102,7 @@ function CytoscapeGraph({
   };
 
   // ---- Helpers: attach/detach edge-count (note bubble) live reposition rAF ----
-  const attachEdgeCountLiveUpdater = (cy) => {
+  const attachEdgeCountLiveUpdater = React.useCallback((cy) => {
     let edgeCountRafPending = false;
     const scheduleEdgeCountUpdate = () => {
       if (edgeCountRafPending) return;
@@ -109,9 +110,7 @@ function CytoscapeGraph({
       requestAnimationFrame(() => {
         edgeCountRafPending = false;
         try {
-          updateEdgeCountNodePositions(cy);
-          // Optionally ensure text/counts are current; inexpensive if short-circuited
-          // updateNoteCounts(cy, notes);
+          refreshOverlayPositions(cy);
         } catch (e) {
           printWarn('edge-count update failed:', e);
         }
@@ -134,7 +133,7 @@ function CytoscapeGraph({
       cy.off('add remove', 'node', scheduleEdgeCountUpdate);
     };
     return cleanup;
-  };
+  }, [showNoteCountOverlay]);
 
   // ------------------- Mount once -------------------
   useEffect(() => {
@@ -177,19 +176,9 @@ function CytoscapeGraph({
 
         if (onCytoscapeInstanceReady) onCytoscapeInstanceReady(cy);
 
-        // Bootstrap overlays
-        if (showNoteCountOverlay) {
-          setTimeout(() => {
-            try {
-              ensureNoteCountNodes(cy, notes, showNoteCountOverlay);
-              updateNoteCounts(cy, notes);
-              // make sure initial placement is correct
-              updateEdgeCountNodePositions(cy);
-            } catch (err) {
-              console.warn('Failed to create initial note count overlays:', err);
-            }
-          }, 100);
-        }
+        // Build overlays immediately so the toggle only flips classes
+        try { updateOverlays(cy, notes, showNoteCountOverlay); }
+        catch (err) { console.warn('Failed to create initial note count overlays:', err); }
       } catch (err) {
         printError('Failed to initialize Cytoscape:', err);
       }
@@ -267,7 +256,7 @@ function CytoscapeGraph({
   }, [
     onNodeSelectionChange, onEdgeSelectionChange, onNodeClick, onEdgeClick,
     onNodeDoubleClick, onEdgeDoubleClick, onBackgroundClick, onNodeMove,
-    mode, notes
+    mode, notes, attachEdgeCountLiveUpdater
   ]);
 
   // ------------------- Domain sync (nodes/edges) -------------------
@@ -333,7 +322,7 @@ function CytoscapeGraph({
       syncElements(cy, { nodes, edges, mapName, cdnBaseUrl }, { mode });
 
       // Immediately re-place edge-count nodes post-sync (covers undo, load, etc.)
-      try { updateEdgeCountNodePositions(cy); } catch {
+      try { updateOverlays(cy, notesRef.current, showNoteCountOverlay); } catch {
         printWarn('Failed to update edge count node positions after full sync');
       }
     } else {
@@ -359,7 +348,7 @@ function CytoscapeGraph({
 
       // Nudge edge-count nodes right away so they don't wait for the next event
       if (updatedCount > 0) {
-        try { updateEdgeCountNodePositions(cy); } catch {
+        try { updateOverlays(cy, notesRef.current, showNoteCountOverlay); } catch {
           printWarn('Failed to update edge count node positions after position-only update');
         }
       }
@@ -367,12 +356,21 @@ function CytoscapeGraph({
       // Optional: refresh layout on large changes
       if (updatedCount > 0 && majorChange) {
         syncElements(cy, { nodes, edges, mapName, cdnBaseUrl }, { mode });
-        try { updateEdgeCountNodePositions(cy); } catch {
+        try { updateOverlays(cy, notesRef.current, showNoteCountOverlay); } catch {
           printWarn('Failed to update edge count node positions after major position-only update');
         }
       }
     }
   }, [nodes, edges, mode, mapName, cdnBaseUrl, showNoteCountOverlay, notes]);
+
+  // ------------------- Note count visibility toggle -------------------
+  useEffect(() => {
+    const cy = cyRef.current;
+    if (!cy) return;
+    
+    // Immediately update visibility when showNoteCountOverlay changes
+    setNoteCountsVisible(cy, showNoteCountOverlay);
+  }, [showNoteCountOverlay]);
 
   // ------------------- Sync selections when app state changes -------------------
   useEffect(() => {
@@ -479,11 +477,10 @@ function CytoscapeGraph({
     const cy = cyRef.current;
     if (!cy) return;
 
-    ensureNoteCountNodes(cy, notes, showNoteCountOverlay);
-    updateNoteCounts(cy, notes);
+    updateOverlays(cy, notes, showNoteCountOverlay);
 
     const handleGraphChange = () => {
-      ensureNoteCountNodes(cy, notes, showNoteCountOverlay);
+      updateOverlays(cy, notes, showNoteCountOverlay);
     };
 
     cy.on('add remove', handleGraphChange);
@@ -501,18 +498,14 @@ function CytoscapeGraph({
     if (!cy) return;
 
     const handleNodePosition = () => {
-      updateNoteCounts(cy, notesRef.current);
-      // Keep placement correct on any move
-      try { updateEdgeCountNodePositions(cy); } catch {
-        printWarn('Failed to update edge count node positions after entry-parent move');
-      }
+      updateOverlays(cy, notesRef.current, showNoteCountOverlay);
     };
 
     cy.on('position', 'node.entry-parent', handleNodePosition);
     return () => {
       cy.off('position', 'node.entry-parent', handleNodePosition);
     };
-  }, []); // uses notesRef.current
+  }, [showNoteCountOverlay]); // uses notesRef.current
 
   return (
     <div

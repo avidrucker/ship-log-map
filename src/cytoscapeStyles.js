@@ -326,6 +326,63 @@ const animationRules = [
   }
 ];
 
+// Base style for unseen badges (shared between node and edge badges)
+const unseenBadgeBase = {
+  'label': 'data(label)',
+  'shape': 'ellipse',
+  'width': 32,
+  'height': 32,
+  'background-color': 'transparent',
+  'background-opacity': 0,
+  'border-width': 3,
+  'border-color': '#ffffff',          // White border for contrast
+  'border-opacity': 1,
+  'color': '#ffffff',                 // White text
+  'font-weight': 'bold',
+  'font-size': '30px',
+  "text-margin-y": 2,
+  'text-halign': 'center',
+  'text-valign': 'center',
+  'z-index-compare': 'manual',
+  'z-index': 10000,                   // Higher than note count badges
+  'events': 'no'                      // Don't interfere with interactions
+};
+
+// Unseen badge rules
+const unseenBadgeRules = [
+  {
+    selector: 'node.unseen',
+    style: {
+      ...unseenBadgeBase,
+      // Position relative to parent entry node
+    }
+  },
+  {
+    selector: 'node.edge-unseen',
+    style: {
+      ...unseenBadgeBase,
+      // Position relative to edge midpoint
+    }
+  },
+  // Hidden state for unseen badges
+  {
+    selector: 'node.unseen.hidden',
+    style: { 'display': 'none' }
+  },
+  {
+    selector: 'node.edge-unseen.hidden',
+    style: { 'display': 'none' }
+  }
+];
+
+const badgeRules = [
+  { selector: 'node.note-count', style: noteCountBase },
+  { selector: 'node.edge-note-count', style: noteCountBase },
+  
+  // Unseen badges (new)
+  ...unseenBadgeRules
+];
+
 const cytoscapeStyles = [
   { selector: 'node.entry-parent', style: entryParentBase },
   { selector: 'node.entry', style: entryNodeBase },
@@ -337,6 +394,7 @@ const cytoscapeStyles = [
   ...dragStateRules,
   ...parentSizeRules,
   ...animationRules,
+  ...badgeRules,
   entryChildInteractionRule
 ];
 
