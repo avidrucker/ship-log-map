@@ -105,6 +105,8 @@ import { useGlobalSearchHotkeys } from './search/useGlobalSearchHotkeys.js';
 
 import MobileSearchButton from './search/MobileSearchButton.jsx';
 
+import useVisited from './hooks/useVisited.js';
+
 /** ---------- helpers & migration ---------- **/
 // Memoize the notes object itself to prevent unnecessary re-renders
 const createGetNodeNotes = (notes) => (node) => {
@@ -467,6 +469,14 @@ function App() {
   const handleUndo = useCallback(() => {
     applyUndoIfAvailable(setGraphData);
   }, [applyUndoIfAvailable]);
+
+  // Per-map visited state (persists to localStorage, never in domain JSON)
+  const {
+    visited,
+    markNodeVisited,
+    markEdgeVisited,
+    clearForMap: clearVisitedForMap
+  } = useVisited(mapName);
 
   /** ---------- handlers ---------- **/
 
@@ -851,6 +861,8 @@ function App() {
     printDebug('👆 node tap:', { nodeId, mode, noteViewingTarget });
     if (mode !== 'playing') return;
 
+    markNodeVisited(nodeId);
+
     // Click same node → close (zoom-out)
     if (noteViewingTarget === nodeId) {
       printDebug('🔻 same-node clicked -> toggle close');
@@ -883,15 +895,18 @@ function App() {
 
     // Open OR switch always goes through handleStartNoteViewing.
     handleStartNoteViewing(nodeId, 'node');
-  }, [mode, noteViewingTarget, handleStartNoteViewing, handleCloseNoteViewing, clearCytoscapeSelections]);
+  }, [mode, noteViewingTarget, handleStartNoteViewing, handleCloseNoteViewing, clearCytoscapeSelections, markNodeVisited]);
       
   const handleEdgeClick = useCallback((edgeId) => {
     if (mode === 'playing') {
+
+      markEdgeVisited(edgeId);
+
       // In playing mode, clicking an edge opens the note viewer
       handleStartNoteViewing(edgeId, "edge");
     }
     // In editing mode, clicking does nothing (selection is handled by Cytoscape)
-  }, [mode, handleStartNoteViewing]);
+  }, [mode, handleStartNoteViewing, markEdgeVisited]);
 
   const handleBackgroundClick = useCallback(() => {
     // Set guard to prevent handleNodeSelectionChange from also closing
@@ -1141,6 +1156,7 @@ useEffect(() => {
           onLoadFromCdn={handleLoadFromCdnButton}
           bgImage={bgImage}
           onToggleBgImageVisible={toggleBgImageVisible}
+          onClearVisited={clearVisitedForMap}
         />
 
         <NoteEditorModal
@@ -1294,6 +1310,7 @@ useEffect(() => {
           onCytoscapeInstanceReady={setCytoscapeInstance}
           showNoteCountOverlay={showNoteCountOverlay}
           notes={memoNotes}
+          visited={visited} /* pass visited to drive unseen badges */
         />
 
         {compassVisible && (

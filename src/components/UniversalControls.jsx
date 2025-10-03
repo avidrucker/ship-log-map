@@ -32,7 +32,8 @@ function UniversalControls({
   cdnBaseUrl,
   onLoadFromCdn,
   bgImage,
-  onToggleBgImageVisible
+  onToggleBgImageVisible,
+  onClearVisited
 }) {
 
   const { open } = useSearchUI();
@@ -98,6 +99,19 @@ function UniversalControls({
         title="Search Hashtags"
       >
         Search
+      </button>
+      <button
+        type="button"
+        onClick={onClearVisited}
+        title="Clear node/edge visit history for this map"
+        style={{
+          padding: '6px 10px',
+          border: '1px solid #ccc',
+          background: '#af4a4a',
+          cursor: 'pointer'
+        }}
+      >
+        Clear
       </button>
       <button
         style={{ padding: '6px 10px', background: '#1976d2', color: '#fff', border: '1px solid #0d47a1', cursor: 'pointer' }}
