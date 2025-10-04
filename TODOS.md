@@ -17,7 +17,7 @@
 - [x] Implement a "zoom to node" feature which zooms the camera to the currently selected node, centering it in the viewport and zooming in to a comfortable reading/viewing level (this zoom amount should vary depending on the node size)
 - [x] Implement adding of clues/hints to edges, which can be displayed when an edge is clicked
 - [x] Implement adding of clues/hints to nodes, which can be displayed when a node is clicked
-- [ ] **Pressing Esc while a modal is open should close the modal (for both note editor and node renaming)**
+- [x] **Pressing Esc while a modal is open should close the modal (for both note editor and node renaming)**
 - ~~Selecting a node will deselect all edges~~
 - ~~Selecting an edge will deselect all nodes~~
 - [x] Clicking outside of the Note Editor Modal closes it, including when clicking on the background or other nodes/edges
@@ -31,13 +31,13 @@
 - [ ] Implement "unlocking" of notes where, in the note viewer modal, there is an indicator that further notes exist, but are not yet accessible, and then, that indicator goes away when all existing notes are found/discovered/shown
 - [x] Fix node and edge selection so that single clicking adds to the selection (instead of requiring shift+click) and clicking on the background deselects all nodes and edges
 - [x] fix colors to match original source material
-- [ ] Implement typewriter effect for notes in the Note Viewer Modal
+- [x] Implement typewriter effect for notes in the Note Viewer Modal
 - [x] Clicking on the background seems to not deselect nodes and edges properly, fix this (issue was that renaming nodes/edges was accidentally desync'ing the selection state)
 - [x] Implement "last graph state" and undo button so that accidental deletions can be undone
 - ~~Implement z-depth order where changing anything about a node (it's location, size, color, etc.) will move it to the top of the z-order so that it is always on top of other nodes and edges~~
 - [x] Make smaller nodes have a higher z-depth so that they are not hidden behind larger nodes
 - [ ] Implement "tags" that enable overlays so that way nodes can be grouped by tags and the user can toggle visibility of nodes based on their tags (e.g. "play", "sleep/beds", "eat/food", "poop", "shower", "Internet/Ethernet/Wi-Fi", "filtered water", "unfiltered water", "upper water system", "lower water system", "first day", "first week", etc.)
-- [ ] Implement a "search" feature that allows users to search for nodes by title
+- [x] Implement a "search" feature that allows users to search for nodes by title
 - [ ] Implement a "filter" feature that allows users to filter nodes by tags, size, color, etc.
 - [x] Implement a "Are you sure you want to delete the current map?" confirmation popup upon clicking the reset button so that way users don't accidentally reset their graph
 - [ ] Implement a button in the note editor modal that clears the current image from the selected node (in the note editor modal), and resets the node's image to the default "unspecified" image
@@ -58,10 +58,10 @@
 - [x] Fix the undo button which doesn't seem to be restoring nodes after they have been moved
 - [ ] Implement an icon system that allows users to select from a set of icons for nodes, which can be used to visually represent the type of node (e.g. a bed icon for sleep nodes, a shower icon for hygiene nodes, etc.) that uses font awesome 4.7 icons
 - [x] Implement the usage (loading from CDN, caching, and displaying) of an optional placeholder SVG image that can live in the CDN and get cached into the app, where, if the image exists in the specified CDN folder and/or is cached, it will be the default placeholder SVG image icon for nodes that do not have an image set, and if a default_image.svg image does not exist in the CDN (or cache), then the app will use the default app's built-in "unspecified" SVG image instead. The name of the file in the CDN, if it exists, will be "default_image.svg". Clearing the cache will remove this image from the cache, and the app will revert to using the built-in "unspecified" SVG image, but refreshing the page will trigger an attempt to reload the "default_image.svg" from the CDN again
-- [ ] IDEA: Implement toggle which switches between showing node titles and showing secondary text labels for nodes, where the secondary text labels are set in the node's data and can be used to show additional information about the node (e.g. an alternate language title, etc.)
-- [ ] Implement a 3rd node type which displays "tags" for nodes, where the tags are displayed as small text labels below the node title and can be used to categorize nodes (e.g. "play", "sleep", "eat", etc.), and the data structure for the node will include a "tags" array that contains the tags for the node
-  - [ ] IDEA 1: and the editor modal will allow users to add/remove tags from the selected node, in which the tags are displayed as buttons that can be toggled on and off to add/remove them from the selected node
-  - [ ] IDEA 2: and there will be a second select dropdown (similar to the color select dropdown) which allows users to select tags to add/remove from the current node selection, plus the option to manage tags via a new "manage tags" select option that toggles open the "manage tags" modal
+- ~~IDEA: Implement toggle which switches between showing node titles and showing secondary text labels for nodes, where the secondary text labels are set in the node's data and can be used to show additional information about the node (e.g. an alternate language title, etc.)~~
+- ~~Implement a 3rd node type which displays "tags" for nodes, where the tags are displayed as small text labels below the node title and can be used to categorize nodes (e.g. "play", "sleep", "eat", etc.), and the data structure for the node will include a "tags" array that contains the tags for the node~~
+  - ~~IDEA 1: and the editor modal will allow users to add/remove tags from the selected node, in which the tags are displayed as buttons that can be toggled on and off to add/remove them from the selected node~~
+  - ~~IDEA 2: and there will be a second select dropdown (similar to the color select dropdown) which allows users to select tags to add/remove from the current node selection, plus the option to manage tags via a new "manage tags" select option that toggles open the "manage tags" modal~~
 - [ ] Implement a "manage tags" modal that allows users to create, edit, and delete tags
 - [ ] Implement a "manage icons" modal that allows users to select from a set of icons for tags, which can be used to visually represent a given tag (e.g. a bed icon for the "sleep" tag, a shower icon for the "showers" tag, etc.)
 - [ ] IDEA: Implement deselecting of nodes and edges when clicking on the close modal button as well as pressing the Esc key when the note editor modal is open, so that the user can close the modal *and* deselect the node without having to click on the background
@@ -71,22 +71,22 @@
 - [x] Implement sharable maps via query params, where, the map can be shared via a URL that points at the map's JSON file in the CDN and will load the map from that URL when the app is opened with those query params, for example, the CDN https://avidrucker.github.io/img-test-1/Gaia%20Yoga will be accessed by the app when the user opens the app with the URL https://avidrucker.github.io/ship-log-map/?map=https://avidrucker.github.io/img-test-1/Gaia%20Yoga/gaia_yoga.json where the map query param is the URL of the map's JSON file in the CDN constructed by the app address (https://avidrucker.github.io/ship-log-map/) and the map's CDN file URL (https://avidrucker.github.io/img-test-1/Gaia%20Yoga/) plus the map's JSON file name (gaia_yoga.json). If a map query param is not provided, the app will default to loading the map from the hard-coded example map JSON file in the app (e.g. https://avidrucker.github.io/ship-log-map/example_map.json). Changing the CDN, or the map name, or loading in a new map from a JSON file, will update the map query param in the URL to reflect the new map's JSON file URL in the CDN.
 - ~~Implement below the CDN link display/edit field the display of the current map URL with query params to load the current map from its CDN, so that, when the user clicks on it, it copies the link so they can easily share it with others, and the link will be in the format of https://avidrucker.github.io/ship-log-map/?map=https://avidrucker.github.io/img-test-1/Gaia%20Yoga/gaia_yoga.json (app_link + ?map= + map_cdn_url + map_json_file_name)~~
 - ~~Update the Reset button to revert to the JSON map from the specified CDN rather than the current hard-coded example map~~
-- [ ] Implement importing of an image overlay from the CDN or just in memory that can be toggled on and off, moved, and resized, which can be used to display a background image for the map (e.g. a floor plan, etc.)
-- [ ] Fix undo button so that, when creating new nodes, or changing the graph state otherwise, a refresh of the page is not necessary to see the visual reversal of the last action (i.e. the undo button should immediately revert the graph state to the previous state without requiring a refresh)
+- [x] Implement importing of an image overlay from the CDN or just in memory that can be toggled on and off, moved, and resized, which can be used to display a background image for the map (e.g. a floor plan, etc.)
+- [x] Fix undo button so that, when creating new nodes, or changing the graph state otherwise, a refresh of the page is not necessary to see the visual reversal of the last action (i.e. the undo button should immediately revert the graph state to the previous state without requiring a refresh)
 - [x] Fix reocurring bug where clicking outside of the Note Viewer Modal plays the "zoom back" animation twice currently (note, this doesn't happen when clicking the "x" button to close the modal, only when clicking outside of the modal, and it doesn't happen for the note editor modal, only the note viewer modal))
-- [ ] Fix bug where refreshing the page with query params always resets the camera back to a fitted zoom and pan, when it should instead keep the current in-app camera position and zoom level, unless loading from an entirely new map
+- ~~Fix bug where refreshing the page with query params always resets the camera back to a fitted zoom and pan, when it should instead keep the current in-app camera position and zoom level, unless loading from an entirely new map~~
 - [x] Implement sharing where, in the sharing modal, the user can copy a second newly available link which will add a query param of "editing=true" which will enable editing mode for the map when it is loaded. Also, when there are no query params, the app will have editing mode (and mode switching) enabled. To reiterate, if the app is has query params and the editing query param is not set to true, then the app will load the map in playing mode only and will not allow mode switching.
-- [ ] Fix bug where, loading in a new map from the CDN doesn't appear to update the compass visibility/direction
+- [x] Fix bug where, loading in a new map from the CDN doesn't appear to update the compass visibility/direction
 - [ ] Implement conflict resolution modal that informs the user if the graph data from CDN and the graph data (names, node locations, edge directions, node count, edge count, node color, node size, etc.) in local storage differ, and if so, which map would they like to continue with, and update local storage with CDN graph data if the user chooses the CDN graph as well as update the app visually the graph data from the CDN
-- [ ] Fix bug where, for example, when working in local dev map http://localhost:5173/ship-log-map/?map=https%3A%2F%2Favidrucker.github.io%2Fimg-test-1%2FGaia%2520Yoga%2Fgaia_yoga.json&canedit=true that, on page refresh, the app resets the camera to fit the map instead of keeping the current camera position and zoom level, and also reverts the compass display back to the CDN state instead of keeping the current (local storage saved) compass display state
+- [x] Fix bug where, for example, when working in local dev map http://localhost:5173/ship-log-map/?map=https%3A%2F%2Favidrucker.github.io%2Fimg-test-1%2FGaia%2520Yoga%2Fgaia_yoga.json&canedit=true that, on page refresh, the app resets the camera to fit the map instead of keeping the current camera position and zoom level, and also reverts the compass display back to the CDN state instead of keeping the current (local storage saved) compass display state
 - [x] Implement a "Reload" button in the Universal Controls that fully reloads the current map from the specified CDN URL, which can be used to discard any unsaved changes and revert to the last saved state in the CDN
-- [ ] Create icon for the app
-  - [ ] Add new icon to the app
-- [ ] Enhance the app so it can work offline via service workers
+- [x] Create icon for the app
+  - [x] Add new icon to the app
+- [x] Enhance the app so it can work offline via service workers
 - [x] Add to dev mode debug modal two buttons, one to load the Outer Wilds map from the CDN and one to load the Gaia Yoga map from the CDN, which will update the CDN URL field in the UI and load the selected map from the CDN
 - [x] Conditionally hide "Load CDN" button in Universal Controls when there is no CDN URL specified
 - [x] Fix "Create New Map" (just called "New" in the app) button not deleting, clearing, and reseting the background image underlay data if one is set
-- [ ] Fix "Zooming In To Node/Edge" not yet scaling & panning the background image (but it should)
+- [x] Fix "Zooming In To Node/Edge" not yet scaling & panning the background image (but it should)
 - [x] Fix issue where FF7 bg image settings are not correctly saved to JSON and thus not reloaded properly from JSON
 - [x] Fix bug where first load of the page doesn't load in the image assets, but it should
 - [x] Implement showing of Note Counts on edges too (right now, edges can hold notes, but when in "Notes ON" mode, numbers are not yet shown)
@@ -114,6 +114,10 @@
 - [x] make it so that, once hashtags have been selected that it only takes one extra press of enter to do the search, and not 2 more presses
 - [ ] add the abode, the puppy house, the dog house, milking stanchion 2, the 2 water tanks by the Octagon for GYG map 
 - [ ] replace custom styling with tachyons as much as possible
+- [ ] implement check that query params CDN match current map CDN, and if they don't, ask the user which map they want to use (current map in local storage or new map from query params CDN), load the correct map, and clear local storage (except for last used CDN URL) if the user chooses the query params CDN map
+- [ ] Implement "guided tours" through maps which can be created in editing mode and then played in playing mode, where a guided tour is a series of nodes that are connected in a specific order, and the user can click "next" and "previous" to navigate through the tour, with the camera automatically zooming and panning to each node in the tour as it is navigated to
+- [ ] Implement "zen" mode which makes the UI even more collapsed and less intrusive
+- [ ] Implement "help"/"info" modal which gives useful info about the app
 
 Notes for Future Features
 - Listing out "layers" which show things such as electrical lines, water lines, Internet, etc. that can be toggled on and off
