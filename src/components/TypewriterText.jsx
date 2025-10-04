@@ -5,11 +5,12 @@ import * as React from 'react';
  * TypewriterText
  * - Renders full text immediately when disabled
  * - When enabled, reveals text progressively (client-only)
+ * - Uses consistent speed: 10ms per character
  */
 export default function TypewriterText({
   text = '',
   enabled = false,
-  durationMs = 1500, // ← Total duration
+  msPerChar = 15, // ← Speed in milliseconds per character
   className = ''
 }) {
   const [out, setOut] = React.useState(() => (enabled ? '' : text));
@@ -27,13 +28,16 @@ export default function TypewriterText({
 
     if (!text || text.length === 0) return;
 
+    // Calculate total duration based on character count
+    const totalDuration = text.length * msPerChar;
+
     const animate = (currentTime) => {
       if (!startTimeRef.current) {
         startTimeRef.current = currentTime;
       }
 
       const elapsed = currentTime - startTimeRef.current;
-      const progress = Math.min(elapsed / durationMs, 1);
+      const progress = Math.min(elapsed / totalDuration, 1);
       const charCount = Math.floor(progress * text.length);
 
       setOut(text.slice(0, charCount));
@@ -54,7 +58,7 @@ export default function TypewriterText({
         rafRef.current = null;
       }
     };
-  }, [enabled, text, durationMs]);
+  }, [enabled, text, msPerChar]);
 
   return <div className={className} style={{ whiteSpace: 'pre-wrap' }}>{out}</div>;
 }
