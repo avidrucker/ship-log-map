@@ -61,6 +61,9 @@ export const ACTION_TYPES = {
   OPEN_DEBUG_MODAL: 'OPEN_DEBUG_MODAL',
   CLOSE_DEBUG_MODAL: 'CLOSE_DEBUG_MODAL',
   
+  OPEN_HELP_MODAL: 'OPEN_HELP_MODAL',
+  CLOSE_HELP_MODAL: 'CLOSE_HELP_MODAL',
+
   // Mode actions
   SET_MODE: 'SET_MODE',
   
@@ -119,6 +122,9 @@ export const initialAppState = {
       targetId: null
     },
     debugModal: {
+      isOpen: false
+    },
+    helpModal: {
       isOpen: false
     }
   },
@@ -291,6 +297,28 @@ export function appStateReducer(state, action) {
         selections: {
           ...state.selections,
           debugModal: {
+            isOpen: false
+          }
+        }
+      };
+
+    case ACTION_TYPES.OPEN_HELP_MODAL:
+      return {
+        ...state,
+        selections: {
+          ...state.selections,
+          helpModal: {
+            isOpen: true
+          }
+        }
+      };
+      
+    case ACTION_TYPES.CLOSE_HELP_MODAL:
+      return {
+        ...state,
+        selections: {
+          ...state.selections,
+          helpModal: {
             isOpen: false
           }
         }
@@ -526,6 +554,14 @@ export const actions = {
   
   closeDebugModal: () => ({
     type: ACTION_TYPES.CLOSE_DEBUG_MODAL
+  }),
+
+  openHelpModal: () => ({
+    type: ACTION_TYPES.OPEN_HELP_MODAL
+  }),
+  
+  closeHelpModal: () => ({
+    type: ACTION_TYPES.CLOSE_HELP_MODAL
   }),
   
   setMode: (mode) => ({

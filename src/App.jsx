@@ -108,6 +108,8 @@ import MobileSearchButton from './search/MobileSearchButton.jsx';
 import useVisited from './hooks/useVisited.js';
 import { makeVisitedLookup } from './utils/visitedLookup.js';
 
+import HelpModal from "./components/HelpModal.jsx";
+
 /** ---------- helpers & migration ---------- **/
 // Memoize the notes object itself to prevent unnecessary re-renders
 const createGetNodeNotes = (notes) => (node) => {
@@ -1172,6 +1174,7 @@ useEffect(() => {
           bgImage={bgImage}
           onToggleBgImageVisible={toggleBgImageVisible}
           onClearVisited={clearVisitedForMap}
+          onOpenHelpModal={modalOps.openHelpModal}
         />
 
         <NoteEditorModal
@@ -1196,6 +1199,11 @@ useEffect(() => {
           notes={noteViewingTarget ? (graphData.notes?.[noteViewingTarget] || []) : []}
           onClose={handleCloseNoteViewing}
           shouldTypewriter={typewriterRef.current}
+        />
+
+        <HelpModal
+          isOpen={modalOps.isHelpOpen}
+          onClose={modalOps.closeHelpModal}
         />
 
         {DEV_MODE && (

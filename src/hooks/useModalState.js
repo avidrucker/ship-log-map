@@ -39,6 +39,16 @@ export function useModalState(dispatchAppState, appState, opts = {}) {
     [dispatchAppState]
   );
 
+  // Help modal (reducer-backed)
+  const openHelpModal = useCallback(
+    () => dispatchAppState({ type: ACTION_TYPES.OPEN_HELP_MODAL }),
+    [dispatchAppState]
+  );
+  const closeHelpModal = useCallback(
+    () => dispatchAppState({ type: ACTION_TYPES.CLOSE_HELP_MODAL }),
+    [dispatchAppState]
+  );
+
   const openNoteEditor = useCallback(
     (targetId, targetType = 'node') =>
       dispatchAppState({
@@ -69,27 +79,31 @@ export function useModalState(dispatchAppState, appState, opts = {}) {
   const isDebugOpen = !!appState?.selections?.debugModal?.isOpen;
   const isNoteEditorOpen = !!appState?.selections?.noteEditing?.targetId;
   const isNoteViewerOpen = !!appState?.selections?.noteViewing?.targetId;
+  const isHelpOpen = !!appState?.selections?.helpModal?.isOpen;
 
   const isAnyModalOpen = useMemo(() => {
-    const anyReducerModal = isDebugOpen || isNoteEditorOpen || isNoteViewerOpen;
-    const bgModalOpen = !!bgImageModalOpen; // Use the passed bg modal state
-    return anyReducerModal || bgModalOpen || isShareModalOpen;
-  }, [isDebugOpen, isNoteEditorOpen, isNoteViewerOpen, isShareModalOpen, bgImageModalOpen]);
+      const anyReducerModal = isDebugOpen || isNoteEditorOpen || isNoteViewerOpen || isHelpOpen;
+      const bgModalOpen = !!bgImageModalOpen;
+      return anyReducerModal || bgModalOpen || isShareModalOpen;
+    }, [isDebugOpen, isNoteEditorOpen, isNoteViewerOpen, isHelpOpen, isShareModalOpen, bgImageModalOpen]);
 
   const closeAllModals = useCallback(() => {
     if (isDebugOpen) closeDebugModal();
     if (isNoteEditorOpen) closeNoteEditor();
     if (isNoteViewerOpen) closeNoteViewer();
+    if (isHelpOpen) closeHelpModal();
     if (isShareModalOpen) closeShareModal();
     if (bgImageModalOpen && typeof closeBgImageModal === 'function') closeBgImageModal();
   }, [
     isDebugOpen,
     isNoteEditorOpen,
     isNoteViewerOpen,
+    isHelpOpen,
     isShareModalOpen,
     bgImageModalOpen, // Add this dependency
     closeDebugModal,
     closeNoteEditor,
+    closeHelpModal,
     closeNoteViewer,
     closeShareModal,
     closeBgImageModal,
@@ -112,6 +126,11 @@ export function useModalState(dispatchAppState, appState, opts = {}) {
     isDebugOpen,
     openDebugModal,
     closeDebugModal,
+
+    // help modal (reducer)
+    isHelpOpen,
+    openHelpModal,
+    closeHelpModal,
 
     // note editor/viewer (reducer)
     isNoteEditorOpen,

@@ -33,7 +33,8 @@ function UniversalControls({
   onLoadFromCdn,
   bgImage,
   onToggleBgImageVisible,
-  onClearVisited
+  onClearVisited,
+  onOpenHelpModal
 }) {
 
   const { open } = useSearchUI();
@@ -93,6 +94,19 @@ function UniversalControls({
           Mode
         </button>
       )}
+      <button
+        style={{ 
+          padding: '6px 10px', 
+          background: '#9c27b0', 
+          color: '#fff', 
+          border: '1px solid #7b1fa2', 
+          cursor: 'pointer' 
+        }}
+        onClick={onOpenHelpModal}
+        title="Show help and app info"
+      >
+        Help
+      </button>
       <button 
         style={{ padding: '6px 10px', background: 'purple', color: '#fff', border: '1px solid purple', cursor: 'pointer' }}
         onClick={open}
