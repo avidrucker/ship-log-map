@@ -104,12 +104,29 @@ function CytoscapeGraph({
 
   // ---- Helpers: attach/detach edge-count (note bubble) live reposition rAF ----
   const attachEdgeCountLiveUpdater = React.useCallback((cy) => {
-    let edgeCountRafPending = false;
-    const scheduleEdgeCountUpdate = () => {
-      if (edgeCountRafPending) return;
-      edgeCountRafPending = true;
+    let updatePending = false;
+    let lastUpdateTime = 0;
+    const MIN_UPDATE_INTERVAL = 16; // Max 60fps
+    
+    const scheduleUpdate = () => {
+      if (updatePending) return;
+      
+      const now = performance.now();
+      if (now - lastUpdateTime < MIN_UPDATE_INTERVAL) {
+        // Too soon - schedule for later
+        updatePending = true;
+        setTimeout(() => {
+          updatePending = false;
+          scheduleUpdate();
+        }, MIN_UPDATE_INTERVAL - (now - lastUpdateTime));
+        return;
+      }
+      
+      updatePending = true;
       requestAnimationFrame(() => {
-        edgeCountRafPending = false;
+        updatePending = false;
+        lastUpdateTime = performance.now();
+        
         try {
           refreshOverlayPositions(cy);
         } catch (e) {
@@ -118,20 +135,14 @@ function CytoscapeGraph({
       });
     };
 
-    // Live updates while dragging and while programmatically moving nodes
-    cy.on('drag position', 'node', scheduleEdgeCountUpdate);
-
-    // Structural or data changes that affect edge endpoints or visibility
-    cy.on('add remove data', 'edge', scheduleEdgeCountUpdate);
-    cy.on('add remove', 'node', scheduleEdgeCountUpdate);
-
-    // seed once
-    scheduleEdgeCountUpdate();
+    // *** ONLY listen to drag events (not all position changes) ***
+    cy.on('drag', 'node.entry-parent', scheduleUpdate);
+    
+    // Initial seed
+    scheduleUpdate();
 
     const cleanup = () => {
-      cy.off('drag position', 'node', scheduleEdgeCountUpdate);
-      cy.off('add remove data', 'edge', scheduleEdgeCountUpdate);
-      cy.off('add remove', 'node', scheduleEdgeCountUpdate);
+      cy.off('drag', 'node.entry-parent', scheduleUpdate);
     };
     return cleanup;
   }, []);
