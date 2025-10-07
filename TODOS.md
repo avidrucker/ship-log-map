@@ -122,6 +122,7 @@
 - [x] Hide unseen badges in editing mode, they should only be shown in playing mode
 - [x] Fix bug where renaming a node appears to delete notes on connecting edges, but no edge notes should be deleted when renaming a node
 - [x] Change camera display panel so that map name and CDN cannot be changed in playing mode, give tooltip to suggest changing modes in order to change
+- [ ] Refactor code so that the background image is in a singular node that can be resized and repositioned via the same interface (bg img settings modal)
 
 Notes for Future Features
 - Listing out "layers" which show things such as electrical lines, water lines, Internet, etc. that can be toggled on and off
