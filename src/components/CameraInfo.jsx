@@ -34,9 +34,10 @@ function CameraInfo({ zoom, pan, selectedNodeIds, selectedEdgeIds, mode, mapName
 
   // Map name editing handlers
   const handleStartEditMapName = useCallback(() => {
+    if (mode !== 'editing') return;
     setTempMapName(mapName);
     setIsEditingMapName(true);
-  }, [mapName]);
+  }, [mapName, mode]);
 
   const handleSaveMapName = useCallback(() => {
     const cleanName = tempMapName.trim();
@@ -63,9 +64,10 @@ function CameraInfo({ zoom, pan, selectedNodeIds, selectedEdgeIds, mode, mapName
 
   // CDN URL editing handlers
   const handleStartEditCdnUrl = useCallback(() => {
+    if (mode !== 'editing') return;
     setTempCdnUrl(cdnBaseUrl);
     setIsEditingCdnUrl(true);
-  }, [cdnBaseUrl]);
+  }, [cdnBaseUrl, mode]);
 
   const inputRef = useRef(null);
 
@@ -215,15 +217,20 @@ function CameraInfo({ zoom, pan, selectedNodeIds, selectedEdgeIds, mode, mapName
           </div>
         ) : (
           <div 
-            onClick={handleStartEditMapName}
+            onClick={mode === 'editing' ? handleStartEditMapName : undefined}
             style={{
-              cursor: "pointer",
-              textDecoration: "underline dotted",
-              color: "#4fc3f7",
-              fontSize: "11px"
+              cursor: mode === 'editing' ? "pointer" : "not-allowed",
+              textDecoration: mode === 'editing' ? "underline dotted" : "none",
+              color: mode === 'editing' ? "#4fc3f7" : "#888",
+              fontSize: "11px",
+              opacity: mode === 'editing' ? 1 : 0.7
             }}
-            title={mapName !== "default_map" ? `Click to edit map name: ${mapName}` : "Click to set map name"}
-          >
+            title={
+              mode === 'editing' 
+                ? (mapName !== "default_map" ? `Click to edit map name: ${mapName}` : "Click to set map name")
+                : "Switch to editing mode to change map name"
+              }          
+            >
             {mapName}
           </div>
         )}
@@ -285,20 +292,25 @@ function CameraInfo({ zoom, pan, selectedNodeIds, selectedEdgeIds, mode, mapName
           </div>
         ) : (
           <div 
-            onClick={handleStartEditCdnUrl}
+            onClick={mode === 'editing' ? handleStartEditCdnUrl : undefined}
             style={{
-              cursor: "pointer",
-              textDecoration: "underline dotted",
-              color: "#ff9800",
+              cursor: mode === 'editing' ? "pointer" : "not-allowed",
+              textDecoration: mode === 'editing' ? "underline dotted" : "none",
+              color: mode === 'editing' ? "#ff9800" : "#888",
               fontSize: "11px",
               wordBreak: "break-all",
               maxWidth: "200px",
               overflow: "hidden",
               whiteSpace: "nowrap",
-              textOverflow: "ellipsis"
+              textOverflow: "ellipsis",
+              opacity: mode === 'editing' ? 1 : 0.7
             }}
-            title={cdnBaseUrl !== "" ? `Click to edit CDN base URL: ${cdnBaseUrl}` : "Click to set CDN base URL"}
-          >
+            title={
+              mode === 'editing' 
+                ? (cdnBaseUrl !== "" ? `Click to edit CDN base URL: ${cdnBaseUrl}` : "Click to set CDN base URL")
+                : "Switch to editing mode to change CDN URL"
+              }
+            >
             {cdnBaseUrl || 'No CDN URL set'}
           </div>
         )}
