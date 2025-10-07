@@ -418,12 +418,20 @@ function App() {
     setCdnBaseUrl(cdnBaseUrl);
   }, [cdnBaseUrl]);
 
-  // Save camera state to localStorage (kept as-is)
+  // Save camera state to localStorage (debounced to prevent excessive writes)
   useEffect(() => {
-    localStorage.setItem("shipLogCamera", JSON.stringify({
-      zoom: zoomLevel,
-      position: cameraPosition
-    }));
+    const timeoutId = setTimeout(() => {
+      try {
+        localStorage.setItem("shipLogCamera", JSON.stringify({
+          zoom: zoomLevel,
+          position: cameraPosition
+        }));
+      } catch (e) {
+        printWarn('Failed to save camera to localStorage:', e);
+      }
+    }, 1000); // Save at most once per second
+    
+    return () => clearTimeout(timeoutId);
   }, [zoomLevel, cameraPosition]);
 
   // Save mode to localStorage
@@ -1034,6 +1042,18 @@ function App() {
   const memoSelectedEdgeIds = useMemo(() => selectedEdgeIds, [selectedEdgeIds]);
   const memoCameraPosition = useMemo(() => cameraPosition, [cameraPosition]);
   const memoNotes = useMemo(() => graphData.notes, [graphData.notes]);
+  
+  // Memoize background image object to prevent infinite re-renders
+  const memoBgImage = useMemo(() => {
+    if (!bgImage.imageUrl) return null;
+    console.log('🔄 [App] memoBgImage recalculating with calibration:', bgCalibration);
+    return {
+      imageUrl: bgImage.imageUrl,
+      visible: bgImage.visible,
+      opacity: bgImage.opacity,
+      calibration: bgCalibration
+    };
+  }, [bgImage.imageUrl, bgImage.visible, bgImage.opacity, bgCalibration]);
 
   const handleLoadFromCdnButton = useCallback((cdnBaseUrlArg) => {
   handleLoadFromCdn({
@@ -1113,22 +1133,21 @@ useEffect(() => {
             </div>
         </div>
 
-        {/* Background image underlay */}
+        {/* Background image underlay - DISABLED: Now integrated into Cytoscape canvas */}
+        {/* Background now renders as a Cytoscape node for perfect sync with pan/zoom */}
+        {/* See CytoscapeGraph bgImage prop and bgNodeAdapter.js */}
+        {/* 
         {bgImage.imageUrl && bgImage.visible && (
           <BgImageLayer
             url={bgImage.imageUrl}
             visible={bgImage.visible}
             opacity={bgImage.opacity}
-            pan={livePan}              // 🔴 live pan (every frame)
-            zoom={liveZoom}            // 🔴 live zoom (every frame)
-            calibration={ bgCalibration
-              // keep your existing semantics: scale is a percentage
-              // tx: bgImage.x,                  // world offset X (same units as node positions)
-              // ty: bgImage.y,                  // world offset Y
-              // s: (bgImage.scale ?? 100) / 100 // world units per image pixel
-            }
+            pan={livePan}
+            zoom={liveZoom}
+            calibration={bgCalibration}
           />
         )}
+        */}
 
         {canEdit && (
           <GraphControls
@@ -1335,6 +1354,7 @@ useEffect(() => {
           showNoteCountOverlay={showNoteCountOverlay}
           notes={memoNotes}
           visited={visited} /* pass visited to drive unseen badges */
+          bgImage={memoBgImage}
         />
 
         {compassVisible && (

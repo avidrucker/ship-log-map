@@ -91,6 +91,15 @@ function saveGrayscaleCacheToStorage() {
 // Initialize cache from localStorage
 loadGrayscaleCacheFromStorage();
 
+// Debounced save to avoid excessive localStorage writes
+let saveGrayscaleCacheTimeout = null;
+function debouncedSaveGrayscaleCache() {
+  clearTimeout(saveGrayscaleCacheTimeout);
+  saveGrayscaleCacheTimeout = setTimeout(() => {
+    saveGrayscaleCacheToStorage();
+  }, 2000); // Save at most once every 2 seconds
+}
+
 // Preprocess images to grayscale in the background to avoid race conditions
 function preprocessImageToGrayscale(imageUrl, originalImagePath = null) {
   printDebug(`🎨 [cyAdapter] preprocessImageToGrayscale called with: "${imageUrl?.substring(0, 50)}..." (originalPath: ${originalImagePath || 'none'})`);
@@ -132,16 +141,16 @@ function preprocessImageToGrayscale(imageUrl, originalImagePath = null) {
     .then(grayscaleUrl => {
       grayscaleCache.set(cacheKey, grayscaleUrl);
       pendingConversions.delete(imageUrl);
-      // Save to localStorage when conversion completes
-      saveGrayscaleCacheToStorage();
+      // Save to localStorage when conversion completes (debounced)
+      debouncedSaveGrayscaleCache();
       return grayscaleUrl;
     })
     .catch(error => {
       console.warn('Failed to convert image to grayscale:', error);
       grayscaleCache.set(cacheKey, imageUrl); // Cache the original to avoid retrying
       pendingConversions.delete(imageUrl);
-      // Save to localStorage even on failure to avoid retrying
-      saveGrayscaleCacheToStorage();
+      // Save to localStorage even on failure to avoid retrying (debounced)
+      debouncedSaveGrayscaleCache();
       return imageUrl;
     });
   
@@ -457,8 +466,8 @@ export async function mountCy({ container, graph, styles = cytoscapeStyles, mode
       elements,
       selectionType: mode === 'editing' ? "additive" : "single",
       pixelRatio: 1,
-      motionBlur: false,
-      textureOnViewport: true,
+      motionBlur: true,
+      textureOnViewport: false,
       layout: { name: 'preset' }
     });
 
@@ -503,8 +512,8 @@ try { cy.$('node.edge-note-count, node.edge-unseen, node.note-count, node.unseen
       elements,
       selectionType: mode === 'editing' ? "additive" : "single",
       pixelRatio: 1,
-      motionBlur: false,
-      textureOnViewport: true,
+      motionBlur: true,
+      textureOnViewport: false,
       layout: { name: 'preset' }
     });
 
@@ -568,15 +577,40 @@ export function syncElements(cy, graph, options = {}) {
 
   const currentZoom = cy.zoom();
   const currentPan = cy.pan();
+  
+  // Build position map and do structural comparison in a single pass
   const currentPositions = {};
-  cy.nodes().forEach(node => { currentPositions[node.id()] = node.position(); });
-
-  const currentNodes = cy.nodes().filter(n => !n.hasClass('note-count')).map(n => n.id()).sort();
-  const currentEdges = cy.edges().map(e => e.id()).sort();
-  const newNodes = newElements.filter(e => e.group === 'nodes').map(e => e.data.id).sort();
-  const newEdges = newElements.filter(e => e.group === 'edges').map(e => e.data.id).sort();
-  const nodesChanged = JSON.stringify(currentNodes) !== JSON.stringify(newNodes);
-  const edgesChanged = JSON.stringify(currentEdges) !== JSON.stringify(newEdges);
+  const currentNodeIds = [];
+  const currentEdgeIds = [];
+  
+  cy.nodes().forEach(node => {
+    currentPositions[node.id()] = node.position();
+    // Exclude overlay/UI nodes and background node from structural comparison
+    if (!node.hasClass('note-count') && !node.hasClass('edge-note-count') && 
+        !node.hasClass('unseen') && !node.hasClass('edge-unseen') &&
+        node.id() !== '__background_image_node__') {
+      currentNodeIds.push(node.id());
+    }
+  });
+  
+  cy.edges().forEach(edge => {
+    currentEdgeIds.push(edge.id());
+  });
+  
+  currentNodeIds.sort();
+  currentEdgeIds.sort();
+  
+  const newNodeIds = [];
+  const newEdgeIds = [];
+  newElements.forEach(e => {
+    if (e.group === 'nodes') newNodeIds.push(e.data.id);
+    else if (e.group === 'edges') newEdgeIds.push(e.data.id);
+  });
+  newNodeIds.sort();
+  newEdgeIds.sort();
+  
+  const nodesChanged = JSON.stringify(currentNodeIds) !== JSON.stringify(newNodeIds);
+  const edgesChanged = JSON.stringify(currentEdgeIds) !== JSON.stringify(newEdgeIds);
 
   if (!nodesChanged && !edgesChanged) {
     newElements.forEach(newEl => {
@@ -614,6 +648,9 @@ export function syncElements(cy, graph, options = {}) {
     cy.json({ elements: modifiedElements });
 
     cy.nodes().forEach(node => {
+      // Skip background node - it manages its own position
+      if (node.id() === '__background_image_node__') return;
+      
       const savedPosition = currentPositions[node.id()];
       if (savedPosition) node.position(savedPosition);
     });
@@ -635,35 +672,44 @@ export function syncElements(cy, graph, options = {}) {
     }, 50);
   }
 
+  // Set grabbable state and ensure entry children in a single pass
   const expectedParentGrabbable = mode === 'editing';
+  const parentsNeedingChildren = [];
+  
   cy.nodes().forEach(n => {
     if (n.hasClass('entry-parent')) {
-      if (expectedParentGrabbable) n.grabify(); else n.ungrabify();
+      if (expectedParentGrabbable) n.grabify(); 
+      else n.ungrabify();
+      
+      // Check if this parent needs an entry child
+      const parentId = n.id();
+      const entryChildId = `${parentId}__entry`;
+      if (cy.getElementById(entryChildId).empty()) {
+        parentsNeedingChildren.push({ parent: n, parentId, entryChildId });
+      }
     } else {
       n.ungrabify();
     }
   });
 
-  cy.nodes('.entry-parent').forEach(parent => {
-    const parentId = parent.id();
-    const entryChildId = `${parentId}__entry`;
-    if (cy.getElementById(entryChildId).empty()) {
-      cy.add({
-        group: 'nodes',
-        data: {
-          id: entryChildId,
-          parent: parentId,
-          label: parent.data('label') || '',
+  // Add missing entry children in batch
+  if (parentsNeedingChildren.length > 0) {
+    const newEntryNodes = parentsNeedingChildren.map(({ parent, parentId, entryChildId }) => ({
+      group: 'nodes',
+      data: {
+        id: entryChildId,
+        parent: parentId,
+        label: parent.data('label') || '',
         size: parent.data('size') || 'regular',
-          color: parent.data('color') || 'gray'
-        },
-        position: parent.position(),
-        selectable: false,
-        grabbable: false,
-        classes: 'entry'
-      });
-    }
-  });
+        color: parent.data('color') || 'gray'
+      },
+      position: parent.position(),
+      selectable: false,
+      grabbable: false,
+      classes: 'entry'
+    }));
+    cy.add(newEntryNodes);
+  }
 
   try {
     const g = deserializeGraph(graph);

@@ -3,7 +3,16 @@
 /**
  * useBgImageState — Background image state + helpers
  *
- * Responsibilities
+ * Responsi  // handy derived mapping for BgImageLayer "calibration"
+  // ⚡ Memoized to prevent infinite render loops
+  const calibration = useMemo(() => {
+    console.log('🔄 [useBgImageState] Calibration recalculating:', { x: bgImage.x, y: bgImage.y, scale: bgImage.scale });
+    return {
+      tx: bgImage.x,
+      ty: bgImage.y,
+      s: (bgImage.scale ?? 100) / 100
+    };
+  }, [bgImage.x, bgImage.y, bgImage.scale]);s
  * - Encapsulates bg image metadata (src, x, y, scale, opacity, included, visible).
  * - Exposes load/delete/toggle/transform helpers for App to compose.
  *
@@ -12,7 +21,7 @@
  *   setIncluded(bool), setTransform({x,y,scale,opacity}) }
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import { printDebug } from "../utils/debug";
 
 /** LocalStorage key */
@@ -106,11 +115,12 @@ export function useBgImageState() {
   }, []);
 
   // handy derived mapping for BgImageLayer “calibration”
-  const calibration = {
+  // ⚡ Memoized to prevent infinite render loops
+  const calibration = useMemo(() => ({
     tx: bgImage.x,
     ty: bgImage.y,
     s: (bgImage.scale ?? 100) / 100
-  };
+  }), [bgImage.x, bgImage.y, bgImage.scale]);
 
   return {
     bgImage,

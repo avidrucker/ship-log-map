@@ -20,12 +20,13 @@
  * - Keep props stable (useCallback/memo) to avoid unnecessary full re-syncs.
  */
 
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useMemo } from "react";
 import {
   mountCy, syncElements, wireEvents,
   hasPendingGrayscaleConversions, updateCompletedGrayscaleImages,
   updateOverlays
 } from "../graph/cyAdapter.js";
+import { ensureBgNode } from "../graph/bgNodeAdapter.js";
 import { setNoteCountsVisible, refreshPositions as refreshOverlayPositions } from '../graph/overlayManager.js';
 import { printDebug, printError, printWarn } from "../utils/debug.js";
 
@@ -60,14 +61,33 @@ function CytoscapeGraph({
   showNoteCountOverlay = false,
   notes = {},
   visited = { nodes: new Set(), edges: new Set() },
-  onCytoscapeInstanceReady
+  onCytoscapeInstanceReady,
+  
+  // Background image integration
+  bgImage = null // { imageUrl, visible, opacity, calibration: { tx, ty, s } }
 }) {
   const containerRef = useRef(null);
   const cyRef = useRef(null);
 
-  // Latest callback ref; avoids re-binding cytoscape listeners every render
+  // Latest callback refs; avoids re-binding cytoscape listeners every render
   const onViewportRef = useRef(null);
   useEffect(() => { onViewportRef.current = onViewportChange || null; }, [onViewportChange]);
+
+  // Store all event handlers in refs so we don't re-wire events on every render
+  const handlersRef = useRef({});
+  useEffect(() => {
+    handlersRef.current = {
+      onNodeSelectionChange,
+      onEdgeSelectionChange,
+      onNodeClick,
+      onEdgeClick,
+      onNodeDoubleClick,
+      onEdgeDoubleClick,
+      onBackgroundClick,
+      onNodeMove
+    };
+  }, [onNodeSelectionChange, onEdgeSelectionChange, onNodeClick, onEdgeClick,
+      onNodeDoubleClick, onEdgeDoubleClick, onBackgroundClick, onNodeMove]);
 
   // rAF id so we throttle viewport streaming to once per frame
   const viewportRafIdRef = useRef(0);
@@ -155,18 +175,8 @@ function CytoscapeGraph({
           cy.pan(initialCameraPosition);
         }
 
-        // Wire domain/UI events
-        const off = wireEvents(cy, {
-          onNodeSelectionChange,
-          onEdgeSelectionChange,
-          onNodeClick,
-          onEdgeClick,
-          onNodeDoubleClick,
-          onEdgeDoubleClick,
-          onBackgroundClick,
-          onNodeMove,
-          notes
-        }, mode);
+        // Wire domain/UI events (using refs to avoid re-wiring)
+        const off = wireEvents(cy, handlersRef.current, mode);
         cy._eventCleanup = off;
 
         // Viewport streaming (BG layer)
@@ -205,9 +215,9 @@ function CytoscapeGraph({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // mount once
 
-  // ------------------- Re-wire events when handlers/mode change -------------------
+  // ------------------- Re-wire events ONLY when mode changes -------------------
   useEffect(() => {
-    printDebug(`🔌 [CytoscapeGraph] Event handlers changed, re-wiring events`);
+    printDebug(`🔌 [CytoscapeGraph] Mode changed, re-wiring events for mode: ${mode}`);
     const cy = cyRef.current;
     if (!cy) {
       printDebug(`⚠️ [CytoscapeGraph] cyRef.current is null, skipping event re-wiring`);
@@ -233,19 +243,9 @@ function CytoscapeGraph({
       cy._edgeCountCleanup = null;
     }
 
-    // Re-wire UI events
+    // Re-wire UI events (using refs for handlers - they update automatically)
     printDebug(`🔌 [CytoscapeGraph] Re-wiring events for mode: ${mode}`);
-    cy._eventCleanup = wireEvents(cy, {
-      onNodeSelectionChange,
-      onEdgeSelectionChange,
-      onNodeClick,
-      onEdgeClick,
-      onNodeDoubleClick,
-      onEdgeDoubleClick,
-      onBackgroundClick,
-      onNodeMove,
-      notes
-    }, mode);
+    cy._eventCleanup = wireEvents(cy, handlersRef.current, mode);
 
     // Re-attach viewport streaming & seed once
     cy._viewportCleanup = attachViewportStreaming(cy);
@@ -254,11 +254,27 @@ function CytoscapeGraph({
     cy._edgeCountCleanup = attachEdgeCountLiveUpdater(cy);
 
     // No extra cleanup here; handled by next run or unmount
-  }, [
-    onNodeSelectionChange, onEdgeSelectionChange, onNodeClick, onEdgeClick,
-    onNodeDoubleClick, onEdgeDoubleClick, onBackgroundClick, onNodeMove,
-    mode, notes, attachEdgeCountLiveUpdater
-  ]);
+  }, [mode]); // Only re-wire when mode changes - handlers use refs
+
+  // ------------------- Memoized structural fingerprints to avoid expensive comparisons -------------------
+  const nodesFingerprint = useMemo(() => {
+    return nodes.map(n => ({
+      id: n.id,
+      title: n.title,
+      size: n.size,
+      color: n.color,
+      imageUrl: n.originalImageUrl || n.imageUrl
+    }));
+  }, [nodes]);
+
+  const edgesFingerprint = useMemo(() => {
+    return edges.map(e => ({
+      id: e.id,
+      source: e.source,
+      target: e.target,
+      direction: e.direction ?? "forward"
+    }));
+  }, [edges]);
 
   // ------------------- Domain sync (nodes/edges) -------------------
   useEffect(() => {
@@ -273,52 +289,81 @@ function CytoscapeGraph({
     const expectedGrabbable = mode === 'editing';
     const modeChanged = cy.nodes().length > 0 && cy.nodes()[0].grabbable() !== expectedGrabbable;
 
-    // Compare structural changes
-    const currentNodes = cy.nodes().map(n => ({
-      id: n.id(),
-      data: n.data(),
-      position: n.position()
-    }));
+    // Quick count check first (cheapest operation)
+    const cyNodeCount = cy.nodes('.entry-parent').length;
+    const cyEdgeCount = cy.edges().length;
+    const nodeCountChanged = nodes.length !== cyNodeCount;
+    const edgeCountChanged = edges.length !== cyEdgeCount;
 
-    const normalizeImageUrl = (imageUrl) => {
-      if (!imageUrl || imageUrl === "unspecified" || imageUrl.startsWith('data:image/svg+xml')) return "placeholder";
-      if (imageUrl.startsWith('data:image/')) return "data-url-image";
-      return imageUrl;
-    };
+    // If counts changed, we know we need a full sync - skip expensive comparisons
+    if (nodeCountChanged || edgeCountChanged || modeChanged) {
+      printDebug(`🔄 [CytoscapeGraph] Count or mode changed - performing full sync`);
+      syncElements(cy, { nodes, edges, mapName, cdnBaseUrl }, { mode });
+      
+      // Immediately re-place edge-count nodes post-sync
+      try { updateOverlays(cy, notesRef.current, showNoteCountOverlay, visitedRef.current); } catch {
+        printWarn('Failed to update edge count node positions after full sync');
+      }
+      return;
+    }
 
-    const nodeStructuralChanges = nodes.some(newNode => {
-      const currentNode = currentNodes.find(cn => cn.id === newNode.id);
-      if (!currentNode) return true;
-      const newNodeNonPosition = {
-        id: newNode.id,
-        title: newNode.title,
-        size: newNode.size,
-        color: newNode.color,
-        imageUrl: normalizeImageUrl(newNode.originalImageUrl || newNode.imageUrl)
-      };
-      const currentNodeNonPosition = {
-        id: currentNode.data.id,
-        title: currentNode.data.label,
-        size: currentNode.data.size,
-        color: currentNode.data.color,
-        imageUrl: normalizeImageUrl(currentNode.data.originalImageUrl || currentNode.data.imageUrl)
-      };
-      return JSON.stringify(newNodeNonPosition) !== JSON.stringify(currentNodeNonPosition);
+    // Build lookup maps for efficient comparison (only if counts match)
+    const currentNodesMap = new Map();
+    cy.nodes('.entry-parent').forEach(n => {
+      currentNodesMap.set(n.id(), {
+        id: n.id(),
+        title: n.data('label'),
+        size: n.data('size'),
+        color: n.data('color'),
+        x: n.position().x,
+        y: n.position().y
+      });
     });
 
-    const currentEdges = cy.edges().map(e => ({ id: e.id(), data: e.data() }));
-    const edgeStructuralChanges = edges.some(newEdge => {
-      const currentEdge = currentEdges.find(ce => ce.id === newEdge.id);
-      if (!currentEdge) return true;
-      const a = { id: newEdge.id, source: newEdge.source, target: newEdge.target, direction: newEdge.direction ?? "forward" };
-      const b = { id: currentEdge.data.id, source: currentEdge.data.source, target: currentEdge.data.target, direction: currentEdge.data.direction ?? "forward" };
-      return JSON.stringify(a) !== JSON.stringify(b);
+    const currentEdgesMap = new Map();
+    cy.edges().forEach(e => {
+      currentEdgesMap.set(e.id(), {
+        id: e.id(),
+        source: e.data('source'),
+        target: e.data('target'),
+        direction: e.data('direction') ?? "forward"
+      });
     });
 
-    const nodeCountChanged = nodes.length !== currentNodes.length;
-    const edgeCountChanged = edges.length !== cy.edges().length;
+    // Check structural changes using memoized fingerprints
+    let structuralChange = false;
+    
+    for (const nodeData of nodesFingerprint) {
+      const current = currentNodesMap.get(nodeData.id);
+      if (!current) {
+        structuralChange = true;
+        break;
+      }
+      if (current.title !== nodeData.title || 
+          current.size !== nodeData.size || 
+          current.color !== nodeData.color) {
+        structuralChange = true;
+        break;
+      }
+    }
 
-    if (modeChanged || nodeStructuralChanges || edgeStructuralChanges || nodeCountChanged || edgeCountChanged) {
+    if (!structuralChange) {
+      for (const edgeData of edgesFingerprint) {
+        const current = currentEdgesMap.get(edgeData.id);
+        if (!current) {
+          structuralChange = true;
+          break;
+        }
+        if (current.source !== edgeData.source || 
+            current.target !== edgeData.target || 
+            current.direction !== edgeData.direction) {
+          structuralChange = true;
+          break;
+        }
+      }
+    }
+
+    if (structuralChange) {
       printDebug(`🔄 [CytoscapeGraph] Performing full sync`);
       syncElements(cy, { nodes, edges, mapName, cdnBaseUrl }, { mode });
 
@@ -362,7 +407,8 @@ function CytoscapeGraph({
         }
       }
     }
-  }, [nodes, edges, mode, mapName, cdnBaseUrl, showNoteCountOverlay, notes]);
+  }, [nodesFingerprint, edgesFingerprint, mode, mapName, cdnBaseUrl, showNoteCountOverlay, notes, nodes]);
+  // Note: 'nodes' is still needed for position updates in the else branch
 
   // ------------------- Note count visibility toggle -------------------
   useEffect(() => {
@@ -438,21 +484,41 @@ function CytoscapeGraph({
     return () => clearTimeout(timeoutId);
   }, [shouldFitOnNextRender, onFitCompleted]);
 
-  // ------------------- Grayscale image conversions -------------------
+  // ------------------- Grayscale image conversions (optimized with rAF) -------------------
   useEffect(() => {
     const cy = cyRef.current;
     if (!cy) return;
 
-    const interval = setInterval(() => {
-      if (hasPendingGrayscaleConversions()) {
-        const updated = updateCompletedGrayscaleImages(cy, { nodes, edges, mapName, cdnBaseUrl });
-        if (updated) {
-          cy.forceRender();
-        }
-      }
-    }, 500);
+    let rafId = null;
+    let isChecking = false;
 
-    return () => clearInterval(interval);
+    const checkGrayscaleUpdates = () => {
+      if (isChecking) return;
+      isChecking = true;
+      
+      rafId = requestAnimationFrame(() => {
+        isChecking = false;
+        
+        if (hasPendingGrayscaleConversions()) {
+          const updated = updateCompletedGrayscaleImages(cy, { nodes, edges, mapName, cdnBaseUrl });
+          if (updated) {
+            cy.forceRender();
+          }
+          // Continue checking while conversions are pending
+          checkGrayscaleUpdates();
+        }
+      });
+    };
+
+    // Only start checking if there are pending conversions
+    if (hasPendingGrayscaleConversions()) {
+      checkGrayscaleUpdates();
+    }
+
+    return () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      isChecking = false;
+    };
   }, [nodes, edges, mapName, cdnBaseUrl]);
 
   // ------------------- Immediate grabbable toggle on mode change -------------------
@@ -472,6 +538,31 @@ function CytoscapeGraph({
       printDebug(`⚙️ [CytoscapeGraph] Mode='${mode}' grabbable states already correct (immediate effect)`);
     }
   }, [mode]);
+
+  // ------------------- Background image node integration -------------------
+  useEffect(() => {
+    const cy = cyRef.current;
+    if (!cy) return;
+
+    if (bgImage && bgImage.imageUrl) {
+      printDebug(`🖼️ [CytoscapeGraph] Updating background node`, {
+        visible: bgImage.visible,
+        opacity: bgImage.opacity,
+        hasCalibration: !!bgImage.calibration,
+        calibration: bgImage.calibration
+      });
+      
+      ensureBgNode(cy, {
+        imageUrl: bgImage.imageUrl,
+        visible: bgImage.visible,
+        opacity: bgImage.opacity,
+        calibration: bgImage.calibration || { tx: 0, ty: 0, s: 1 }
+      });
+    } else {
+      // Remove background node if no image
+      ensureBgNode(cy, { imageUrl: null, visible: false });
+    }
+  }, [bgImage]);
 
   // ------------------- Note count overlay creation/refresh -------------------
   useEffect(() => {

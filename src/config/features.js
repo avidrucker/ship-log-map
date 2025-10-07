@@ -20,11 +20,11 @@ export const FEATURES = {
   ZOOM_TO_SELECTION: true,
   
   // Debug logging for all app operations
-  DEBUG_LOGGING: false,
+  DEBUG_LOGGING: true,
   
   // Development mode - shows debug tools and features
   // Set to false in production to hide debug button and modal
-  DEV_MODE: false,
+  DEV_MODE: true,
   
   // Render all node images in black and white (grayscale)
   // This creates a grayscale effect for images only, without affecting node colors or text
