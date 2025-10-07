@@ -23,11 +23,16 @@
 import React, { useEffect, useRef } from "react";
 import {
   mountCy, syncElements, wireEvents,
-  hasPendingGrayscaleConversions, updateCompletedGrayscaleImages,
   updateOverlays
 } from "../graph/cyAdapter.js";
+import { 
+  hasPendingGrayscaleConversions, 
+  updateCompletedGrayscaleImages 
+} from "../utils/grayscaleUtils.js";
 import { setNoteCountsVisible, refreshPositions as refreshOverlayPositions } from '../graph/overlayManager.js';
 import { printDebug, printError, printWarn } from "../utils/debug.js";
+import { TEST_ICON_SVG } from "../constants/testAssets.js";
+import { GRAYSCALE_IMAGES } from "../config/features.js";
 
 function CytoscapeGraph({
   nodes = [],
@@ -62,6 +67,7 @@ function CytoscapeGraph({
   visited = { nodes: new Set(), edges: new Set() },
   onCytoscapeInstanceReady
 }) {
+  
   const containerRef = useRef(null);
   const cyRef = useRef(null);
 
