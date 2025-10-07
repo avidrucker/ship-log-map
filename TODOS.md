@@ -117,7 +117,10 @@
 - [ ] implement check that query params CDN match current map CDN, and if they don't, ask the user which map they want to use (current map in local storage or new map from query params CDN), load the correct map, and clear local storage (except for last used CDN URL) if the user chooses the query params CDN map
 - [ ] Implement "guided tours" through maps which can be created in editing mode and then played in playing mode, where a guided tour is a series of nodes that are connected in a specific order, and the user can click "next" and "previous" to navigate through the tour, with the camera automatically zooming and panning to each node in the tour as it is navigated to
 - [ ] Implement "zen" mode which makes the UI even more collapsed and less intrusive
-- [ ] Implement "help"/"info" modal which gives useful info about the app
+- [x] Implement "help"/"info" modal which gives useful info about the app
+- [ ] Fix bug where resizing a node from double to half size leaves the unseen badge in the wrong position
+- [x] Hide unseen badges in editing mode, they should only be shown in playing mode
+- [ ] Fix bug where renaming a node appears to delete notes on connecting edges, but no edge notes should be deleted when renaming a node
 
 Notes for Future Features
 - Listing out "layers" which show things such as electrical lines, water lines, Internet, etc. that can be toggled on and off
