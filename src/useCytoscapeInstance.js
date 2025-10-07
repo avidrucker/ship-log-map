@@ -1,4 +1,5 @@
 // src/useCytoscapeInstance.js
+import { printDebug } from './utils/debug.js';
 
 /**
  * useCytoscapeInstance — Imperative bridge for graph viewport concerns
@@ -281,6 +282,8 @@ export function useCytoscapeInstance() {
         cy.zoom(targetZoom);
         cy.pan(targetPan);
       }
+
+      printDebug("Fit to selection:", { elementIds, targetHalf, targetZoom, targetPan });
 
       return true;
     } catch (error) {

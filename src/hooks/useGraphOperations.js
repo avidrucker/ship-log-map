@@ -48,6 +48,8 @@ export function useGraphOperations({
   const handleFitGraph = useCallback(() => {
     const cyInstance = typeof cy === 'function' ? cy() : cy;
     if (!cyInstance) return;
+
+    printDebug('🎥 GraphOps: handleFitGraph called');
     
     // Get all nodes for fitting
     const allNodes = cyInstance.nodes();
