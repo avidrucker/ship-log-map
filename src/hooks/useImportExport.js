@@ -215,6 +215,9 @@ export function useImportExport({
       }
     }
 
+    // Clear undo state first
+    clearUndoState();
+
     // Create a completely empty map
     setGraphData({
       nodes: [],
@@ -246,9 +249,9 @@ export function useImportExport({
     printDebug("useImportExport handleNewMap: Resetting camera for new map");
     dispatch({ type: ACTION_TYPES.SET_ZOOM_EXTERNAL, payload: { zoom: 1 } });
     dispatch({ type: ACTION_TYPES.SET_CAMERA_POSITION_EXTERNAL, payload: { position: { x: 0, y: 0 } } });
-    setTimeout(() => {
-      dispatch({ type: ACTION_TYPES.SET_SHOULD_FIT, payload: { shouldFit: true } });
-    }, 150);
+    // setTimeout(() => {
+    //   dispatch({ type: ACTION_TYPES.SET_SHOULD_FIT, payload: { shouldFit: true } });
+    // }, 150);
     
     // Clear errors & selections and undo state (new map clears undo)
     dispatch({ type: ACTION_TYPES.SET_LOAD_ERROR, payload: { error: null } });
@@ -258,6 +261,7 @@ export function useImportExport({
     
     // Clear query params from the browser address bar
     clearQueryParams();
+
   }, [graph.nodes.length, graph.mode, setGraphData, dispatch, setBgImage, clearCytoscapeSelections, clearUndoState]);
 
   const exportGraphToJson = useCallback((exportNodePositions) => {
