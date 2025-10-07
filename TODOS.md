@@ -120,7 +120,8 @@
 - [x] Implement "help"/"info" modal which gives useful info about the app
 - [ ] Fix bug where resizing a node from double to half size leaves the unseen badge in the wrong position
 - [x] Hide unseen badges in editing mode, they should only be shown in playing mode
-- [ ] Fix bug where renaming a node appears to delete notes on connecting edges, but no edge notes should be deleted when renaming a node
+- [x] Fix bug where renaming a node appears to delete notes on connecting edges, but no edge notes should be deleted when renaming a node
+- [x] Change camera display panel so that map name and CDN cannot be changed in playing mode, give tooltip to suggest changing modes in order to change
 
 Notes for Future Features
 - Listing out "layers" which show things such as electrical lines, water lines, Internet, etc. that can be toggled on and off
