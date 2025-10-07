@@ -771,6 +771,10 @@ export function wireEvents(cy, handlers = {}, mode = 'editing') {
   }
   container.addEventListener('touchmove', debouncedTouchMoveHandler, { passive: true });
 
+  // add pointer styles to nodes and edges
+  cy.on('mouseover', 'node.entry-parent, edge', (evt) => { evt.cy.container().style.cursor = 'pointer'; });
+  cy.on('mouseout', 'node.entry-parent, edge', (evt) => { evt.cy.container().style.cursor = 'default'; });
+
   return () => {
     printDebug('🧹 [cyAdapter] Removing event listeners');
     cy.removeListener('*');
