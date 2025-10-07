@@ -189,7 +189,7 @@ function CytoscapeGraph({
         if (onCytoscapeInstanceReady) onCytoscapeInstanceReady(cy);
 
         // Build overlays immediately so the toggle only flips classes
-        try { updateOverlays(cy, notes, showNoteCountOverlay, visited); }
+        try { updateOverlays(cy, notes, showNoteCountOverlay, visited, mode); }
         catch (err) { console.warn('Failed to create initial note count overlays:', err); }
       } catch (err) {
         printError('Failed to initialize Cytoscape:', err);
@@ -334,7 +334,7 @@ function CytoscapeGraph({
       syncElements(cy, { nodes, edges, mapName, cdnBaseUrl }, { mode });
 
       // Immediately re-place edge-count nodes post-sync (covers undo, load, etc.)
-      try { updateOverlays(cy, notesRef.current, showNoteCountOverlay, visitedRef.current); } catch {
+      try { updateOverlays(cy, notesRef.current, showNoteCountOverlay, visitedRef.current, mode); } catch {
         printWarn('Failed to update edge count node positions after full sync');
       }
     } else {
@@ -360,7 +360,7 @@ function CytoscapeGraph({
 
       // Nudge edge-count nodes right away so they don't wait for the next event
       if (updatedCount > 0) {
-        try { updateOverlays(cy, notesRef.current, showNoteCountOverlay, visitedRef.current); } catch {
+        try { updateOverlays(cy, notesRef.current, showNoteCountOverlay, visitedRef.current, mode); } catch {
           printWarn('Failed to update edge count node positions after position-only update');
         }
       }
@@ -368,7 +368,7 @@ function CytoscapeGraph({
       // Optional: refresh layout on large changes
       if (updatedCount > 0 && majorChange) {
         syncElements(cy, { nodes, edges, mapName, cdnBaseUrl }, { mode });
-        try { updateOverlays(cy, notesRef.current, showNoteCountOverlay, visitedRef.current); } catch {
+        try { updateOverlays(cy, notesRef.current, showNoteCountOverlay, visitedRef.current, mode); } catch {
           printWarn('Failed to update edge count node positions after major position-only update');
         }
       }
@@ -489,17 +489,17 @@ function CytoscapeGraph({
     const cy = cyRef.current;
     if (!cy) return;
 
-    updateOverlays(cy, notes, showNoteCountOverlay, visited);
+    updateOverlays(cy, notes, showNoteCountOverlay, visited, mode);
 
     const handleGraphChange = () => {
-      updateOverlays(cy, notes, showNoteCountOverlay, visited);
+      updateOverlays(cy, notes, showNoteCountOverlay, visited, mode);
     };
 
     cy.on('add remove', handleGraphChange);
     return () => {
       cy.off('add remove', handleGraphChange);
     };
-  }, [showNoteCountOverlay, notes, visited]);
+  }, [showNoteCountOverlay, notes, visited, mode]);
 
   // ------------------- Edge note-count re-run when entry-parent nodes move -------------------
   const notesRef = useRef(notes);
@@ -512,7 +512,7 @@ function CytoscapeGraph({
     if (!cy) return;
 
     const handleNodePosition = () => {
-      updateOverlays(cy, notesRef.current, showNoteCountOverlay, visitedRef.current);
+      updateOverlays(cy, notesRef.current, showNoteCountOverlay, visitedRef.current, mode);
     };
 
     cy.on('position', 'node.entry-parent', handleNodePosition);

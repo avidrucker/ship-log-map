@@ -186,7 +186,7 @@ export function updateCompletedGrayscaleImages(cy, graph) {
  * (cheap) instead of re-ensuring/recreating them (expensive). This stops
  * badges from “flying” or snapping.
  */
-export function updateOverlays(cy, notes, showNoteCountOverlay, visited = null) {
+export function updateOverlays(cy, notes, showNoteCountOverlay, visited = null, mode = 'editing') {
   if (!cy || cy.destroyed()) return;
 
   // If drag in progress, just reposition what already exists.
@@ -217,7 +217,7 @@ export function updateOverlays(cy, notes, showNoteCountOverlay, visited = null) 
     nodeNoteCounts,
     edgeNoteCounts,
     visited: visited || { nodes: new Set(), edges: new Set() }
-  });
+  }, mode);
 
   setNoteCountsVisible(cy, showNoteCountOverlay);
 }
