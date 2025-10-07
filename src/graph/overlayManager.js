@@ -5,7 +5,7 @@
  * that visually attach to nodes/edges (e.g., note-count badges, "unseen/visited" badges).
  */
 
-import { printDebug } from "../utils/debug.js";
+// import { printDebug } from "../utils/debug.js";
 
 //// Dependencies (soft): tokens for sizes/offsets //////////////////////////////////
 
@@ -375,7 +375,7 @@ export function attach(cy) {
     const n = evt.target;
     if (!n || !n.isNode()) return;
     // Kill any queued animations and keep it inert, but do not lock:
-    try { n.stop(true, true); n.ungrabify(); n.selectify(false); } catch {}
+    try { n.stop(true, true); n.ungrabify(); n.selectify(false); } catch { /* noop */ }
   };
 
   cy.scratch('_overlayManager_attached', true);
