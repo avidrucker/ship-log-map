@@ -491,7 +491,9 @@ export async function mountCy({ container, graph, styles = cytoscapeStyles, mode
     // Kill any queued animations that were scheduled pre-attach
     try { 
       cy.$('node.edge-note-count, node.edge-unseen, node.note-count, node.unseen').stop(true, true); 
-    } catch {}
+    } catch {
+      console.log('Error stopping animations');
+    }
 
     try { 
       cy.on('destroy', () => { 
@@ -539,7 +541,9 @@ export async function mountCy({ container, graph, styles = cytoscapeStyles, mode
     // Kill any queued animations that were scheduled pre-attach
     try { 
       cy.$('node.edge-note-count, node.edge-unseen, node.note-count, node.unseen').stop(true, true); 
-    } catch {}
+    } catch {
+      console.log('Error stopping animations');
+    }
 
     try { 
       cy.on('destroy', () => { 
