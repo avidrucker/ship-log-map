@@ -265,19 +265,35 @@ export function buildElementsFromDomain(graph, options = {}) {
           const entryChildIdForNode = `${parentIdForNode}__entry`;
           const originalImageUrl = imageUrl;
           printDebug(`🎯 [cyAdapter] Scheduling async load for childId="${entryChildIdForNode}" originalUrl="${originalImageUrl}"`);
+          
           if (effectiveCdnBaseUrl) {
             loadImageWithFallback(imageUrl, g.mapName || '', effectiveCdnBaseUrl).then(loadedImageUrl => {
               pendingImageLoads.delete(loadKey);
               printDebug(`✅ [cyAdapter] Image loaded for childId="${entryChildIdForNode}" originalUrl="${originalImageUrl}" length=${loadedImageUrl?.length || 0}`);
-              if (onImageLoaded) {
-                onImageLoaded(entryChildIdForNode, loadedImageUrl);
+              
+              // *** FIX: Check if callback is still valid before calling ***
+              if (onImageLoaded && typeof onImageLoaded === 'function') {
+                try {
+                  onImageLoaded(entryChildIdForNode, loadedImageUrl);
+                } catch (err) {
+                  printDebug(`❌ [cyAdapter] Error in onImageLoaded callback: ${err.message}`);
+                }
               }
+              
               if (GRAYSCALE_IMAGES && loadedImageUrl && (loadedImageUrl.startsWith('data:image/png;') || loadedImageUrl.startsWith('data:image/jpeg;') || loadedImageUrl.startsWith('data:image/jpg;') || loadedImageUrl.startsWith('data:image/webp;'))) {
                 printDebug(`🎨 [cyAdapter] Starting grayscale (post-display) for: ${originalImageUrl}`);
                 preprocessImageToGrayscale(loadedImageUrl, originalImageUrl).then(grayscaleUrl => {
                   printDebug(`✅ [cyAdapter] Grayscale conversion complete for: ${originalImageUrl}`);
-                  if (onImageLoaded) { onImageLoaded(entryChildIdForNode, grayscaleUrl); }
-                }).catch(error => { console.warn(`❌ [cyAdapter] Grayscale conversion failed for: ${originalImageUrl}`, error); });
+                  if (onImageLoaded && typeof onImageLoaded === 'function') { 
+                    try {
+                      onImageLoaded(entryChildIdForNode, grayscaleUrl); 
+                    } catch (err) {
+                      printDebug(`❌ [cyAdapter] Error in grayscale onImageLoaded callback: ${err.message}`);
+                    }
+                  }
+                }).catch(error => { 
+                  console.warn(`❌ [cyAdapter] Grayscale conversion failed for: ${originalImageUrl}`, error); 
+                });
               }
             }).catch(error => {
               pendingImageLoads.delete(loadKey);
@@ -391,22 +407,27 @@ export async function mountCy({ container, graph, styles = cytoscapeStyles, mode
         nodeId = possibleChild;
       }
     }
+    
     // If local cy reference not set yet just queue
     if (!cy) {
       pendingNodeImageUpdates.push({ nodeId, imageUrl });
       return;
     }
 
-    const isActive = currentActiveCy === cy && !cy.destroyed();
-    if (!isActive) {
-      console.warn(`🔁 [cyAdapter] Received image for inactive/destroyed instance. Forwarding to active instance. node=${nodeId}`);
-      pendingNodeImageUpdates.push({ nodeId, imageUrl });
+    // *** FIX: Check if this specific cy instance is still active and not destroyed ***
+    const isThisCyActive = currentActiveCy === cy && !cy.destroyed();
+    if (!isThisCyActive) {
+      printDebug(`🔄 [cyAdapter] Image callback for inactive instance - discarding. node=${nodeId}`);
+      
+      // Only forward to active instance if there IS an active instance and it has this node
       if (currentActiveCy && !currentActiveCy.destroyed()) {
         const activeNode = currentActiveCy.getElementById(nodeId);
-        if (activeNode.length) {
+        if (activeNode.length > 0) {
           activeNode.data('imageUrl', imageUrl);
           currentActiveCy.style().update();
-          printDebug(`✅ [cyAdapter] Applied image update to active instance for node ${nodeId}`);
+          printDebug(`✅ [cyAdapter] Forwarded image update to active instance for node ${nodeId}`);
+        } else {
+          printDebug(`🚫 [cyAdapter] Active instance doesn't have node ${nodeId} - discarding image update`);
         }
       }
       return;
@@ -414,8 +435,7 @@ export async function mountCy({ container, graph, styles = cytoscapeStyles, mode
 
     const node = cy.getElementById(nodeId);
     if (!node || node.length === 0) {
-      console.warn(`⚠️ [cyAdapter] Cannot find node ${nodeId} on (possibly inactive) instance; queueing update`);
-      pendingNodeImageUpdates.push({ nodeId, imageUrl });
+      printDebug(`⚠️ [cyAdapter] Cannot find node ${nodeId} on this instance - discarding`);
       return;
     }
 
@@ -457,8 +477,8 @@ export async function mountCy({ container, graph, styles = cytoscapeStyles, mode
       elements,
       selectionType: mode === 'editing' ? "additive" : "single",
       pixelRatio: 1,
-      motionBlur: false,
-      textureOnViewport: true,
+      motionBlur: true,
+      textureOnViewport: false,
       layout: { name: 'preset' }
     });
 
@@ -468,8 +488,10 @@ export async function mountCy({ container, graph, styles = cytoscapeStyles, mode
     });
 
     attachOverlayManager(cy);
-// Kill any queued animations that were scheduled pre-attach
-try { cy.$('node.edge-note-count, node.edge-unseen, node.note-count, node.unseen').stop(true, true); } catch {}
+    // Kill any queued animations that were scheduled pre-attach
+    try { 
+      cy.$('node.edge-note-count, node.edge-unseen, node.note-count, node.unseen').stop(true, true); 
+    } catch {}
 
     try { 
       cy.on('destroy', () => { 
@@ -503,8 +525,8 @@ try { cy.$('node.edge-note-count, node.edge-unseen, node.note-count, node.unseen
       elements,
       selectionType: mode === 'editing' ? "additive" : "single",
       pixelRatio: 1,
-      motionBlur: false,
-      textureOnViewport: true,
+      motionBlur: true,
+      textureOnViewport: false,
       layout: { name: 'preset' }
     });
 
@@ -514,8 +536,10 @@ try { cy.$('node.edge-note-count, node.edge-unseen, node.note-count, node.unseen
     });
     
     attachOverlayManager(cy);
-// Kill any queued animations that were scheduled pre-attach
-try { cy.$('node.edge-note-count, node.edge-unseen, node.note-count, node.unseen').stop(true, true); } catch {}
+    // Kill any queued animations that were scheduled pre-attach
+    try { 
+      cy.$('node.edge-note-count, node.edge-unseen, node.note-count, node.unseen').stop(true, true); 
+    } catch {}
 
     try { 
       cy.on('destroy', () => { 
@@ -875,7 +899,7 @@ export function wireEvents(cy, handlers = {}, mode = 'editing') {
       wheelTimer = null;
     }, 200);
   }
-  container.addEventListener('wheel', debouncedWheelHandler);
+  container.addEventListener('wheel', debouncedWheelHandler, { passive: true });
 
   function touchEndHandler() { handleCameraUpdate('touchend'); }
   container.addEventListener('touchend', touchEndHandler);
@@ -888,7 +912,7 @@ export function wireEvents(cy, handlers = {}, mode = 'editing') {
       touchMoveTimer = null;
     }, 120);
   }
-  container.addEventListener('touchmove', debouncedTouchMoveHandler);
+  container.addEventListener('touchmove', debouncedTouchMoveHandler, { passive: true });
 
   cy.on('mouseover', 'node.entry-parent, edge', (evt) => { evt.cy.container().style.cursor = 'pointer'; });
   cy.on('mouseout', 'node.entry-parent, edge', (evt) => { evt.cy.container().style.cursor = 'default'; });
