@@ -481,6 +481,17 @@ function App() {
     clearForMap: clearVisitedForMap
   } = useVisited(mapName);
 
+  const handleClearVisited = useCallback(() => {
+    const confirmed = window.confirm(
+      `Are you sure you want to clear all reading history for "${mapName}"?\n\n` +
+      'This will mark all nodes and edges as unvisited (unseen). This action cannot be undone.'
+    );
+    
+    if (confirmed) {
+      clearVisitedForMap();
+    }
+  }, [clearVisitedForMap, mapName]);
+
   // Decide typewriter-on-first-open here; keep it outside the modal API.
   const typewriterRef = useRef(false);
 
@@ -1173,7 +1184,7 @@ useEffect(() => {
           onLoadFromCdn={handleLoadFromCdnButton}
           bgImage={bgImage}
           onToggleBgImageVisible={toggleBgImageVisible}
-          onClearVisited={clearVisitedForMap}
+          onClearVisited={handleClearVisited}
           onOpenHelpModal={modalOps.openHelpModal}
         />
 
