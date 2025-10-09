@@ -216,6 +216,7 @@ function CytoscapeGraph({
         if (cy._eventCleanup) cy._eventCleanup();
         if (cy._edgeCountCleanup) cy._edgeCountCleanup();
         if (cy._viewportCleanup) cy._viewportCleanup();
+        try { removeBgNode(cy); } catch { /*noop*/ }
 
         cy.destroy();
       } catch {
