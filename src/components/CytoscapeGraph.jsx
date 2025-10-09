@@ -86,7 +86,7 @@ function CytoscapeGraph({
       if (!onViewportRef.current) return;
       if (viewportRafIdRef.current) return;
       viewportRafIdRef.current = requestAnimationFrame(() => {
-        console.log("attach viewport streaming")
+        console.log("RAF attach viewport streaming")
         viewportRafIdRef.current = 0;
         try {
           const p = cy.pan();
@@ -133,7 +133,7 @@ function CytoscapeGraph({
       
       updatePending = true;
       requestAnimationFrame(() => {
-        console.log("attach edege count live updater")
+        console.log("RAF attach edege count live updater")
         updatePending = false;
         lastUpdateTime = performance.now();
         
@@ -190,16 +190,20 @@ function CytoscapeGraph({
         }, mode);
         cy._eventCleanup = off;
 
-        // Viewport streaming (BG layer)
-        cy._viewportCleanup = attachViewportStreaming(cy);
-
+        // *** ADD BACK: Debounced viewport streaming for camera info ***
+        if (onViewportChange) {
+          cy._viewportCleanup = attachViewportStreaming(cy, onViewportChange);
+        }
+        
         // Edge note-count live updater
         cy._edgeCountCleanup = attachEdgeCountLiveUpdater(cy);
 
         if (onCytoscapeInstanceReady) onCytoscapeInstanceReady(cy);
 
         // Build overlays immediately so the toggle only flips classes
-        try { updateOverlays(cy, notes, showNoteCountOverlay, visited, mode); }
+        try { 
+          console.log("apple")
+          updateOverlays(cy, notes, showNoteCountOverlay, visited, mode); }
         catch (err) { console.warn('Failed to create initial note count overlays:', err); }
       } catch (err) {
         printError('Failed to initialize Cytoscape:', err);
@@ -216,7 +220,7 @@ function CytoscapeGraph({
         if (cy._eventCleanup) cy._eventCleanup();
         if (cy._edgeCountCleanup) cy._edgeCountCleanup();
         if (cy._viewportCleanup) cy._viewportCleanup();
-        try { removeBgNode(cy); } catch { /*noop*/ }
+        try { removeBgNode(cy); } catch { /*noop*/}
 
         cy.destroy();
       } catch {
@@ -345,7 +349,9 @@ function CytoscapeGraph({
       syncElements(cy, { nodes, edges, mapName, cdnBaseUrl }, { mode });
 
       // Immediately re-place edge-count nodes post-sync (covers undo, load, etc.)
-      try { updateOverlays(cy, notesRef.current, showNoteCountOverlay, visitedRef.current, mode); } catch {
+      try { 
+        console.log("banana")
+        updateOverlays(cy, notesRef.current, showNoteCountOverlay, visitedRef.current, mode); } catch {
         printWarn('Failed to update edge count node positions after full sync');
       }
     } else {
@@ -371,7 +377,9 @@ function CytoscapeGraph({
 
       // Nudge edge-count nodes right away so they don't wait for the next event
       if (updatedCount > 0) {
-        try { updateOverlays(cy, notesRef.current, showNoteCountOverlay, visitedRef.current, mode); } catch {
+        try { 
+          console.log("cherry")
+          updateOverlays(cy, notesRef.current, showNoteCountOverlay, visitedRef.current, mode); } catch {
           printWarn('Failed to update edge count node positions after position-only update');
         }
       }
@@ -379,7 +387,9 @@ function CytoscapeGraph({
       // Optional: refresh layout on large changes
       if (updatedCount > 0 && majorChange) {
         syncElements(cy, { nodes, edges, mapName, cdnBaseUrl }, { mode });
-        try { updateOverlays(cy, notesRef.current, showNoteCountOverlay, visitedRef.current, mode); } catch {
+        try { 
+          console.log("dragonfruit")
+          updateOverlays(cy, notesRef.current, showNoteCountOverlay, visitedRef.current, mode); } catch {
           printWarn('Failed to update edge count node positions after major position-only update');
         }
       }
@@ -500,9 +510,11 @@ function CytoscapeGraph({
     const cy = cyRef.current;
     if (!cy) return;
 
+    console.log("elderberry")
     updateOverlays(cy, notes, showNoteCountOverlay, visited, mode);
 
     const handleGraphChange = () => {
+      console.log("fig")
       updateOverlays(cy, notes, showNoteCountOverlay, visited, mode);
     };
 
@@ -523,6 +535,7 @@ function CytoscapeGraph({
     if (!cy) return;
 
     const handleNodePosition = () => {
+      console.log("grape")
       updateOverlays(cy, notesRef.current, showNoteCountOverlay, visitedRef.current, mode);
     };
 

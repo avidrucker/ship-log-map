@@ -50,20 +50,32 @@ function calculateBgNodeGeometry(calibration, imageWidth, imageHeight) {
   return { width, height, position };
 }
 
-let forceUpdateScheduled = false;
-
-function scheduleForceUpdate(cy) {
-  if (forceUpdateScheduled) return;
-  forceUpdateScheduled = true;
+/**
+ * Force Cytoscape to update styles immediately without rAF
+ * This is more efficient for background node updates since they happen infrequently
+ */
+function forceStyleUpdate(cy) {
+  if (!cy || cy.destroyed()) return;
   
-  requestAnimationFrame(() => {
-    console.log("schedule force update");
-    forceUpdateScheduled = false;
-    if (cy && !cy.destroyed()) {
-      cy.style().update();
-      // Remove the second rAF call - one is enough
-    }
-  });
+  // Direct style update - no rAF needed
+  cy.style().update();
+  
+  // Only call resize if absolutely necessary (and without rAF)
+  // This should only be needed on initial creation, not updates
+}
+
+/**
+ * Batch multiple operations to avoid multiple style updates
+ */
+function batchNodeUpdates(cy, updateFn) {
+  if (!cy || cy.destroyed()) return;
+  
+  cy.startBatch();
+  try {
+    updateFn();
+  } finally {
+    cy.endBatch(); // This triggers a single render automatically
+  }
 }
 
 /**
@@ -90,7 +102,10 @@ export function ensureBgNode(cy, { imageUrl, visible, opacity = 100, calibration
   if (!visible || !imageUrl) {
     if (existingNode.length > 0) {
       printDebug('🗑️ [bgNodeAdapter] Removing background node (not visible or no image)');
-      cy.remove(existingNode);
+      // Use batch for removal
+      batchNodeUpdates(cy, () => {
+        cy.remove(existingNode);
+      });
     }
     return;
   }
@@ -135,6 +150,11 @@ export function ensureBgNode(cy, { imageUrl, visible, opacity = 100, calibration
     existingNode.data('imageUrl', imageUrl);
     existingNode.data('opacity', opacity / 100);
     existingNode.position(geometry.position);
+    existingNode.style({
+        'width': geometry.width,
+        'height': geometry.height,
+        'opacity': opacity / 100
+      });
     
     // Re-lock if it was locked
     if (wasLocked) {
@@ -149,59 +169,44 @@ export function ensureBgNode(cy, { imageUrl, visible, opacity = 100, calibration
       success: updatedPos.x === geometry.position.x && updatedPos.y === geometry.position.y
     });
     
-    existingNode.style({
-      'width': geometry.width,
-      'height': geometry.height,
-      'opacity': opacity / 100
-    });
-    
     // Force a re-render after updating (especially on first load from localStorage)
-    scheduleForceUpdate(cy);
+    forceStyleUpdate(cy);
   } else {
     // Create new background node
     printDebug('✨ [bgNodeAdapter] Creating background node', { geometry, opacity, imageUrl: imageUrl.substring(0, 50) + '...' });
     
-    const newNode = cy.add({
-      group: 'nodes',
-      data: {
-        id: BG_NODE_ID,
-        imageUrl: imageUrl,
-        opacity: opacity / 100,
-        __isBgNode: true
-      },
-      position: geometry.position,
-      locked: false, // Start unlocked to allow initial positioning
-      grabbable: false,
-      selectable: false,
-      classes: 'background-image-node'
+    batchNodeUpdates(cy, () => {
+      const newNode = cy.add({
+        group: 'nodes',
+        data: {
+          id: BG_NODE_ID,
+          imageUrl: imageUrl,
+          opacity: opacity / 100,
+          __isBgNode: true
+        },
+        position: geometry.position,
+        locked: false,
+        grabbable: false,
+        selectable: false,
+        classes: 'background-image-node'
+      });
+      
+      // Set styles immediately after creation
+      newNode.style({
+        'width': geometry.width,
+        'height': geometry.height,
+        'opacity': opacity / 100
+      });
+      
+      // Lock after all properties are set
+      newNode.lock();
     });
     
-    // Set size and opacity styles
-    newNode.style({
-      'width': geometry.width,
-      'height': geometry.height,
-      'opacity': opacity / 100
-    });
+    // Only for initial creation, force a single resize (without rAF)
+    // This helps Cytoscape recognize the new node properly
+    cy.resize();
     
-    // Now lock it after position and styles are set
-    newNode.lock();
-    
-    // Force a re-render to ensure the background appears
-    // Sometimes Cytoscape needs a nudge to render the node properly
-    //////
-    cy.style().update();
-    
-    // // Additional: Force viewport refresh
-    requestAnimationFrame(() => {
-      console.log("force viewport refresh");
-      cy.resize();
-    });
-    
-    printDebug('✅ [bgNodeAdapter] Background node created and locked', { 
-      position: newNode.position(),
-      size: { width: geometry.width, height: geometry.height },
-      isLocked: newNode.locked()
-    });
+    printDebug('✅ [bgNodeAdapter] Background node created and locked');
   }
 }
 
@@ -235,25 +240,19 @@ export function updateBgNodeCalibration(cy, calibration, imageWidth = 1000, imag
   
   printDebug('📐 [bgNodeAdapter] Updating background node calibration', geometry);
   
-  // Unlock temporarily to reposition
-  const wasLocked = bgNode.locked();
-  if (wasLocked) {
-    bgNode.unlock();
-  }
-  
-  bgNode.position(geometry.position);
-  bgNode.style({
-    'width': geometry.width,
-    'height': geometry.height
+  // Batch the calibration update
+  batchNodeUpdates(cy, () => {
+    const wasLocked = bgNode.locked();
+    if (wasLocked) bgNode.unlock();
+    
+    bgNode.position(geometry.position);
+    bgNode.style({
+      'width': geometry.width,
+      'height': geometry.height
+    });
+    
+    if (wasLocked) bgNode.lock();
   });
-  
-  // Re-lock if it was locked
-  if (wasLocked) {
-    bgNode.lock();
-  }
-  
-  // Force re-render
-  scheduleForceUpdate(cy);
 }
 
 /**
@@ -266,8 +265,11 @@ export function updateBgNodeOpacity(cy, opacity) {
   if (bgNode.length === 0) return;
   
   const normalizedOpacity = opacity / 100;
-  bgNode.data('opacity', normalizedOpacity);
-  bgNode.style('opacity', normalizedOpacity);
+  // Batch the opacity update
+  batchNodeUpdates(cy, () => {
+    bgNode.data('opacity', normalizedOpacity);
+    bgNode.style('opacity', normalizedOpacity);
+  });
 }
 
 /**

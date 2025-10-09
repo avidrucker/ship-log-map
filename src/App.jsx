@@ -1124,23 +1124,6 @@ useEffect(() => {
             </div>
         </div>
 
-        {/* Background image underlay */}
-        {/* {bgImage.imageUrl && bgImage.visible && (
-          <BgImageLayer
-            url={bgImage.imageUrl}
-            visible={bgImage.visible}
-            opacity={bgImage.opacity}
-            pan={livePan}              // 🔴 live pan (every frame)
-            zoom={liveZoom}            // 🔴 live zoom (every frame)
-            calibration={ bgCalibration
-              // keep your existing semantics: scale is a percentage
-              // tx: bgImage.x,                  // world offset X (same units as node positions)
-              // ty: bgImage.y,                  // world offset Y
-              // s: (bgImage.scale ?? 100) / 100 // world units per image pixel
-            }
-          />
-        )} */}
-
         {canEdit && (
           <GraphControls
             selectedNodes={selectedNodeIds}
@@ -1235,8 +1218,8 @@ useEffect(() => {
 
         {(!CAMERA_INFO_HIDDEN && canEdit) && (
           <CameraInfo
-            zoom={zoomLevel}
-            pan={cameraPosition}
+            zoom={liveZoom}
+            pan={livePan}
             selectedNodeIds={selectedNodeIds}
             selectedEdgeIds={selectedEdgeIds}
             mode={mode}

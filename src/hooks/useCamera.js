@@ -6,14 +6,14 @@ import { printDebug } from '../utils/debug';
 /**
  * useCamera — real-time camera streaming + debounced reducer commits.
  * 
- * - livePan/liveZoom: update each animation frame for the BG layer.
- * - onZoomChange/onCameraMove: debounced commits to reducer (no thrash).
- * - onViewportChange: rAF stream receiver from CytoscapeGraph.
+ * - livePan/liveZoom: immediate updates for any consumers that need current camera state
+ * - onZoomChange/onCameraMove: debounced commits to reducer (no thrash)
+ * - onViewportChange: immediate stream receiver from CytoscapeGraph
  */
 export function useCamera(dispatch, appState, { commitDelay = 0 } = {}) {
   const { camera } = appState;
 
-  // Per-frame values for BG image (don't go through reducer)
+  // Current values for any consumers that need camera state
   const [liveZoom, setLiveZoom] = useState(camera.zoom ?? 1);
   const [livePan, setLivePan] = useState({
     x: camera.position?.x ?? 0,
@@ -45,8 +45,7 @@ export function useCamera(dispatch, appState, { commitDelay = 0 } = {}) {
     }, commitDelayRef.current);
   }, [dispatch]);
 
-  // rAF-per-frame viewport stream (from CytoscapeGraph)
-  const rafPending = useRef(false);
+  // Immediate viewport stream (from CytoscapeGraph) - NO MORE RAF
   const latest = useRef({ pan: { x: livePan.x, y: livePan.y }, zoom: liveZoom });
   
   const onViewportChange = useCallback(({ pan, zoom }) => {
@@ -69,36 +68,17 @@ export function useCamera(dispatch, appState, { commitDelay = 0 } = {}) {
     
     printDebug(`🎥 Meaningful camera change detected - zoom Δ=${Math.abs(currentZoom - zoom).toFixed(6)}, pan Δ=${Math.abs(currentPan.x - pan.x).toFixed(2)},${Math.abs(currentPan.y - pan.y).toFixed(2)}`);
     
-    // Store latest; clone pan (Cytoscape returns a mutable object)
+    // Store latest values (clone pan since Cytoscape returns mutable object)
     latest.current = { zoom, pan: { x: pan.x, y: pan.y } };
-    if (rafPending.current) return;
-    rafPending.current = true;
 
-    requestAnimationFrame(() => {
-      console.log("raf camera");
-      rafPending.current = false;
-      const { zoom: z, pan: p } = latest.current;
-
-      // Always update live state - this is the source of truth for visuals
-      setLiveZoom(z);
-      setLivePan({ x: p.x, y: p.y });
-      
-      // Commit to reducer for persistence (debounced)
-      commitZoom(z);
-      commitPan(p);
-    });
+    // *** REMOVED RAF - Update state immediately ***
+    setLiveZoom(zoom);
+    setLivePan({ x: pan.x, y: pan.y });
+    
+    // Commit to reducer for persistence (still debounced)
+    commitZoom(zoom);
+    commitPan({ x: pan.x, y: pan.y });
   }, [commitZoom, commitPan]);
-
-  // Remove the classic debounced commits - viewport stream handles everything now
-  // const onZoomChange = useCallback((z) => {
-  //   // Deprecated - viewport stream handles this
-  //   console.warn('onZoomChange is deprecated - use viewport stream');
-  // }, []);
-
-  // const onCameraMove = useCallback((p) => {
-  //   // Deprecated - viewport stream handles this
-  //   console.warn('onCameraMove is deprecated - use viewport stream');
-  // }, []);
 
   // Cleanup
   useEffect(() => () => {

@@ -43,6 +43,7 @@ export default function TypewriterText({
       setOut(text.slice(0, charCount));
 
       if (progress < 1) {
+        console.log("RAF typewriter animation");
         rafRef.current = requestAnimationFrame(animate);
       } else {
         setOut(text); // Ensure full text
@@ -50,6 +51,7 @@ export default function TypewriterText({
       }
     };
 
+    console.log("RAF start typewriter animation");
     rafRef.current = requestAnimationFrame(animate);
 
     return () => {

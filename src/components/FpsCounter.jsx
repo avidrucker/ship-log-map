@@ -35,9 +35,11 @@ function FpsCounter() {
         lastTimeRef.current = now;
       }
       if (running) {
+        console.log("RAF tick for FPS counter");
         animationFrameRef.current = requestAnimationFrame(tick);
       }
     }
+    console.log("RAF Starting FPS counter");
     animationFrameRef.current = requestAnimationFrame(tick);
     return () => {
       running = false;
