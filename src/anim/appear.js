@@ -64,6 +64,7 @@ export function installAppearOnAdd(cy, { skipInitial = true, onlyWhenFlag = null
     
     // Trigger CSS animation
     requestAnimationFrame(() => {
+      console.log("css appear")
       animateHeightIn(ele, { duration: 600, easing: 'ease-out' });
       // Clear flag after animation
       if (onlyWhenFlag) {

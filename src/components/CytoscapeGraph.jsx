@@ -33,6 +33,7 @@ import { setNoteCountsVisible, refreshPositions as refreshOverlayPositions } fro
 import { printDebug, printError, printWarn } from "../utils/debug.js";
 import { TEST_ICON_SVG } from "../constants/testAssets.js";
 import { GRAYSCALE_IMAGES } from "../config/features.js";
+import { ensureBgNode, removeBgNode } from "../graph/bgNodeAdapter.js";
 
 function CytoscapeGraph({
   nodes = [],
@@ -65,7 +66,8 @@ function CytoscapeGraph({
   showNoteCountOverlay = false,
   notes = {},
   visited = { nodes: new Set(), edges: new Set() },
-  onCytoscapeInstanceReady
+  onCytoscapeInstanceReady,
+  bgNodeProps = { imageUrl: '', visible: false, opacity: 100, calibration: { tx: 0, ty: 0, s: 1 } }
 }) {
   
   const containerRef = useRef(null);
@@ -84,6 +86,7 @@ function CytoscapeGraph({
       if (!onViewportRef.current) return;
       if (viewportRafIdRef.current) return;
       viewportRafIdRef.current = requestAnimationFrame(() => {
+        console.log("attach viewport streaming")
         viewportRafIdRef.current = 0;
         try {
           const p = cy.pan();
@@ -130,6 +133,7 @@ function CytoscapeGraph({
       
       updatePending = true;
       requestAnimationFrame(() => {
+        console.log("attach edege count live updater")
         updatePending = false;
         lastUpdateTime = performance.now();
         
@@ -221,7 +225,7 @@ function CytoscapeGraph({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // mount once
-
+  
   // ------------------- Re-wire events when handlers/mode change -------------------
   useEffect(() => {
     printDebug(`🔌 [CytoscapeGraph] Event handlers changed, re-wiring events`);
@@ -525,7 +529,36 @@ function CytoscapeGraph({
     return () => {
       cy.off('position', 'node.entry-parent', handleNodePosition);
     };
-  }, [showNoteCountOverlay]); // uses notesRef.current
+  }, [showNoteCountOverlay, mode]); // uses notesRef.current
+
+  // ------------------- Background image node integration -------------------
+  // ------------------- Background image node sync -------------------
+  useEffect(() => {
+    const cy = cyRef.current;
+    if (!cy) return;
+    const { imageUrl, visible, opacity, calibration } = bgNodeProps || {};
+
+    // Create/update or remove the background node
+    ensureBgNode(cy, {
+      imageUrl,
+      visible,
+      opacity,
+      calibration
+    });
+
+    // Nothing special required on cleanup; node is removed when invisible.
+    // Still, if component unmounts while visible, clean it up.
+    return () => {
+      // Only remove on unmount (don’t fight with other effects)
+      if (cy?.destroyed && !cy.destroyed()) {
+        // noop (we remove on visibility false in ensureBgNode)
+      }
+    };
+    // Include a stable calibration dep (stringify small object is fine here)
+  }, [
+    cyRef,
+    bgNodeProps
+  ]);
 
   return (
     <div

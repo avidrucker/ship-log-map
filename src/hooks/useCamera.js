@@ -75,6 +75,7 @@ export function useCamera(dispatch, appState, { commitDelay = 0 } = {}) {
     rafPending.current = true;
 
     requestAnimationFrame(() => {
+      console.log("raf camera");
       rafPending.current = false;
       const { zoom: z, pan: p } = latest.current;
 

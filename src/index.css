@@ -106,16 +106,3 @@ ul li::marker {
 .spinner {
   animation: spin 1s linear infinite;
 }
-
-/* Keep the background image/svg independent of the viewport */
-.bg-map-fixed,
-.bg-map-fixed img,
-.bg-map-fixed svg {
-  max-width: none !important;
-  max-height: none !important;
-  width: auto !important;
-  height: auto !important;
-  /* Optional: fully isolate from inherited styles if needed */
-  /* all: unset;  */    /* uncomment if you see other inherited styles creeping in */
-  /* display: block; */ /* re-add layout props if you use `all: unset` */
-}

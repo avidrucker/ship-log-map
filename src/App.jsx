@@ -64,7 +64,7 @@ import { appStateReducer, initialAppState, ACTION_TYPES } from "./appStateReduce
 import { ZOOM_TO_SELECTION, DEBUG_LOGGING, DEV_MODE, GRAYSCALE_IMAGES, CAMERA_INFO_HIDDEN } from "./config/features.js";
 import { handleLoadFromCdn, setCdnBaseUrl, getCdnBaseUrl } from "./utils/cdnHelpers.js"; // getMapUrlFromQuery, clearQueryParams
 import BgImageModal from "./components/BgImageModal.jsx";
-import BgImageLayer from "./bg/BgImageLayer";
+// import BgImageLayer from "./bg/BgImageLayer";
 import { useBgImageState } from "./bg/useBgImageState";
 // import { loadImageWithFallback } from "./utils/imageLoader.js";
 // import { dataUrlOrBlobToWebpDataUrl } from "./utils/imageUtils.js"
@@ -1125,7 +1125,7 @@ useEffect(() => {
         </div>
 
         {/* Background image underlay */}
-        {bgImage.imageUrl && bgImage.visible && (
+        {/* {bgImage.imageUrl && bgImage.visible && (
           <BgImageLayer
             url={bgImage.imageUrl}
             visible={bgImage.visible}
@@ -1139,7 +1139,7 @@ useEffect(() => {
               // s: (bgImage.scale ?? 100) / 100 // world units per image pixel
             }
           />
-        )}
+        )} */}
 
         {canEdit && (
           <GraphControls
@@ -1343,6 +1343,15 @@ useEffect(() => {
           onNodeColorChange={graphOps.handleNodeColorChange}
           onBackgroundClick={handleBackgroundClick}
           onCytoscapeInstanceReady={setCytoscapeInstance}
+
+          // Background node integration
+          bgNodeProps={{
+            imageUrl: bgImage?.imageUrl || '',
+            visible: !!bgImage?.visible,
+            opacity: Number.isFinite(bgImage?.opacity) ? bgImage.opacity : 100,
+            calibration: bgCalibration || { tx: 0, ty: 0, s: 1 }
+          }}
+
           showNoteCountOverlay={showNoteCountOverlay}
           notes={memoNotes}
           visited={visited} /* pass visited to drive unseen badges */
