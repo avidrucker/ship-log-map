@@ -25,18 +25,18 @@ import cytoscapeStyles from "../cytoscapeStyles.js";
 import { deserializeGraph } from "./ops.js";
 import { TEST_ICON_SVG } from "../constants/testAssets.js";
 import { GRAYSCALE_IMAGES } from "../config/features.js";
-import { convertImageToGrayscale } from "../utils/grayscaleUtils.js";
+import { 
+  preprocessImageToGrayscale, 
+  getCachedGrayscaleImage, 
+  shouldProcessForGrayscale,
+  clearGrayscaleCache as clearGrayscaleCacheUtil
+} from "../utils/grayscaleUtils.js";
 import { getCdnBaseUrl } from "../utils/cdnHelpers.js";
 import { loadImageWithFallback, imageCache, getDefaultPlaceholderSvg, ensureDefaultPlaceholderLoaded, onDefaultPlaceholderLoaded } from "../utils/imageLoader.js";
 import { printDebug } from "../utils/debug.js"; // printWarn
 import { installAppearOnAdd } from '../anim/appear.js';
 import { isSearchInProgress, isCurrentSearchSelection, getCurrentSearchIds } from '../search/searchHighlighter.js';
 import { ensure as ensureOverlays, refreshPositions as refreshOverlayPositions, attach as attachOverlayManager, detach as detachOverlayManager, setNoteCountsVisible } from './overlayManager.js';
-
-// Cache for grayscale images to avoid reprocessing
-const GRAYSCALE_CACHE_KEY = 'shipLogGrayscaleCache';
-const grayscaleCache = new Map();
-const pendingConversions = new Set();
 
 // Track pending image loads to prevent duplicate requests
 const pendingImageLoads = new Set();
@@ -47,155 +47,13 @@ const pendingNodeImageUpdates = [];
 // Track current active Cytoscape instance (helps with React 18 StrictMode double mount)
 let currentActiveCy = null;
 
-// Load grayscale cache from localStorage on module initialization
-function loadGrayscaleCacheFromStorage() {
-  try {
-    const cached = localStorage.getItem(GRAYSCALE_CACHE_KEY);
-    if (cached) {
-      const parsedCache = JSON.parse(cached);
-      const entryCount = Object.keys(parsedCache).length;
-      printDebug(`💾 [cyAdapter] Loading grayscale cache from localStorage with ${entryCount} entries`);
-      Object.entries(parsedCache).forEach(([key, value]) => {
-        grayscaleCache.set(key, value);
-        printDebug(`💾 [cyAdapter] Loaded grayscale cache entry: "${key.substring(0, 50)}..." -> value length: ${value?.length || 0}`);
-      });
-      printDebug(`✅ [cyAdapter] Grayscale cache loaded successfully with ${grayscaleCache.size} entries`);
-    } else {
-      printDebug(`💾 [cyAdapter] No grayscale cache found in localStorage`);
-    }
-  } catch (error) {
-    console.warn('Failed to load grayscale cache from localStorage:', error);
-  }
-}
-
-// Save grayscale cache to localStorage
-function saveGrayscaleCacheToStorage() {
-  try {
-    const cacheObject = {};
-    let savedCount = 0;
-    grayscaleCache.forEach((value, key) => {
-      // Only save completed conversions (strings), not promises
-      if (typeof value === 'string') {
-        cacheObject[key] = value;
-        savedCount++;
-      }
-    });
-    printDebug(`💾 [cyAdapter] Saving grayscale cache to localStorage: ${savedCount} entries out of ${grayscaleCache.size} total`);
-    localStorage.setItem(GRAYSCALE_CACHE_KEY, JSON.stringify(cacheObject));
-    printDebug(`✅ [cyAdapter] Grayscale cache saved successfully`);
-  } catch (error) {
-    console.warn('Failed to save grayscale cache to localStorage:', error);
-  }
-}
-
-// Initialize cache from localStorage
-loadGrayscaleCacheFromStorage();
-
-// Debounced save to avoid excessive localStorage writes
-let saveGrayscaleCacheTimeout = null;
-function debouncedSaveGrayscaleCache() {
-  clearTimeout(saveGrayscaleCacheTimeout);
-  saveGrayscaleCacheTimeout = setTimeout(() => {
-    saveGrayscaleCacheToStorage();
-  }, 2000); // Save at most once every 2 seconds
-}
-
-// Preprocess images to grayscale in the background to avoid race conditions
-function preprocessImageToGrayscale(imageUrl, originalImagePath = null) {
-  printDebug(`🎨 [cyAdapter] preprocessImageToGrayscale called with: "${imageUrl?.substring(0, 50)}..." (originalPath: ${originalImagePath || 'none'})`);
-  
-  if (!GRAYSCALE_IMAGES || !imageUrl) {
-    printDebug(`⚠️ [cyAdapter] Skipping grayscale: feature disabled or no image`);
-    return Promise.resolve(imageUrl);
-  }
-  
-  // Skip SVG placeholders and test icons
-  if (imageUrl === TEST_ICON_SVG || imageUrl.includes('data:image/svg+xml')) {
-    printDebug(`⚠️ [cyAdapter] Skipping grayscale for SVG placeholder`);
-    return Promise.resolve(imageUrl);
-  }
-  
-  // Only process real image data URLs - skip filenames and non-image data
-  if (!imageUrl.startsWith('data:image/') || imageUrl.startsWith('data:image/svg+xml')) {
-    printDebug(`⚠️ [cyAdapter] Skipping grayscale for non-image data URL: "${imageUrl?.substring(0, 50)}..."`);
-    return Promise.resolve(imageUrl);
-  }
-  
-  // Use original image path as cache key if available, otherwise fall back to image URL
-  const cacheKey = originalImagePath || imageUrl;
-  
-  if (grayscaleCache.has(cacheKey)) {
-    const cached = grayscaleCache.get(cacheKey);
-    printDebug(`💾 [cyAdapter] Found cached grayscale result for key: "${originalImagePath ? 'path-based' : 'url-based'}"`);
-    // If it's a string (completed conversion), return it
-    if (typeof cached === 'string') {
-      return Promise.resolve(cached);
-    }
-    // If it's a promise (in progress), return the promise
-    return cached;
-  }
-  
-  printDebug(`🔄 [cyAdapter] Starting new grayscale conversion with cache key: "${cacheKey?.substring(0, 50)}..."`);
-  // Start conversion in background, but don't wait for it
-  const conversionPromise = convertImageToGrayscale(imageUrl)
-    .then(grayscaleUrl => {
-      grayscaleCache.set(cacheKey, grayscaleUrl);
-      pendingConversions.delete(imageUrl);
-      // Save to localStorage when conversion completes (debounced)
-      debouncedSaveGrayscaleCache();
-      return grayscaleUrl;
-    })
-    .catch(error => {
-      console.warn('Failed to convert image to grayscale:', error);
-      grayscaleCache.set(cacheKey, imageUrl); // Cache the original to avoid retrying
-      pendingConversions.delete(imageUrl);
-      // Save to localStorage even on failure to avoid retrying (debounced)
-      debouncedSaveGrayscaleCache();
-      return imageUrl;
-    });
-  
-  pendingConversions.add(imageUrl);
-  grayscaleCache.set(cacheKey, conversionPromise);
-  return conversionPromise;
-}
-
-// Check if there are pending conversions that might benefit from an update
-export function hasPendingGrayscaleConversions() {
-  return pendingConversions.size > 0;
-}
-
-// Update only image data for nodes that have completed grayscale conversion
-export function updateCompletedGrayscaleImages(cy, graph) {
-  if (!GRAYSCALE_IMAGES || pendingConversions.size === 0) return false;
-  
-  let updated = false;
-  const g = deserializeGraph(graph);
-  
-  g.nodes.forEach(n => {
-    const imageUrl = n.imageUrl;
-    if (imageUrl && imageUrl !== TEST_ICON_SVG && grayscaleCache.has(imageUrl)) {
-      const cached = grayscaleCache.get(imageUrl);
-      if (typeof cached === 'string' && !pendingConversions.has(imageUrl)) {
-        // Conversion completed, update the node
-        const cyNode = cy.getElementById(n.id);
-        if (cyNode.length > 0 && cyNode.data('imageUrl') !== cached) {
-          cyNode.data('imageUrl', cached);
-          updated = true;
-        }
-      }
-    }
-  });
-  
-  return updated;
-}
-
 /**
  * Update overlays from a notes object and visibility flag.
  * IMPORTANT: While a node is being dragged, we only reposition overlays
  * (cheap) instead of re-ensuring/recreating them (expensive). This stops
- * badges from “flying” or snapping.
+ * badges from "flying" or snapping.
  */
-export function updateOverlays(cy, notes, showNoteCountOverlay, visited = null) {
+export function updateOverlays(cy, notes, showNoteCountOverlay, visited = null, mode = 'editing') {
   if (!cy || cy.destroyed()) return;
 
   // If drag in progress, just reposition what already exists.
@@ -226,7 +84,7 @@ export function updateOverlays(cy, notes, showNoteCountOverlay, visited = null) 
     nodeNoteCounts,
     edgeNoteCounts,
     visited: visited || { nodes: new Set(), edges: new Set() }
-  });
+  }, mode);
 
   setNoteCountsVisible(cy, showNoteCountOverlay);
 }
@@ -274,19 +132,35 @@ export function buildElementsFromDomain(graph, options = {}) {
           const entryChildIdForNode = `${parentIdForNode}__entry`;
           const originalImageUrl = imageUrl;
           printDebug(`🎯 [cyAdapter] Scheduling async load for childId="${entryChildIdForNode}" originalUrl="${originalImageUrl}"`);
+          
           if (effectiveCdnBaseUrl) {
             loadImageWithFallback(imageUrl, g.mapName || '', effectiveCdnBaseUrl).then(loadedImageUrl => {
               pendingImageLoads.delete(loadKey);
               printDebug(`✅ [cyAdapter] Image loaded for childId="${entryChildIdForNode}" originalUrl="${originalImageUrl}" length=${loadedImageUrl?.length || 0}`);
-              if (onImageLoaded) {
-                onImageLoaded(entryChildIdForNode, loadedImageUrl);
+              
+              // *** FIX: Check if callback is still valid before calling ***
+              if (onImageLoaded && typeof onImageLoaded === 'function') {
+                try {
+                  onImageLoaded(entryChildIdForNode, loadedImageUrl);
+                } catch (err) {
+                  printDebug(`❌ [cyAdapter] Error in onImageLoaded callback: ${err.message}`);
+                }
               }
-              if (GRAYSCALE_IMAGES && loadedImageUrl && (loadedImageUrl.startsWith('data:image/png;') || loadedImageUrl.startsWith('data:image/jpeg;') || loadedImageUrl.startsWith('data:image/jpg;') || loadedImageUrl.startsWith('data:image/webp;'))) {
+              
+              if (GRAYSCALE_IMAGES && shouldProcessForGrayscale(loadedImageUrl, TEST_ICON_SVG)) {
                 printDebug(`🎨 [cyAdapter] Starting grayscale (post-display) for: ${originalImageUrl}`);
-                preprocessImageToGrayscale(loadedImageUrl, originalImageUrl).then(grayscaleUrl => {
+                preprocessImageToGrayscale(loadedImageUrl, originalImageUrl, TEST_ICON_SVG).then(grayscaleUrl => {
                   printDebug(`✅ [cyAdapter] Grayscale conversion complete for: ${originalImageUrl}`);
-                  if (onImageLoaded) { onImageLoaded(entryChildIdForNode, grayscaleUrl); }
-                }).catch(error => { console.warn(`❌ [cyAdapter] Grayscale conversion failed for: ${originalImageUrl}`, error); });
+                  if (onImageLoaded && typeof onImageLoaded === 'function') { 
+                    try {
+                      onImageLoaded(entryChildIdForNode, grayscaleUrl); 
+                    } catch (err) {
+                      printDebug(`❌ [cyAdapter] Error in grayscale onImageLoaded callback: ${err.message}`);
+                    }
+                  }
+                }).catch(error => { 
+                  console.warn(`❌ [cyAdapter] Grayscale conversion failed for: ${originalImageUrl}`, error); 
+                });
               }
             }).catch(error => {
               pendingImageLoads.delete(loadKey);
@@ -306,25 +180,19 @@ export function buildElementsFromDomain(graph, options = {}) {
     }
     
     // Apply grayscale to images that are already data URLs (cached images) - but not SVGs
-    if (GRAYSCALE_IMAGES && imageUrl && 
-        (imageUrl.startsWith('data:image/png;') || 
-         imageUrl.startsWith('data:image/jpeg;') || 
-         imageUrl.startsWith('data:image/jpg;') || 
-         imageUrl.startsWith('data:image/webp;')) && 
-        imageUrl !== TEST_ICON_SVG) {
-      
+    if (GRAYSCALE_IMAGES && shouldProcessForGrayscale(imageUrl, TEST_ICON_SVG)) {
       const originalPath = n.imageUrl; // The original filename
-      let cached = grayscaleCache.get(originalPath);
-      if (!cached || typeof cached !== 'string') {
-        cached = grayscaleCache.get(imageUrl); // Fallback to data URL key
+      let cached = getCachedGrayscaleImage(originalPath);
+      if (!cached) {
+        cached = getCachedGrayscaleImage(imageUrl); // Fallback to data URL key
       }
       
-      if (cached && typeof cached === 'string') {
+      if (cached) {
         printDebug(`✅ [cyAdapter] Using cached grayscale for data URL (key: ${originalPath ? 'path-based' : 'url-based'})`);
         imageUrl = cached; // already grayscale
       } else {
         printDebug(`🔄 [cyAdapter] Queueing grayscale conversion (will update later) for cached data URL`);
-        preprocessImageToGrayscale(imageUrl, originalPath); // background; node shows color first
+        preprocessImageToGrayscale(imageUrl, originalPath, TEST_ICON_SVG); // background; node shows color first
       }
     }
     
@@ -400,22 +268,27 @@ export async function mountCy({ container, graph, styles = cytoscapeStyles, mode
         nodeId = possibleChild;
       }
     }
+    
     // If local cy reference not set yet just queue
     if (!cy) {
       pendingNodeImageUpdates.push({ nodeId, imageUrl });
       return;
     }
 
-    const isActive = currentActiveCy === cy && !cy.destroyed();
-    if (!isActive) {
-      console.warn(`🔁 [cyAdapter] Received image for inactive/destroyed instance. Forwarding to active instance. node=${nodeId}`);
-      pendingNodeImageUpdates.push({ nodeId, imageUrl });
+    // *** FIX: Check if this specific cy instance is still active and not destroyed ***
+    const isThisCyActive = currentActiveCy === cy && !cy.destroyed();
+    if (!isThisCyActive) {
+      printDebug(`🔄 [cyAdapter] Image callback for inactive instance - discarding. node=${nodeId}`);
+      
+      // Only forward to active instance if there IS an active instance and it has this node
       if (currentActiveCy && !currentActiveCy.destroyed()) {
         const activeNode = currentActiveCy.getElementById(nodeId);
-        if (activeNode.length) {
+        if (activeNode.length > 0) {
           activeNode.data('imageUrl', imageUrl);
           currentActiveCy.style().update();
-          printDebug(`✅ [cyAdapter] Applied image update to active instance for node ${nodeId}`);
+          printDebug(`✅ [cyAdapter] Forwarded image update to active instance for node ${nodeId}`);
+        } else {
+          printDebug(`🚫 [cyAdapter] Active instance doesn't have node ${nodeId} - discarding image update`);
         }
       }
       return;
@@ -423,8 +296,7 @@ export async function mountCy({ container, graph, styles = cytoscapeStyles, mode
 
     const node = cy.getElementById(nodeId);
     if (!node || node.length === 0) {
-      console.warn(`⚠️ [cyAdapter] Cannot find node ${nodeId} on (possibly inactive) instance; queueing update`);
-      pendingNodeImageUpdates.push({ nodeId, imageUrl });
+      printDebug(`⚠️ [cyAdapter] Cannot find node ${nodeId} on this instance - discarding`);
       return;
     }
 
@@ -477,8 +349,12 @@ export async function mountCy({ container, graph, styles = cytoscapeStyles, mode
     });
 
     attachOverlayManager(cy);
-// Kill any queued animations that were scheduled pre-attach
-try { cy.$('node.edge-note-count, node.edge-unseen, node.note-count, node.unseen').stop(true, true); } catch {}
+    // Kill any queued animations that were scheduled pre-attach
+    try { 
+      cy.$('node.edge-note-count, node.edge-unseen, node.note-count, node.unseen').stop(true, true); 
+    } catch {
+      console.log('Error stopping animations');
+    }
 
     try { 
       cy.on('destroy', () => { 
@@ -523,8 +399,12 @@ try { cy.$('node.edge-note-count, node.edge-unseen, node.note-count, node.unseen
     });
     
     attachOverlayManager(cy);
-// Kill any queued animations that were scheduled pre-attach
-try { cy.$('node.edge-note-count, node.edge-unseen, node.note-count, node.unseen').stop(true, true); } catch {}
+    // Kill any queued animations that were scheduled pre-attach
+    try { 
+      cy.$('node.edge-note-count, node.edge-unseen, node.note-count, node.unseen').stop(true, true); 
+    } catch {
+      console.log('Error stopping animations');
+    }
 
     try { 
       cy.on('destroy', () => { 
@@ -742,17 +622,9 @@ export function syncElements(cy, graph, options = {}) {
             if (!dataUrl) return;
 
             let finalUrl = dataUrl;
-            if (
-              GRAYSCALE_IMAGES &&
-              typeof dataUrl === 'string' &&
-              !dataUrl.includes('data:image/svg+xml') &&
-              (dataUrl.startsWith('data:image/png;') ||
-               dataUrl.startsWith('data:image/jpeg;') ||
-               dataUrl.startsWith('data:image/jpg;') ||
-               dataUrl.startsWith('data:image/webp;'))
-            ) {
+            if (GRAYSCALE_IMAGES && shouldProcessForGrayscale(dataUrl, TEST_ICON_SVG)) {
               try {
-                finalUrl = await preprocessImageToGrayscale(dataUrl, orig);
+                finalUrl = await preprocessImageToGrayscale(dataUrl, orig, TEST_ICON_SVG);
               } catch {
                 finalUrl = dataUrl;
               }
@@ -921,7 +793,7 @@ export function wireEvents(cy, handlers = {}, mode = 'editing') {
       wheelTimer = null;
     }, 200);
   }
-  container.addEventListener('wheel', debouncedWheelHandler);
+  container.addEventListener('wheel', debouncedWheelHandler, { passive: true });
 
   function touchEndHandler() { handleCameraUpdate('touchend'); }
   container.addEventListener('touchend', touchEndHandler);
@@ -934,8 +806,9 @@ export function wireEvents(cy, handlers = {}, mode = 'editing') {
       touchMoveTimer = null;
     }, 120);
   }
-  container.addEventListener('touchmove', debouncedTouchMoveHandler);
+  container.addEventListener('touchmove', debouncedTouchMoveHandler, { passive: true });
 
+  // add pointer styles to nodes and edges
   cy.on('mouseover', 'node.entry-parent, edge', (evt) => { evt.cy.container().style.cursor = 'pointer'; });
   cy.on('mouseout', 'node.entry-parent, edge', (evt) => { evt.cy.container().style.cursor = 'default'; });
 
@@ -951,22 +824,14 @@ export function wireEvents(cy, handlers = {}, mode = 'editing') {
   };
 }
 
-export function clearGrayscaleCache() {
-  const entriesBeforeClear = grayscaleCache.size;
-  const pendingBeforeClear = pendingConversions.size;
-  
-  grayscaleCache.clear();
-  pendingConversions.clear();
-  
-  printDebug(`🧹 [cyAdapter] Cleared grayscale cache: ${entriesBeforeClear} entries, ${pendingBeforeClear} pending conversions`);
-  
-  try { 
-    localStorage.removeItem(GRAYSCALE_CACHE_KEY);
-    printDebug(`✅ [cyAdapter] Removed grayscale cache from localStorage`);
-  } catch (e) { 
-    console.warn('Failed to clear grayscale cache from localStorage:', e); 
-  }
-}
+// Re-export clear function from grayscale utils
+export const clearGrayscaleCache = clearGrayscaleCacheUtil;
+
+// Re-export hasPendingGrayscaleConversions for backward compatibility
+export { hasPendingGrayscaleConversions } from '../utils/grayscaleUtils.js';
+
+// Re-export updateCompletedGrayscaleImages for backward compatibility  
+export { updateCompletedGrayscaleImages } from '../utils/grayscaleUtils.js';
 
 // Force immediate image update for a specific node
 export async function forceNodeImageUpdate(nodeId, imagePath, mapName, cdnBaseUrl, immediateImageUrl = null) {
@@ -996,7 +861,7 @@ export async function forceNodeImageUpdate(nodeId, imagePath, mapName, cdnBaseUr
     
     let finalImageUrl = imageUrl;
     if (GRAYSCALE_IMAGES && !imageUrl.includes('data:image/svg+xml')) {
-      finalImageUrl = await preprocessImageToGrayscale(imageUrl, imagePath);
+      finalImageUrl = await preprocessImageToGrayscale(imageUrl, imagePath, TEST_ICON_SVG);
       printDebug(`🎨 [cyAdapter] Applied grayscale for immediate update`);
     }
     

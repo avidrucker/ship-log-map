@@ -5,7 +5,7 @@
  * that visually attach to nodes/edges (e.g., note-count badges, "unseen/visited" badges).
  */
 
-import { printDebug } from "../utils/debug.js";
+// import { printDebug } from "../utils/debug.js";
 
 //// Dependencies (soft): tokens for sizes/offsets //////////////////////////////////
 
@@ -230,7 +230,7 @@ function ensureEdgeUnseenBadge(cy, edgeEle, isVisited) {
 
 //// Public: ensure all overlays //////////////////////////////////////////////////////
 
-export function ensure(cy, model) {
+export function ensure(cy, model, mode = 'editing') {
   if (!cy || cy.destroyed()) return;
 
   const nodeCounts = toNumMap(model?.nodeNoteCounts);
@@ -239,6 +239,9 @@ export function ensure(cy, model) {
     nodes: toSet(model?.visited?.nodes),
     edges: toSet(model?.visited?.edges)
   };
+
+  // Only show unseen badges in playing mode
+  const showUnseenBadges = mode === 'playing';
 
   cy.startBatch();
 
@@ -249,9 +252,11 @@ export function ensure(cy, model) {
 
     ensureNodeNoteBadge(cy, parent, count);
 
-    if (count > 0) {
+    // Only create unseen badges in playing mode
+    if (showUnseenBadges && count > 0) {
       ensureNodeUnseenBadge(cy, parent, visited.nodes.has(id));
     } else {
+      // Remove unseen badge if it exists (for mode switching or no content)
       const unseenId = idNodeUnseen(id);
       const existingUnseen = getById(cy, unseenId);
       if (existingUnseen) cy.remove(existingUnseen);
@@ -265,7 +270,7 @@ export function ensure(cy, model) {
 
     ensureEdgeNoteBadge(cy, edgeEle, count);
  
-    if (count > 0) {
+    if (showUnseenBadges && count > 0) {
       ensureEdgeUnseenBadge(cy, edgeEle, visited.edges.has(id));
     } else {
       const unseenId = idEdgeUnseen(id);
@@ -281,7 +286,7 @@ export function ensure(cy, model) {
 let isRefreshing = false; // Recursion guard
 
 //// Public: refresh positions only ///////////////////////////////////////////////////
-
+//// TODO: fix issue where changing node sizes in editing mode doesn't call refresh positions, but it should
 export function refreshPositions(cy) {
   if (!cy || cy.destroyed() || isRefreshing) return;
 
@@ -370,7 +375,7 @@ export function attach(cy) {
     const n = evt.target;
     if (!n || !n.isNode()) return;
     // Kill any queued animations and keep it inert, but do not lock:
-    try { n.stop(true, true); n.ungrabify(); n.selectify(false); } catch {}
+    try { n.stop(true, true); n.ungrabify(); n.selectify(false); } catch { /* noop */ }
   };
 
   cy.scratch('_overlayManager_attached', true);

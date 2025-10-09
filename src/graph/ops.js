@@ -100,6 +100,7 @@ export function removeNodeAndEdges(graph, nodeId) {
 }
 
 // Rename node title and update ID to match, with cascade updates
+// note: the renameNode function preserves edge notes when edge IDs change
 export function renameNode(graph, nodeId, newTitle) {
   const g = normalizeGraph(graph);
   
@@ -132,39 +133,57 @@ export function renameNode(graph, nodeId, newTitle) {
     n.id === nodeId ? { ...n, id: newId, title: newTitle } : n
   );
   
+  // Track edge ID changes for notes transfer
+  const edgeIdChanges = new Map(); // oldEdgeId -> newEdgeId
+  
   // Update all edges that reference the old node ID
   const updatedEdges = g.edges.map(e => {
     const newEdge = { ...e };
+    let edgeChanged = false;
     
     // Update source references
     if (e.source === nodeId) {
       newEdge.source = newId;
+      edgeChanged = true;
       printDebug(`renameNode: Updated edge source from "${nodeId}" to "${newId}" for edge "${e.id}"`);
     }
     
     // Update target references
     if (e.target === nodeId) {
       newEdge.target = newId;
+      edgeChanged = true;
       printDebug(`renameNode: Updated edge target from "${nodeId}" to "${newId}" for edge "${e.id}"`);
     }
     
     // Regenerate edge ID if it was affected
-    if (e.source === nodeId || e.target === nodeId) {
+    if (edgeChanged) {
       const oldEdgeId = newEdge.id;
       newEdge.id = edgeId(newEdge.source, newEdge.target);
+      edgeIdChanges.set(oldEdgeId, newEdge.id);
       printDebug(`renameNode: Updated edge ID from "${oldEdgeId}" to "${newEdge.id}"`);
     }
     
     return newEdge;
   });
   
-  // Update notes object - move notes from old ID to new ID
+  // Update notes object - move notes from old IDs to new IDs
   const updatedNotes = { ...g.notes };
+  
+  // Move node notes
   if (updatedNotes[nodeId]) {
     updatedNotes[newId] = updatedNotes[nodeId];
     delete updatedNotes[nodeId];
-    printDebug(`renameNode: Moved notes from "${nodeId}" to "${newId}"`);
+    printDebug(`renameNode: Moved node notes from "${nodeId}" to "${newId}"`);
   }
+  
+  // Move edge notes when edge IDs change
+  edgeIdChanges.forEach((newEdgeId, oldEdgeId) => {
+    if (updatedNotes[oldEdgeId]) {
+      updatedNotes[newEdgeId] = updatedNotes[oldEdgeId];
+      delete updatedNotes[oldEdgeId];
+      printDebug(`renameNode: Moved edge notes from "${oldEdgeId}" to "${newEdgeId}"`);
+    }
+  });
   
   return {
     ...g,
