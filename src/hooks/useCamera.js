@@ -88,17 +88,6 @@ export function useCamera(dispatch, appState, { commitDelay = 0 } = {}) {
     });
   }, [commitZoom, commitPan]);
 
-  // Remove the classic debounced commits - viewport stream handles everything now
-  // const onZoomChange = useCallback((z) => {
-  //   // Deprecated - viewport stream handles this
-  //   console.warn('onZoomChange is deprecated - use viewport stream');
-  // }, []);
-
-  // const onCameraMove = useCallback((p) => {
-  //   // Deprecated - viewport stream handles this
-  //   console.warn('onCameraMove is deprecated - use viewport stream');
-  // }, []);
-
   // Cleanup
   useEffect(() => () => {
     clearTimeout(zoomT.current);
