@@ -383,9 +383,32 @@ const badgeRules = [
   ...unseenBadgeRules
 ];
 
+// Background image node - giant locked node that renders behind everything
+const backgroundImageNodeRule = {
+  selector: 'node.background-image-node',
+  style: {
+    'shape': 'rectangle',
+    'background-image': 'data(imageUrl)',
+    'background-fit': 'contain',
+    // Draw ONLY the image; no solid fill behind it
+    'background-opacity': 0,
+    // Keep element fully opaque; control alpha via image
+    'opacity': 1,
+    // Single source of truth for alpha (0..1)
+    'background-image-opacity': 'data(bgAlpha)',
+    'border-width': 0,
+    'label': '',
+    'z-index-compare': 'manual',
+    'z-index': -1, // Below everything
+    'events': 'no', // Not interactive
+    'overlay-opacity': 0 // No selection overlay
+  }
+};
+
 const cytoscapeStyles = [
   { selector: 'node.entry-parent', style: entryParentBase },
   { selector: 'node.entry', style: entryNodeBase },
+  backgroundImageNodeRule,
   ...sizeRules,
   ...colorRules,
   ...parentSelectionRules,

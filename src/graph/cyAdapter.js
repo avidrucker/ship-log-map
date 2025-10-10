@@ -455,12 +455,35 @@ export function syncElements(cy, graph, options = {}) {
 
   printDebug(`🔄 [cyAdapter] Syncing elements`);
 
+  // *** FIX: Preserve background node before any changes ***
+  const bgNode = cy.getElementById('__background_image_node__');
+  let preservedBgNode = null;
+  
+  if (bgNode.length > 0) {
+    preservedBgNode = {
+      data: { ...bgNode.data() },
+      position: { ...bgNode.position() },
+      style: {
+        width: bgNode.style('width'),
+        height: bgNode.style('height'),
+        opacity: bgNode.style('opacity')
+      },
+      locked: bgNode.locked(),
+      classes: bgNode.classes()
+    };
+    printDebug('🖼️ [cyAdapter] Preserving background node before sync:', {
+      id: preservedBgNode.data.id,
+      position: preservedBgNode.position,
+      opacity: preservedBgNode.style.opacity
+    });
+  }
+
   const currentZoom = cy.zoom();
   const currentPan = cy.pan();
   const currentPositions = {};
   cy.nodes().forEach(node => { currentPositions[node.id()] = node.position(); });
 
-  const currentNodes = cy.nodes().filter(n => !n.hasClass('note-count')).map(n => n.id()).sort();
+  const currentNodes = cy.nodes().filter(n => !n.hasClass('note-count') && !n.hasClass('background-image-node')).map(n => n.id()).sort();
   const currentEdges = cy.edges().map(e => e.id()).sort();
   const newNodes = newElements.filter(e => e.group === 'nodes').map(e => e.data.id).sort();
   const newEdges = newElements.filter(e => e.group === 'edges').map(e => e.data.id).sort();
@@ -500,7 +523,16 @@ export function syncElements(cy, graph, options = {}) {
       return el;
     });
 
-    cy.json({ elements: modifiedElements });
+    // *** FIX: Replace elements but preserve background node ***
+    cy.startBatch();
+
+    // Remove only non-background elements
+    cy.elements().not('#__background_image_node__').remove();
+
+    // add new elements
+    cy.add(modifiedElements);
+    
+    cy.endBatch();
 
     cy.nodes().forEach(node => {
       const savedPosition = currentPositions[node.id()];

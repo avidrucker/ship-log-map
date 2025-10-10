@@ -33,6 +33,7 @@ import { setNoteCountsVisible, refreshPositions as refreshOverlayPositions } fro
 import { printDebug, printError, printWarn } from "../utils/debug.js";
 import { TEST_ICON_SVG } from "../constants/testAssets.js";
 import { GRAYSCALE_IMAGES } from "../config/features.js";
+import { ensureBgNode, removeBgNode } from "../graph/bgNodeAdapter.js";
 
 function CytoscapeGraph({
   nodes = [],
@@ -65,7 +66,8 @@ function CytoscapeGraph({
   showNoteCountOverlay = false,
   notes = {},
   visited = { nodes: new Set(), edges: new Set() },
-  onCytoscapeInstanceReady
+  onCytoscapeInstanceReady,
+  bgNodeProps = { imageUrl: '', visible: false, opacity: 100, calibration: { tx: 0, ty: 0, s: 1 } }
 }) {
   
   const containerRef = useRef(null);
@@ -212,6 +214,7 @@ function CytoscapeGraph({
         if (cy._eventCleanup) cy._eventCleanup();
         if (cy._edgeCountCleanup) cy._edgeCountCleanup();
         if (cy._viewportCleanup) cy._viewportCleanup();
+        try { removeBgNode(cy); } catch { /* noop */ }
 
         cy.destroy();
       } catch {
@@ -221,6 +224,34 @@ function CytoscapeGraph({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // mount once
+
+  // ------------------- Background image node sync -------------------
+  useEffect(() => {
+    const cy = cyRef.current;
+    if (!cy) return;
+    const { imageUrl, visible, opacity, calibration } = bgNodeProps || {};
+
+    // Create/update or remove the background node
+    ensureBgNode(cy, {
+      imageUrl,
+      visible,
+      opacity,
+      calibration
+    });
+
+    // Nothing special required on cleanup; node is removed when invisible.
+    // Still, if component unmounts while visible, clean it up.
+    return () => {
+      // Only remove on unmount (don’t fight with other effects)
+      if (cy?.destroyed && !cy.destroyed()) {
+        // noop (we remove on visibility false in ensureBgNode)
+      }
+    };
+    // Include a stable calibration dep (stringify small object is fine here)
+  }, [
+    cyRef,
+    bgNodeProps
+  ]);
 
   // ------------------- Re-wire events when handlers/mode change -------------------
   useEffect(() => {
@@ -373,6 +404,7 @@ function CytoscapeGraph({
 
       // Optional: refresh layout on large changes
       if (updatedCount > 0 && majorChange) {
+        
         syncElements(cy, { nodes, edges, mapName, cdnBaseUrl }, { mode });
         try { updateOverlays(cy, notesRef.current, showNoteCountOverlay, visitedRef.current, mode); } catch {
           printWarn('Failed to update edge count node positions after major position-only update');
