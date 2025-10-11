@@ -20,7 +20,7 @@
  * - Keep props stable (useCallback/memo) to avoid unnecessary full re-syncs.
  */
 
-import React, { useEffect, useRef, useMemo } from "react";
+import React, { useEffect, useRef, useMemo, useState } from "react";
 import {
   mountCy, syncElements, wireEvents,
   updateOverlays
@@ -74,6 +74,7 @@ function CytoscapeGraph({
   
   const containerRef = useRef(null);
   const cyRef = useRef(null);
+  const [isCyReady, setIsCyReady] = useState(false);
 
   // Latest callback refs; avoids re-binding cytoscape listeners every render
   const onViewportRef = useRef(null);
@@ -185,6 +186,7 @@ function CytoscapeGraph({
           mode
         });
         cyRef.current = cy;
+        setIsCyReady(true); // Trigger effects that depend on cy being ready
 
         // Initialize camera
         if (typeof initialZoom === "number") cy.zoom(initialZoom);
@@ -228,6 +230,7 @@ function CytoscapeGraph({
         printWarn('Failed to destroy Cytoscape instance');
       }
       cyRef.current = null;
+      setIsCyReady(false);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // mount once
@@ -559,7 +562,9 @@ function CytoscapeGraph({
   // ------------------- Background image node integration -------------------
   useEffect(() => {
     const cy = cyRef.current;
-    if (!cy) return;
+    if (!cy || !isCyReady) {
+      return;
+    }
 
     if (bgImage && bgImage.imageUrl) {
       printDebug(`🖼️ [CytoscapeGraph] Updating background node`, {
@@ -569,17 +574,22 @@ function CytoscapeGraph({
         calibration: bgImage.calibration
       });
       
-      ensureBgNode(cy, {
-        imageUrl: bgImage.imageUrl,
-        visible: bgImage.visible,
-        opacity: bgImage.opacity,
-        calibration: bgImage.calibration || { tx: 0, ty: 0, s: 1 }
+      // Ensure Cytoscape is ready before adding background node
+      cy.ready(() => {
+        ensureBgNode(cy, {
+          imageUrl: bgImage.imageUrl,
+          visible: bgImage.visible,
+          opacity: bgImage.opacity,
+          calibration: bgImage.calibration || { tx: 0, ty: 0, s: 1 }
+        });
       });
     } else {
       // Remove background node if no image
-      ensureBgNode(cy, { imageUrl: null, visible: false });
+      cy.ready(() => {
+        ensureBgNode(cy, { imageUrl: null, visible: false });
+      });
     }
-  }, [bgImage]);
+  }, [bgImage, isCyReady]);
 
   // ------------------- Note count overlay creation/refresh -------------------
   useEffect(() => {

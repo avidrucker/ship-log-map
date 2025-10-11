@@ -44,7 +44,7 @@ function loadFromLocal() {
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     // basic defensive defaults
-    return {
+    const result = {
       included: typeof parsed.included === "boolean" ? parsed.included : false,
       imageUrl: parsed.imageUrl ?? "",
       x: Number.isFinite(parsed.x) ? parsed.x : 0,
@@ -53,7 +53,9 @@ function loadFromLocal() {
       opacity: Number.isFinite(parsed.opacity) ? parsed.opacity : 100,
       visible: typeof parsed.visible === "boolean" ? parsed.visible : false
     };
-  } catch {
+    return result;
+  } catch (err) {
+    printDebug("Failed to load bg image from localStorage:", err);
     return null;
   }
 }
@@ -114,7 +116,7 @@ export function useBgImageState() {
     setBgImage((bg) => ({ ...bg, visible: !bg.visible }));
   }, []);
 
-  // handy derived mapping for BgImageLayer “calibration”
+  // handy derived mapping for BgImageLayer "calibration"
   // ⚡ Memoized to prevent infinite render loops
   const calibration = useMemo(() => ({
     tx: bgImage.x,

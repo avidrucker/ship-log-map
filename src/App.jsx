@@ -1057,7 +1057,6 @@ function App() {
   // Memoize background image object to prevent infinite re-renders
   const memoBgImage = useMemo(() => {
     if (!bgImage.imageUrl) return null;
-    console.log('🔄 [App] memoBgImage recalculating with calibration:', bgCalibration);
     return {
       imageUrl: bgImage.imageUrl,
       visible: bgImage.visible,

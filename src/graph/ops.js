@@ -261,12 +261,13 @@ export function serializeGraph(graph) {
     orientation: g.orientation,
     compassVisible: g.compassVisible
   };
-  if (g.bgImage) {
+  // Only include bgImage in export if user has opted in
+  if (g.bgImage && g.bgImage.included) {
     out.bgImage = {
-      included: !!g.bgImage.included,
+      included: true,
       imageUrl:
         (typeof g.bgImage.imageUrl === "string" && g.bgImage.imageUrl.startsWith("data:"))
-          ? "" // don’t write huge data URLs
+          ? "" // don't write huge data URLs
           : (g.bgImage.imageUrl || ""),
       x: Number.isFinite(g.bgImage.x) ? g.bgImage.x : 0,
       y: Number.isFinite(g.bgImage.y) ? g.bgImage.y : 0,
@@ -274,7 +275,7 @@ export function serializeGraph(graph) {
       opacity: Number.isFinite(g.bgImage.opacity) ? g.bgImage.opacity : 100,
       visible: typeof g.bgImage.visible === "boolean"
         ? g.bgImage.visible
-        : !!g.bgImage.included
+        : true
     };
   }
   return JSON.stringify(out, null, 2);

@@ -143,7 +143,13 @@ export function ensureBgNode(cy, { imageUrl, visible, opacity = 100, calibration
     cy.style().update();
     requestAnimationFrame(() => {
       cy.resize();
+      cy.forceRender();
     });
+    
+    // Additional delayed render to ensure changes are visible
+    setTimeout(() => {
+      cy.forceRender();
+    }, 50);
   } else {
     // Create new background node
     printDebug('✨ [bgNodeAdapter] Creating background node', { geometry, opacity, imageUrl: imageUrl.substring(0, 50) + '...' });
@@ -173,20 +179,27 @@ export function ensureBgNode(cy, { imageUrl, visible, opacity = 100, calibration
     // Now lock it after position and styles are set
     newNode.lock();
     
-    // Force a re-render to ensure the background appears
-    // Sometimes Cytoscape needs a nudge to render the node properly
+    // Force multiple re-renders to ensure the background appears
+    // Sometimes Cytoscape needs multiple nudges, especially on first load
     cy.style().update();
     
-    // Additional: Force viewport refresh
+    // Force viewport refresh multiple times with increasing delays
     requestAnimationFrame(() => {
       cy.resize();
+      cy.forceRender();
     });
     
-    printDebug('✅ [bgNodeAdapter] Background node created and locked', { 
-      position: newNode.position(),
-      size: { width: geometry.width, height: geometry.height },
-      isLocked: newNode.locked()
-    });
+    // Additional delayed render for stubborn cases (especially first page load)
+    setTimeout(() => {
+      cy.resize();
+      cy.forceRender();
+      printDebug('✅ [bgNodeAdapter] Background node created and forced render', { 
+        position: newNode.position(),
+        size: { width: geometry.width, height: geometry.height },
+        isLocked: newNode.locked(),
+        exists: cy.getElementById(BG_NODE_ID).length > 0
+      });
+    }, 100);
   }
 }
 
