@@ -266,7 +266,7 @@ export function serializeGraph(graph) {
       included: !!g.bgImage.included,
       imageUrl:
         (typeof g.bgImage.imageUrl === "string" && g.bgImage.imageUrl.startsWith("data:"))
-          ? "" // don’t write huge data URLs
+          ? "" // don't write huge data URLs
           : (g.bgImage.imageUrl || ""),
       x: Number.isFinite(g.bgImage.x) ? g.bgImage.x : 0,
       y: Number.isFinite(g.bgImage.y) ? g.bgImage.y : 0,

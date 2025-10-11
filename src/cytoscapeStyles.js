@@ -406,9 +406,9 @@ const backgroundImageNodeRule = {
 };
 
 const cytoscapeStyles = [
+  backgroundImageNodeRule, // Must be first so it's below everything
   { selector: 'node.entry-parent', style: entryParentBase },
   { selector: 'node.entry', style: entryNodeBase },
-  backgroundImageNodeRule,
   ...sizeRules,
   ...colorRules,
   ...parentSelectionRules,

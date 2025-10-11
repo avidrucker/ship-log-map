@@ -64,7 +64,6 @@ import { appStateReducer, initialAppState, ACTION_TYPES } from "./appStateReduce
 import { ZOOM_TO_SELECTION, DEBUG_LOGGING, DEV_MODE, GRAYSCALE_IMAGES, CAMERA_INFO_HIDDEN } from "./config/features.js";
 import { handleLoadFromCdn, setCdnBaseUrl, getCdnBaseUrl } from "./utils/cdnHelpers.js"; // getMapUrlFromQuery, clearQueryParams
 import BgImageModal from "./components/BgImageModal.jsx";
-// import BgImageLayer from "./bg/BgImageLayer";
 import { useBgImageState } from "./bg/useBgImageState";
 // import { loadImageWithFallback } from "./utils/imageLoader.js";
 // import { dataUrlOrBlobToWebpDataUrl } from "./utils/imageUtils.js"
@@ -76,7 +75,7 @@ import { saveToLocal, loadFromLocal, saveModeToLocal, loadModeFromLocal, saveUnd
 // Add new persistence imports
 import { loadOrientationFromLocal, saveOrientationToLocal, loadCompassVisibleFromLocal, saveCompassVisibleToLocal } from './persistence/index.js';
 import { renameNode } from "./graph/ops.js"; // edgeId
-import { printDebug } from "./utils/debug.js";
+import { printDebug, printWarn } from "./utils/debug.js";
 // import { rotateNodesAndCompass } from './utils/rotation.js';  // REFACTOR STEP 1: Removed rotateCompassOnly - now using graphOps.handleRotateRight
 import { getCanEditFromQuery, hasAnyQueryParams } from "./utils/mapHelpers.js";
 
@@ -418,12 +417,20 @@ function App() {
     setCdnBaseUrl(cdnBaseUrl);
   }, [cdnBaseUrl]);
 
-  // Save camera state to localStorage (kept as-is)
+  // Save camera state to localStorage (debounced to prevent excessive writes)
   useEffect(() => {
-    localStorage.setItem("shipLogCamera", JSON.stringify({
-      zoom: zoomLevel,
-      position: cameraPosition
-    }));
+    const timeoutId = setTimeout(() => {
+      try {
+        localStorage.setItem("shipLogCamera", JSON.stringify({
+          zoom: zoomLevel,
+          position: cameraPosition
+        }));
+      } catch (e) {
+        printWarn('Failed to save camera to localStorage:', e);
+      }
+    }, 200); // Save at most once every 200ms
+    
+    return () => clearTimeout(timeoutId);
   }, [zoomLevel, cameraPosition]);
 
   // Save mode to localStorage
@@ -1045,6 +1052,17 @@ function App() {
   const memoSelectedEdgeIds = useMemo(() => selectedEdgeIds, [selectedEdgeIds]);
   const memoCameraPosition = useMemo(() => cameraPosition, [cameraPosition]);
   const memoNotes = useMemo(() => graphData.notes, [graphData.notes]);
+  
+  // Memoize background image object to prevent infinite re-renders
+  const memoBgImage = useMemo(() => {
+    if (!bgImage.imageUrl) return null;
+    return {
+      imageUrl: bgImage.imageUrl,
+      visible: bgImage.visible,
+      opacity: bgImage.opacity,
+      calibration: bgCalibration
+    };
+  }, [bgImage.imageUrl, bgImage.visible, bgImage.opacity, bgCalibration]);
 
   const handleLoadFromCdnButton = useCallback((cdnBaseUrlArg) => {
   handleLoadFromCdn({
@@ -1124,6 +1142,9 @@ useEffect(() => {
             </div>
         </div>
 
+        {/* Background image underlay - DISABLED: Now integrated into Cytoscape canvas */}
+        {/* Background now renders as a Cytoscape node for perfect sync with pan/zoom */}
+        {/* See CytoscapeGraph bgImage prop and bgNodeAdapter.js */}
 
         {canEdit && (
           <GraphControls
@@ -1330,14 +1351,7 @@ useEffect(() => {
           showNoteCountOverlay={showNoteCountOverlay}
           notes={memoNotes}
           visited={visited} /* pass visited to drive unseen badges */
-          // Background node integration
-          bgNodeProps={{
-            imageUrl: bgImage?.imageUrl || '',
-            visible: !!bgImage?.visible,
-            opacity: Number.isFinite(bgImage?.opacity) ? bgImage.opacity : 100,
-            calibration: bgCalibration || { tx: 0, ty: 0, s: 1 }
-          }}
-        
+          bgImage={memoBgImage}
         />
 
         {compassVisible && (

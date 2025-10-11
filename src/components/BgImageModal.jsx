@@ -83,17 +83,80 @@ function BgImageModal({
           )}
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-          <label>
-            X: <input type="number" value={bgImage.x} onChange={e => onChange({ ...bgImage, x: Number(e.target.value) })} style={{ width: 60 }} />
+          <label style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <input 
+              type="checkbox" 
+              checked={bgImage.visible} 
+              onChange={e => onChange({ ...bgImage, visible: e.target.checked })} 
+            />
+            <span>Show Background Image</span>
           </label>
-          <label>
-            Y: <input type="number" value={bgImage.y} onChange={e => onChange({ ...bgImage, y: Number(e.target.value) })} style={{ width: 60 }} />
+          <label style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <input 
+              type="checkbox" 
+              checked={bgImage.included} 
+              onChange={e => onChange({ ...bgImage, included: e.target.checked })} 
+            />
+            <span>Include in Export</span>
           </label>
-          <label>
-            Scale (%): <input type="number" value={bgImage.scale} min={1} max={1000} onChange={e => onChange({ ...bgImage, scale: Number(e.target.value) })} style={{ width: 60 }} />
+          <hr style={{ width: "100%", border: "none", borderTop: "1px solid #444", margin: "8px 0" }} />
+          <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <span>X Offset:</span>
+            <input 
+              type="number" 
+              value={bgImage.x} 
+              onChange={e => onChange({ ...bgImage, x: Number(e.target.value) })} 
+              style={{ width: 80, padding: "4px" }} 
+              step="10"
+            />
           </label>
-          <label>
-            Opacity (%): <input type="number" value={bgImage.opacity} min={0} max={100} onChange={e => onChange({ ...bgImage, opacity: Number(e.target.value) })} style={{ width: 60 }} />
+          <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <span>Y Offset:</span>
+            <input 
+              type="number" 
+              value={bgImage.y} 
+              onChange={e => onChange({ ...bgImage, y: Number(e.target.value) })} 
+              style={{ width: 80, padding: "4px" }} 
+              step="10"
+            />
+          </label>
+          <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <span>Scale (%):</span>
+            <input 
+              type="range" 
+              value={bgImage.scale} 
+              min={10} 
+              max={500} 
+              onChange={e => onChange({ ...bgImage, scale: Number(e.target.value) })} 
+              style={{ width: 150 }} 
+            />
+            <input 
+              type="number" 
+              value={bgImage.scale} 
+              min={10} 
+              max={500} 
+              onChange={e => onChange({ ...bgImage, scale: Number(e.target.value) })} 
+              style={{ width: 60, padding: "4px", marginLeft: "8px" }} 
+            />
+          </label>
+          <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <span>Opacity (%):</span>
+            <input 
+              type="range" 
+              value={bgImage.opacity} 
+              min={0} 
+              max={100} 
+              onChange={e => onChange({ ...bgImage, opacity: Number(e.target.value) })} 
+              style={{ width: 150 }} 
+            />
+            <input 
+              type="number" 
+              value={bgImage.opacity} 
+              min={0} 
+              max={100} 
+              onChange={e => onChange({ ...bgImage, opacity: Number(e.target.value) })} 
+              style={{ width: 60, padding: "4px", marginLeft: "8px" }} 
+            />
           </label>
         </div>
         <div style={{ marginTop: "18px", display: "flex", justifyContent: "flex-end", gap: "10px" }}>

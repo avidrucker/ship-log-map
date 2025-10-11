@@ -4,6 +4,16 @@
  * useBgImageState — Background image state + helpers
  *
  * Responsibilities
+  // handy derived mapping for BgImageLayer "calibration"
+  // ⚡ Memoized to prevent infinite render loops
+  const calibration = useMemo(() => {
+    console.log('🔄 [useBgImageState] Calibration recalculating:', { x: bgImage.x, y: bgImage.y, scale: bgImage.scale });
+    return {
+      tx: bgImage.x,
+      ty: bgImage.y,
+      s: (bgImage.scale ?? 100) / 100
+    };
+  }, [bgImage.x, bgImage.y, bgImage.scale]);s
  * - Encapsulates bg image metadata (src, x, y, scale, opacity, included, visible).
  * - Exposes load/delete/toggle/transform helpers for App to compose.
  *
@@ -12,7 +22,7 @@
  *   setIncluded(bool), setTransform({x,y,scale,opacity}) }
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import { printDebug } from "../utils/debug";
 
 /** LocalStorage key */
@@ -35,7 +45,7 @@ function loadFromLocal() {
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     // basic defensive defaults
-    return {
+    const result = {
       included: typeof parsed.included === "boolean" ? parsed.included : false,
       imageUrl: parsed.imageUrl ?? "",
       x: Number.isFinite(parsed.x) ? parsed.x : 0,
@@ -44,7 +54,9 @@ function loadFromLocal() {
       opacity: Number.isFinite(parsed.opacity) ? parsed.opacity : 100,
       visible: typeof parsed.visible === "boolean" ? parsed.visible : false
     };
-  } catch {
+    return result;
+  } catch (err) {
+    printDebug("Failed to load bg image from localStorage:", err);
     return null;
   }
 }
@@ -105,12 +117,13 @@ export function useBgImageState() {
     setBgImage((bg) => ({ ...bg, visible: !bg.visible }));
   }, []);
 
-  // handy derived mapping for BgImageLayer “calibration”
-  const calibration = {
+  // handy derived mapping for BgImageLayer "calibration"
+  // ⚡ Memoized to prevent infinite render loops
+  const calibration = useMemo(() => ({
     tx: bgImage.x,
     ty: bgImage.y,
     s: (bgImage.scale ?? 100) / 100
-  };
+  }), [bgImage.x, bgImage.y, bgImage.scale]);
 
   return {
     bgImage,
