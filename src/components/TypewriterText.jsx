@@ -32,6 +32,7 @@ export default function TypewriterText({
     const totalDuration = text.length * msPerChar;
 
     const animate = (currentTime) => {
+      console.log("animating typewriter text")
       if (!startTimeRef.current) {
         startTimeRef.current = currentTime;
       }

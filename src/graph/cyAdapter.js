@@ -654,13 +654,24 @@ export function wireEvents(cy, handlers = {}, mode = 'editing') {
   printDebug(`🔌 [cyAdapter] Wiring events (parent-only) mode=${mode}`);
   const { onNodeSelectionChange, onEdgeSelectionChange, onNodeClick, onEdgeClick, onNodeDoubleClick, onEdgeDoubleClick, onBackgroundClick, onNodeMove } = handlers;
 
+  // OPTIMIZED (cache child reference, batch class changes):
   const syncParentStateToChild = (parent) => {
     const parentId = parent.id();
     const entryChildId = `${parentId}__entry`;
     const child = cy.getElementById(entryChildId);
     if (child.empty()) return;
-    if (parent.selected()) child.addClass('parent-selected'); else child.removeClass('parent-selected');
-    if (parent.grabbed() || parent.active()) child.addClass('parent-active'); else child.removeClass('parent-active');
+    
+    // ✅ Get state once
+    const isSelected = parent.selected();
+    const isActive = parent.grabbed() || parent.active();
+    
+    // ✅ Batch class changes
+    cy.startBatch();
+    if (isSelected) child.addClass('parent-selected'); 
+    else child.removeClass('parent-selected');
+    if (isActive) child.addClass('parent-active'); 
+    else child.removeClass('parent-active');
+    cy.endBatch();
   };
 
   cy.nodes('.entry-parent').forEach(syncParentStateToChild);

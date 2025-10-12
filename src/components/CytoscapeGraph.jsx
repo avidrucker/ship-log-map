@@ -115,30 +115,33 @@ function CytoscapeGraph({
 
   // ---- Helpers: attach/detach edge-count (note bubble) live reposition rAF ----
   const attachEdgeCountLiveUpdater = React.useCallback((cy) => {
-    let updatePending = false;
+    let rafId = null;
     let lastUpdateTime = 0;
-    const MIN_UPDATE_INTERVAL = 33; // Max 30fps
+    const MIN_UPDATE_INTERVAL = 100; // Max 10 updates per second
     
     const scheduleUpdate = () => {
-      if (updatePending) return;
+      // ✅ FIX: Cancel any existing rAF before scheduling a new one
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+      }
       
       const now = performance.now();
-      if (now - lastUpdateTime < MIN_UPDATE_INTERVAL) {
-        // Too soon - schedule for later
-        updatePending = true;
-        setTimeout(() => {
-          updatePending = false;
-          scheduleUpdate();
-        }, MIN_UPDATE_INTERVAL - (now - lastUpdateTime));
+      const timeSinceLastUpdate = now - lastUpdateTime;
+      
+      // ✅ FIX: Only update if enough time has passed
+      if (timeSinceLastUpdate < MIN_UPDATE_INTERVAL) {
+        // Skip this update - too soon
         return;
       }
       
-      updatePending = true;
-      requestAnimationFrame(() => {
-        updatePending = false;
+      rafId = requestAnimationFrame(() => {
+        console.log("banana");
+        rafId = null;
         lastUpdateTime = performance.now();
         
         try {
+          console.log("[CYTOSCAPEGRAPH] Refreshing overlay positions during drag");
           refreshOverlayPositions(cy);
         } catch (e) {
           printWarn('edge-count update failed:', e);
@@ -146,15 +149,21 @@ function CytoscapeGraph({
       });
     };
 
-    // *** ONLY listen to drag events (not all position changes) ***
+    // ✅ Listen to drag events (fires continuously during drag)
     cy.on('drag', 'node.entry-parent', scheduleUpdate);
     
-    // Initial seed
-    scheduleUpdate();
+    // ✅ Also listen to dragfree to ensure final position is captured
+    cy.on('dragfree', 'node.entry-parent', scheduleUpdate);
 
     const cleanup = () => {
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+      }
       cy.off('drag', 'node.entry-parent', scheduleUpdate);
+      cy.off('dragfree', 'node.entry-parent', scheduleUpdate);
     };
+    
     return cleanup;
   }, []);
 
@@ -526,10 +535,11 @@ function CytoscapeGraph({
       isChecking = true;
       
       rafId = requestAnimationFrame(() => {
+        console.log("cheese");
         isChecking = false;
         
         if (hasPendingGrayscaleConversions()) {
-          console.log('🎨 [CytoscapeGraph] Checking for completed grayscale conversions...');
+          console.log('🎨 [CytoscapeGraph] raf Checking for completed grayscale conversions...');
           const updated = updateCompletedGrayscaleImages(cy, { nodes, edges, mapName, cdnBaseUrl });
           if (updated) {
             cy.forceRender();
@@ -624,19 +634,19 @@ function CytoscapeGraph({
   const visitedRef = useRef(visited);
   useEffect(() => { visitedRef.current = visited; }, [visited]);
 
-  useEffect(() => {
-    const cy = cyRef.current;
-    if (!cy) return;
+  // useEffect(() => {
+  //   const cy = cyRef.current;
+  //   if (!cy) return;
 
-    const handleNodePosition = () => {
-      updateOverlays(cy, notesRef.current, showNoteCountOverlay, visitedRef.current, mode);
-    };
+  //   const handleNodePosition = () => {
+  //     updateOverlays(cy, notesRef.current, showNoteCountOverlay, visitedRef.current, mode);
+  //   };
 
-    cy.on('position', 'node.entry-parent', handleNodePosition);
-    return () => {
-      cy.off('position', 'node.entry-parent', handleNodePosition);
-    };
-  }, [mode, showNoteCountOverlay]); // uses notesRef.current
+  //   cy.on('position', 'node.entry-parent', handleNodePosition);
+  //   return () => {
+  //     cy.off('position', 'node.entry-parent', handleNodePosition);
+  //   };
+  // }, [mode, showNoteCountOverlay]); // uses notesRef.current
 
   return (
     <div

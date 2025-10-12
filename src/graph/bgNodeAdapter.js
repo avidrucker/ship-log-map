@@ -54,15 +54,15 @@ function calculateBgNodeGeometry(calibration, imageWidth, imageHeight) {
  * Force Cytoscape to update styles immediately without rAF
  * This is more efficient for background node updates since they happen infrequently
  */
-function forceStyleUpdate(cy) {
-  if (!cy || cy.destroyed()) return;
+// function forceStyleUpdate(cy) {
+//   if (!cy || cy.destroyed()) return;
   
-  // Direct style update - no rAF needed
-  cy.style().update();
+//   // Direct style update - no rAF needed
+//   cy.style().update();
   
-  // Only call resize if absolutely necessary (and without rAF)
-  // This should only be needed on initial creation, not updates
-}
+//   // Only call resize if absolutely necessary (and without rAF)
+//   // This should only be needed on initial creation, not updates
+// }
 
 /**
  * Batch multiple operations to avoid multiple style updates

@@ -61,7 +61,7 @@ export function useCamera(dispatch, appState, { commitDelay = 300 } = {}) {
       // Also commit to reducer for persistence (debounced)
       commitZoom(zoom);
       commitPan({ x: pan.x, y: pan.y });
-    }, 150); // 150ms debounce - only update after user stops panning/zooming
+    }, 100); // 100ms debounce - only update after user stops panning/zooming
   }, [commitZoom, commitPan]);
 
   // Cleanup

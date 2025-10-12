@@ -424,23 +424,6 @@ function App() {
     onViewportChange,
   } = useCamera(dispatchAppState, appState);
 
-  // Save camera state to localStorage (debounced to prevent excessive writes)
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      try {
-        localStorage.setItem("shipLogCamera", JSON.stringify({
-          zoom: liveZoom,
-          position: livePan
-        }));
-        printDebug('[CAMERA] Saved to localStorage:', { zoom: liveZoom, position: livePan });
-      } catch (e) {
-        printWarn('Failed to save camera to localStorage:', e);
-      }
-    }, 200); // Save at most once every 200ms
-    
-    return () => clearTimeout(timeoutId);
-  }, [liveZoom, livePan]);
-
   // ✅ ADD: Save immediately on page unload (no debounce)
   useEffect(() => {
     const handleBeforeUnload = () => {
