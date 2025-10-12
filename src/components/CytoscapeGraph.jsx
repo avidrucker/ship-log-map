@@ -35,6 +35,9 @@ import { printDebug, printError, printWarn } from "../utils/debug.js";
 import { TEST_ICON_SVG } from "../constants/testAssets.js";
 import { GRAYSCALE_IMAGES } from "../config/features.js";
 
+// At the top of the file, add a debug counter:
+let attachmentCounter = 0;
+
 function CytoscapeGraph({
   nodes = [],
   edges = [],
@@ -85,9 +88,15 @@ function CytoscapeGraph({
 
   // ---- Helpers: attach/detach viewport streaming (pan+zoom -> onViewportChange) ----
   const attachViewportStreaming = (cy) => {
+    const attachId = ++attachmentCounter;
+    //// console.log(`🔵 [attachViewportStreaming #${attachId}] Attaching viewport handlers`);
+    
     const schedule = () => {
       if (!onViewportRef.current) return;
       if (viewportRafIdRef.current) return;
+      
+      //// console.log(`🔵 [attachViewportStreaming #${attachId}] Scheduling viewport rAF`); // Debug log
+      
       viewportRafIdRef.current = requestAnimationFrame(() => {
         viewportRafIdRef.current = 0;
         try {
@@ -99,11 +108,15 @@ function CytoscapeGraph({
         }
       });
     };
+    
     cy.on('pan zoom', schedule);
+    //// console.log(`🔵 [attachViewportStreaming #${attachId}] Handlers attached to 'pan zoom' events`);
+    
     // seed once
     schedule();
 
     const cleanup = () => {
+      //// console.log(`🔴 [attachViewportStreaming #${attachId}] Cleaning up viewport handlers`);
       cy.off('pan zoom', schedule);
       if (viewportRafIdRef.current) {
         cancelAnimationFrame(viewportRafIdRef.current);
@@ -189,15 +202,15 @@ function CytoscapeGraph({
 
         // Wire domain/UI events
         const off = wireEvents(cy, {
-          onNodeSelectionChange,
-          onEdgeSelectionChange,
-          onNodeClick,
-          onEdgeClick,
-          onNodeDoubleClick,
-          onEdgeDoubleClick,
-          onBackgroundClick,
-          onNodeMove,
-          notes
+          onNodeSelectionChange: onNodeSelectionChangeRef,
+          onEdgeSelectionChange: onEdgeSelectionChangeRef,
+          onNodeClick: onNodeClickRef,
+          onEdgeClick: onEdgeClickRef,
+          onNodeDoubleClick: onNodeDoubleClickRef,
+          onEdgeDoubleClick: onEdgeDoubleClickRef,
+          onBackgroundClick: onBackgroundClickRef,
+          onNodeMove: onNodeMoveRef,
+          notes: notesRef
         }, mode);
         cy._eventCleanup = off;
 
@@ -244,6 +257,7 @@ function CytoscapeGraph({
   }, []); // mount once
 
   // ------------------- Re-wire events ONLY when mode changes -------------------
+  // ------------------- Re-wire events ONLY when mode changes -------------------
   useEffect(() => {
     printDebug(`🔌 [CytoscapeGraph] Mode changed, re-wiring events for mode: ${mode}`);
     const cy = cyRef.current;
@@ -271,18 +285,18 @@ function CytoscapeGraph({
       cy._edgeCountCleanup = null;
     }
 
-    // Re-wire UI events
+    // Re-wire UI events - pass refs so handlers always use latest callbacks
     printDebug(`🔌 [CytoscapeGraph] Re-wiring events for mode: ${mode}`);
     cy._eventCleanup = wireEvents(cy, {
-      onNodeSelectionChange,
-      onEdgeSelectionChange,
-      onNodeClick,
-      onEdgeClick,
-      onNodeDoubleClick,
-      onEdgeDoubleClick,
-      onBackgroundClick,
-      onNodeMove,
-      notes
+      onNodeSelectionChange: onNodeSelectionChangeRef,
+      onEdgeSelectionChange: onEdgeSelectionChangeRef,
+      onNodeClick: onNodeClickRef,
+      onEdgeClick: onEdgeClickRef,
+      onNodeDoubleClick: onNodeDoubleClickRef,
+      onEdgeDoubleClick: onEdgeDoubleClickRef,
+      onBackgroundClick: onBackgroundClickRef,
+      onNodeMove: onNodeMoveRef,
+      notes: notesRef
     }, mode);
 
     // Re-attach viewport streaming & seed once
@@ -296,7 +310,7 @@ function CytoscapeGraph({
     cy._edgeCountCleanup = attachEdgeCountLiveUpdater(cy);
 
     // No extra cleanup here; handled by next run or unmount
-  }, [mode, notes, onBackgroundClick, onEdgeDoubleClick, onNodeDoubleClick, onNodeMove, attachEdgeCountLiveUpdater, onNodeSelectionChange, onEdgeSelectionChange, onNodeClick, onEdgeClick]);
+  }, [mode]); // ✅ ONLY mode - callbacks come from refs
 
   // ------------------- Memoized structural fingerprints to avoid expensive comparisons -------------------
   const nodesFingerprint = useMemo(() => {
@@ -632,7 +646,27 @@ function CytoscapeGraph({
     };
   }, [showNoteCountOverlay, notes, visited, mode]);
 
-  // ------------------- Edge note-count re-run when entry-parent nodes move -------------------
+  // Latest callback refs; avoids re-binding cytoscape listeners every render
+  // Add refs for ALL event callbacks:
+  const onNodeSelectionChangeRef = useRef(onNodeSelectionChange);
+  const onEdgeSelectionChangeRef = useRef(onEdgeSelectionChange);
+  const onNodeClickRef = useRef(onNodeClick);
+  const onEdgeClickRef = useRef(onEdgeClick);
+  const onNodeDoubleClickRef = useRef(onNodeDoubleClick);
+  const onEdgeDoubleClickRef = useRef(onEdgeDoubleClick);
+  const onBackgroundClickRef = useRef(onBackgroundClick);
+  const onNodeMoveRef = useRef(onNodeMove);
+
+  // Keep refs in sync with props:
+  useEffect(() => { onNodeSelectionChangeRef.current = onNodeSelectionChange; }, [onNodeSelectionChange]);
+  useEffect(() => { onEdgeSelectionChangeRef.current = onEdgeSelectionChange; }, [onEdgeSelectionChange]);
+  useEffect(() => { onNodeClickRef.current = onNodeClick; }, [onNodeClick]);
+  useEffect(() => { onEdgeClickRef.current = onEdgeClick; }, [onEdgeClick]);
+  useEffect(() => { onNodeDoubleClickRef.current = onNodeDoubleClick; }, [onNodeDoubleClick]);
+  useEffect(() => { onEdgeDoubleClickRef.current = onEdgeDoubleClick; }, [onEdgeDoubleClick]);
+  useEffect(() => { onBackgroundClickRef.current = onBackgroundClick; }, [onBackgroundClick]);
+  useEffect(() => { onNodeMoveRef.current = onNodeMove; }, [onNodeMove]);
+
   const notesRef = useRef(notes);
   useEffect(() => { notesRef.current = notes; }, [notes]);
   const visitedRef = useRef(visited);

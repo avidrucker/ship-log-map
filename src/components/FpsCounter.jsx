@@ -25,7 +25,7 @@ function FpsCounter() {
   useEffect(() => {
     let running = true;
     function tick() {
-      console.log("ticking fps counter")
+      // console.log("ticking fps counter")
       frameCountRef.current += 1;
       const now = performance.now();
       const elapsed = now - lastTimeRef.current;

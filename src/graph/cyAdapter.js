@@ -361,6 +361,7 @@ export async function mountCy({ container, graph, styles = cytoscapeStyles, mode
     try { 
       cy.on('destroy', () => { 
         try { 
+          cy.__eventsWired = false;
           unsubscribePlaceholder(); 
           detachAppearAnimation?.();
           detachOverlayManager(cy);
@@ -650,9 +651,73 @@ export function syncElements(cy, graph, options = {}) {
   return cy;
 }
 
-export function wireEvents(cy, handlers = {}, mode = 'editing') {
+export function wireEvents(cy, callbacks, mode = 'editing') {
   printDebug(`🔌 [cyAdapter] Wiring events (parent-only) mode=${mode}`);
-  const { onNodeSelectionChange, onEdgeSelectionChange, onNodeClick, onEdgeClick, onNodeDoubleClick, onEdgeDoubleClick, onBackgroundClick, onNodeMove } = handlers;
+  
+  if (cy.__eventsWired) { 
+    printDebug('⚠️ [cyAdapter] Events already wired on this instance, skipping duplicate wire');
+    return () => {};
+  }
+  cy.__eventsWired = true;
+  
+  const { onNodeSelectionChange, onEdgeSelectionChange, onNodeClick, onEdgeClick, onNodeDoubleClick, onEdgeDoubleClick, onBackgroundClick, onNodeMove } = callbacks;
+
+  // Create wrapper functions that call .current:
+  const handleNodeSelect = () => {
+    const selectedNodes = cy.$('node:selected').map(n => n.id());
+    if (onNodeSelectionChange?.current) {
+      onNodeSelectionChange.current(selectedNodes);
+    }
+  };
+
+  const handleEdgeSelect = () => {
+    const selectedEdges = cy.$('edge:selected').map(e => e.id());
+    if (onEdgeSelectionChange?.current) {
+      onEdgeSelectionChange.current(selectedEdges);
+    }
+  };
+
+  const handleNodeClick = (evt) => {
+    const node = evt.target;
+    if (onNodeClick?.current) {
+      onNodeClick.current(node.id());
+    }
+  };
+
+  const handleEdgeClick = (evt) => {
+    const edge = evt.target;
+    if (onEdgeClick?.current) {
+      onEdgeClick.current(edge.id());
+    }
+  };
+
+  const handleNodeDoubleClick = (evt) => {
+    const node = evt.target;
+    if (onNodeDoubleClick?.current) {
+      onNodeDoubleClick.current(node.id());
+    }
+  };
+
+  const handleEdgeDoubleClick = (evt) => {
+    const edge = evt.target;
+    if (onEdgeDoubleClick?.current) {
+      onEdgeDoubleClick.current(edge.id());
+    }
+  };
+
+  const handleBackgroundClick = () => {
+    if (onBackgroundClick?.current) {
+      onBackgroundClick.current();
+    }
+  };
+
+  const handleNodeMove = (evt) => {
+    const node = evt.target;
+    const pos = node.position();
+    if (onNodeMove?.current) {
+      onNodeMove.current(node.id(), pos);
+    }
+  };
 
   // OPTIMIZED (cache child reference, batch class changes):
   const syncParentStateToChild = (parent) => {
@@ -676,7 +741,7 @@ export function wireEvents(cy, handlers = {}, mode = 'editing') {
 
   cy.nodes('.entry-parent').forEach(syncParentStateToChild);
 
-  cy.on('select unselect', 'node.entry-parent', (evt) => {
+    cy.on('select unselect', 'node.entry-parent', (evt) => {
     const parent = evt.target; 
     syncParentStateToChild(parent);
 
@@ -705,18 +770,16 @@ export function wireEvents(cy, handlers = {}, mode = 'editing') {
       }, 10);
     }
 
-    if (onNodeSelectionChange) {
-      const ids = cy.$('node.entry-parent:selected').map(n => n.id());
-      printDebug(`📊 Node selection changed to: (${ids.length}) [${ids.join(', ')}]`);
-      onNodeSelectionChange(ids);
-    }
+    // ✅ Use ref to call current callback
+    handleNodeSelect();
   });
 
   cy.on('select unselect', 'edge', (evt) => {
     if (evt.type === 'select' && !evt.target.hasClass('search-glow')) {
       cy.elements('.search-glow').removeClass('search-glow');
     }
-    if (onEdgeSelectionChange) onEdgeSelectionChange(cy.$('edge:selected').map(e => e.id()));
+    // ✅ Use ref to call current callback
+    handleEdgeSelect();
   });
 
   // Drag state -> also flag dragging so updateOverlays() only repositions
@@ -742,11 +805,13 @@ export function wireEvents(cy, handlers = {}, mode = 'editing') {
   }
 
   cy.on('tap', 'node.entry-parent', (evt) => {
-    const nodeId = evt.target.id();
     if (mode === 'playing') {
-      if (onNodeClick) onNodeClick(nodeId, 'node');
       const node = evt.target;
       const wasSelected = node.selected();
+      
+      // Call click handler BEFORE toggling selection so viewer can close first
+      handleNodeClick(evt);
+      
       setTimeout(() => {
         if (wasSelected) node.unselect();
         else {
@@ -756,33 +821,33 @@ export function wireEvents(cy, handlers = {}, mode = 'editing') {
       }, 0);
       return;
     }
-    if (onNodeClick) onNodeClick(evt.target.id(), 'node');
+    handleNodeClick(evt);
   });
 
   cy.on('tap', 'edge', (evt) => {
     if (mode === 'playing') {
       const e = evt.target; const was = e.selected();
-      setTimeout(() => { if (was) e.unselect(); else if (onEdgeClick) onEdgeClick(e.id(), 'edge'); }, 0); 
+      setTimeout(() => { if (was) e.unselect(); else handleEdgeClick(evt); }, 0); 
       return;
     }
-    if (onEdgeClick) onEdgeClick(evt.target.id(), 'edge');
+    handleEdgeClick(evt);
   });
   
   cy.on('tap', (evt) => { 
     if (evt.target === cy) { 
       cy.elements().unselect(); 
       cy.elements('.search-glow').removeClass('search-glow');
-      if (onBackgroundClick) onBackgroundClick(); 
+      handleBackgroundClick(); 
     } 
   });
 
-  cy.on('dbltap', 'node.entry-parent', (evt) => { if (mode !== 'editing') return; if (onNodeDoubleClick) onNodeDoubleClick(evt.target.id()); });
-  cy.on('dbltap', 'edge', (evt) => { if (mode !== 'editing') return; if (onEdgeDoubleClick) onEdgeDoubleClick(evt.target.id()); });
+  cy.on('dbltap', 'node.entry-parent', (evt) => { if (mode !== 'editing') return; handleNodeDoubleClick(evt); });
+  cy.on('dbltap', 'edge', (evt) => { if (mode !== 'editing') return; handleEdgeDoubleClick(evt); });
 
   // Drag end updates position (only parents are draggable)
   cy.on('dragfree', 'node.entry-parent', (evt) => {
     syncParentStateToChild(evt.target);
-    if (onNodeMove) { const { x, y } = evt.target.position(); onNodeMove(evt.target.id(), { x, y }); }
+    handleNodeMove(evt);
     refreshOverlayPositions(cy);
   });
 
@@ -831,6 +896,8 @@ export function wireEvents(cy, handlers = {}, mode = 'editing') {
     container.removeEventListener('touchmove', debouncedTouchMoveHandler);
     if (wheelTimer) clearTimeout(wheelTimer);
     if (touchMoveTimer) clearTimeout(touchMoveTimer);
+    // ✅ Reset flag so events can be re-wired (e.g., on mode change)
+    cy.__eventsWired = false;
   };
 }
 
