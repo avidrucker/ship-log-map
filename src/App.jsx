@@ -417,21 +417,52 @@ function App() {
     setCdnBaseUrl(cdnBaseUrl);
   }, [cdnBaseUrl]);
 
+  // 🔴 Live camera values (smooth BG), plus debounced reducer commits
+  const {
+    livePan,
+    liveZoom,
+    onViewportChange,
+  } = useCamera(dispatchAppState, appState);
+
   // Save camera state to localStorage (debounced to prevent excessive writes)
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       try {
         localStorage.setItem("shipLogCamera", JSON.stringify({
-          zoom: zoomLevel,
-          position: cameraPosition
+          zoom: liveZoom,
+          position: livePan
         }));
+        printDebug('[CAMERA] Saved to localStorage:', { zoom: liveZoom, position: livePan });
       } catch (e) {
         printWarn('Failed to save camera to localStorage:', e);
       }
     }, 200); // Save at most once every 200ms
     
     return () => clearTimeout(timeoutId);
-  }, [zoomLevel, cameraPosition]);
+  }, [liveZoom, livePan]);
+
+  // ✅ ADD: Save immediately on page unload (no debounce)
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      try {
+        localStorage.setItem("shipLogCamera", JSON.stringify({
+          zoom: liveZoom,
+          position: livePan
+        }));
+        printDebug('[CAMERA] Saved final camera state on unload:', { zoom: liveZoom, position: livePan });
+      } catch (e) {
+        printWarn('Failed to save camera on unload:', e);
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      // Also save when component unmounts
+      handleBeforeUnload();
+    };
+  }, [liveZoom, livePan]);
 
   // Save mode to localStorage
   useEffect(() => {
@@ -710,13 +741,6 @@ function App() {
 
     graphOps.handleEdgeDirectionChange(edgeId, nextDirection);
   }, [graphData.edges, graphOps]);
-
-  // 🔴 Live camera values (smooth BG), plus debounced reducer commits
-  const {
-    livePan,
-    liveZoom,
-    onViewportChange,
-  } = useCamera(dispatchAppState, appState);
 
   // REFACTOR STEP 1: Replace handleRotateMap with hook function  
   // OLD: const handleRotateMap = useCallback(() => { const next = rotateCompassOnly(orientation); dispatchAppState({ type: ACTION_TYPES.SET_ORIENTATION, payload: { orientation: next } }); }, [orientation]);

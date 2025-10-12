@@ -80,22 +80,6 @@ function CytoscapeGraph({
   const onViewportRef = useRef(null);
   useEffect(() => { onViewportRef.current = onViewportChange || null; }, [onViewportChange]);
 
-  // // Store all event handlers in refs so we don't re-wire events on every render
-  // const handlersRef = useRef({});
-  // useEffect(() => {
-  //   handlersRef.current = {
-  //     onNodeSelectionChange,
-  //     onEdgeSelectionChange,
-  //     onNodeClick,
-  //     onEdgeClick,
-  //     onNodeDoubleClick,
-  //     onEdgeDoubleClick,
-  //     onBackgroundClick,
-  //     onNodeMove
-  //   };
-  // }, [onNodeSelectionChange, onEdgeSelectionChange, onNodeClick, onEdgeClick,
-  //     onNodeDoubleClick, onEdgeDoubleClick, onBackgroundClick, onNodeMove]);
-
   // rAF id so we throttle viewport streaming to once per frame
   const viewportRafIdRef = useRef(0);
 
@@ -133,7 +117,7 @@ function CytoscapeGraph({
   const attachEdgeCountLiveUpdater = React.useCallback((cy) => {
     let updatePending = false;
     let lastUpdateTime = 0;
-    const MIN_UPDATE_INTERVAL = 16; // Max 60fps
+    const MIN_UPDATE_INTERVAL = 33; // Max 30fps
     
     const scheduleUpdate = () => {
       if (updatePending) return;
@@ -208,8 +192,12 @@ function CytoscapeGraph({
         }, mode);
         cy._eventCleanup = off;
 
-        // Viewport streaming (BG layer)
-        cy._viewportCleanup = attachViewportStreaming(cy);
+        // Viewport streaming (BG layer) — attach only if consumer provided a handler
+        if (onViewportRef.current) {
+          cy._viewportCleanup = attachViewportStreaming(cy);
+        } else {
+          cy._viewportCleanup = null;
+        }
 
         // Edge note-count live updater
         cy._edgeCountCleanup = attachEdgeCountLiveUpdater(cy);
@@ -541,6 +529,7 @@ function CytoscapeGraph({
         isChecking = false;
         
         if (hasPendingGrayscaleConversions()) {
+          console.log('🎨 [CytoscapeGraph] Checking for completed grayscale conversions...');
           const updated = updateCompletedGrayscaleImages(cy, { nodes, edges, mapName, cdnBaseUrl });
           if (updated) {
             cy.forceRender();

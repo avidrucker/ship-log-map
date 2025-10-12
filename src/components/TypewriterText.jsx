@@ -10,7 +10,7 @@ import * as React from 'react';
 export default function TypewriterText({
   text = '',
   enabled = false,
-  msPerChar = 15, // ← Speed in milliseconds per character
+  msPerChar = 30, // ← Speed in milliseconds per character
   className = ''
 }) {
   const [out, setOut] = React.useState(() => (enabled ? '' : text));

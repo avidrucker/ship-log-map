@@ -6,14 +6,14 @@ import { printDebug } from '../utils/debug';
 /**
  * useCamera — real-time camera streaming + debounced reducer commits.
  * 
- * - livePan/liveZoom: update each animation frame for the BG layer.
+ * - livePan/liveZoom: reactive state that updates when camera moves
  * - onZoomChange/onCameraMove: debounced commits to reducer (no thrash).
- * - onViewportChange: rAF stream receiver from CytoscapeGraph.
+ * - onViewportChange: debounced stream receiver from CytoscapeGraph.
  */
-export function useCamera(dispatch, appState, { commitDelay = 0 } = {}) {
+export function useCamera(dispatch, appState, { commitDelay = 300 } = {}) {
   const { camera } = appState;
 
-  // Per-frame values for BG image (don't go through reducer)
+  // ✅ FIX: Use reactive state instead of refs for live values
   const [liveZoom, setLiveZoom] = useState(camera.zoom ?? 1);
   const [livePan, setLivePan] = useState({
     x: camera.position?.x ?? 0,
@@ -45,41 +45,36 @@ export function useCamera(dispatch, appState, { commitDelay = 0 } = {}) {
     }, commitDelayRef.current);
   }, [dispatch]);
 
-  // rAF-per-frame viewport stream (from CytoscapeGraph)
-  const rafPending = useRef(false);
-  const latest = useRef({ pan: { x: livePan.x, y: livePan.y }, zoom: liveZoom });
+  // ✅ FIX: Debounced viewport stream (from CytoscapeGraph)
+  const updateTimeoutRef = useRef(null);
   
   const onViewportChange = useCallback(({ pan, zoom }) => {
-    // Store latest; clone pan (Cytoscape returns a mutable object)
-    latest.current = { zoom, pan: { x: pan.x, y: pan.y } };
+    // Clear any pending update
+    clearTimeout(updateTimeoutRef.current);
     
-    // Use rAF to throttle to one update per frame max
-    if (rafPending.current) return;
-    rafPending.current = true;
-
-    requestAnimationFrame(() => {
-      rafPending.current = false;
-      const { zoom: z, pan: p } = latest.current;
-
-      // Always update live state immediately - this is the source of truth for smooth visuals
-      setLiveZoom(z);
-      setLivePan({ x: p.x, y: p.y });
+    // Debounce the state update to reduce React renders
+    updateTimeoutRef.current = setTimeout(() => {
+      // Update reactive state (triggers React renders and useEffect dependencies)
+      setLiveZoom(zoom);
+      setLivePan({ x: pan.x, y: pan.y });
       
-      // Commit to reducer for persistence (debounced)
-      commitZoom(z);
-      commitPan(p);
-    });
+      // Also commit to reducer for persistence (debounced)
+      commitZoom(zoom);
+      commitPan({ x: pan.x, y: pan.y });
+    }, 150); // 150ms debounce - only update after user stops panning/zooming
   }, [commitZoom, commitPan]);
 
   // Cleanup
   useEffect(() => () => {
     clearTimeout(zoomT.current);
     clearTimeout(panT.current);
+    clearTimeout(updateTimeoutRef.current);
   }, []);
 
+  // ✅ FIX: Return reactive state values, not getters
   return {
-    livePan,
-    liveZoom,
-    onViewportChange  // main interface
+    livePan,      // Reactive state - triggers useEffect dependencies
+    liveZoom,     // Reactive state - triggers useEffect dependencies
+    onViewportChange
   };
 }

@@ -253,7 +253,7 @@ export async function mountCy({ container, graph, styles = cytoscapeStyles, mode
       });
       if (updated) {
         printDebug(`🖼️ [cyAdapter] Applied CDN default placeholder to ${updated} nodes after async load`);
-        cy.style().update();
+        //// cy.style().update();
       }
     } catch { /* noop */ }
   });
@@ -285,7 +285,7 @@ export async function mountCy({ container, graph, styles = cytoscapeStyles, mode
         const activeNode = currentActiveCy.getElementById(nodeId);
         if (activeNode.length > 0) {
           activeNode.data('imageUrl', imageUrl);
-          currentActiveCy.style().update();
+          //// currentActiveCy.style().update();
           printDebug(`✅ [cyAdapter] Forwarded image update to active instance for node ${nodeId}`);
         } else {
           printDebug(`🚫 [cyAdapter] Active instance doesn't have node ${nodeId} - discarding image update`);
@@ -302,7 +302,7 @@ export async function mountCy({ container, graph, styles = cytoscapeStyles, mode
 
     try {
       node.data('imageUrl', imageUrl);
-      cy.style().update();
+      //// cy.style().update();
       printDebug(`✅ [cyAdapter] Updated node "${nodeId}" image on active instance (imageUrl length: ${imageUrl?.length || 0})`);
     } catch (err) {
       console.error(`❌ [cyAdapter] Failed to update node ${nodeId} image:`, err);
@@ -340,6 +340,8 @@ export async function mountCy({ container, graph, styles = cytoscapeStyles, mode
       pixelRatio: 1,
       motionBlur: true,
       textureOnViewport: false,
+      hideLabelsOnViewport: true,  // skip label rendering while moving
+      hideEdgesOnViewport: false,
       layout: { name: 'preset' }
     });
 
@@ -390,6 +392,8 @@ export async function mountCy({ container, graph, styles = cytoscapeStyles, mode
       pixelRatio: 1,
       motionBlur: true,
       textureOnViewport: false,
+      hideLabelsOnViewport: true,  // skip label rendering while moving
+      hideEdgesOnViewport: false,
       layout: { name: 'preset' }
     });
 
@@ -442,7 +446,7 @@ export function syncElements(cy, graph, options = {}) {
     const el = cy.getElementById(nodeId);
     if (el && el.length > 0) {
       el.data('imageUrl', imageUrl);
-      cy.style().update();
+      //// cy.style().update();
     }
   };
 
@@ -861,7 +865,7 @@ export async function forceNodeImageUpdate(nodeId, imagePath, mapName, cdnBaseUr
     }
     
     node.data('imageUrl', finalImageUrl);
-    currentActiveCy.style().update();
+    //// currentActiveCy.style().update();
     printDebug(`✅ [cyAdapter] Successfully updated node ${nodeId} image immediately`);
     
     return true;
