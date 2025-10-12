@@ -286,8 +286,12 @@ function CytoscapeGraph({
     }, mode);
 
     // Re-attach viewport streaming & seed once
-    cy._viewportCleanup = attachViewportStreaming(cy);
-
+    if (onViewportRef.current) {
+      cy._viewportCleanup = attachViewportStreaming(cy);
+    } else {
+      cy._viewportCleanup = null;
+    }
+    
     // Re-attach edge-count live updater & seed once
     cy._edgeCountCleanup = attachEdgeCountLiveUpdater(cy);
 
