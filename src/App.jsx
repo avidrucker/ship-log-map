@@ -513,8 +513,16 @@ function App() {
     }
   }, [clearVisitedForMap, mapName]);
 
-  // Decide typewriter-on-first-open here; keep it outside the modal API.
+  // Typewriter control: opens viewer immediately but delays typewriter until zoom completes
+  const [typewriterEnabled, setTypewriterEnabled] = useState(false);
+  const [shouldMountTypewriter, setShouldMountTypewriter] = useState(false); // NEW: Controls if TypewriterText component should mount at all
   const typewriterRef = useRef(false);
+  // Track the latest zoom start to ignore stale completions
+  const latestZoomTokenRef = useRef(null);
+
+  // Track App renders (for debugging if needed)
+  const renderCountRef = useRef(0);
+  renderCountRef.current++;
 
   // Memoized visited lookup: isUnseen(id) -> boolean
   const isUnseen = useMemo(
@@ -559,17 +567,68 @@ function App() {
     // While opening/switching, suppress any empty-selection close from Cytoscape
     suppressEmptyCloseRef.current = true;
 
+    // ---- Compute first-open flag for typewriter logic ----
+    // Only typewriter the first time we open a given id (and only if there's content)
+    const hasContent =
+      (Array.isArray(graphData?.notes?.[targetId]) ? graphData.notes[targetId].join('\n\n') : (graphData?.notes?.[targetId] || '')).trim().length > 0;
+    const unseenNow = isUnseen(targetId);
+    typewriterRef.current = Boolean(unseenNow && hasContent);
+
+    // Open the viewer immediately, but don't mount TypewriterText yet.
+    // We'll mount it after the zoom animation completes.
+    setTypewriterEnabled(false);
+    setShouldMountTypewriter(false); // Don't mount TypewriterText during animation
+
     // Zoom to selection if feature is enabled and we're in playing mode
     if (ZOOM_TO_SELECTION && targetId) {
+      printDebug("📹 [StartNoteViewing] Beginning zoom sequence for:", targetId);
+      
       // Only save the "original camera" once, on the first zoom-in. For switches, reuse it.
       const shouldSaveCamera = !hasOriginalCamera();
-      fitToSelection([targetId], {
+      const zoomStartTime = performance.now();
+      
+      const zoomPromise = fitToSelection([targetId], {
         animate: true,
         padding: 80,
         targetHalf: 'top',
         saveCamera: shouldSaveCamera,
         zoomLevel: 'close'
       });
+
+      // Mount TypewriterText and enable it only when zoom completes AND we're still viewing this same target
+      const token = Symbol('zoom-token');
+      latestZoomTokenRef.current = token;
+      zoomPromise.finally(() => {
+        const zoomEndTime = performance.now();
+        const totalZoomTime = zoomEndTime - zoomStartTime;
+        
+        if (latestZoomTokenRef.current === token) {
+          printDebug("✅ [StartNoteViewing] Zoom complete, adding small delay before mounting typewriter:", {
+            targetId,
+            totalTime: totalZoomTime.toFixed(2) + 'ms',
+            willTypewriter: typewriterRef.current
+          });
+          
+          // Add a small delay to ensure viewport streaming has fully resumed
+          // and any pending renders have completed before mounting TypewriterText
+          setTimeout(() => {
+            if (latestZoomTokenRef.current === token) {
+              printDebug("⌨️ [StartNoteViewing] Mounting and enabling typewriter now");
+              setShouldMountTypewriter(true); // Mount the component
+              setTypewriterEnabled(true); // Enable animation
+            } else {
+              printDebug("⚠️ [StartNoteViewing] Token changed during delay - NOT enabling typewriter");
+            }
+          }, 100); // 100ms grace period for rendering to settle
+        } else {
+          printDebug("⚠️ [StartNoteViewing] Zoom complete but token mismatch - NOT enabling typewriter");
+        }
+      });
+    } else {
+      printDebug("📹 [StartNoteViewing] No zoom needed, mounting and enabling typewriter immediately");
+      // No zoom → mount and enable typewriter immediately
+      setShouldMountTypewriter(true);
+      setTypewriterEnabled(true);
     }
 
     // Open (or switch) the viewer
@@ -578,13 +637,7 @@ function App() {
       payload: { targetId, targetType }
     });
 
-        // ---- NEW: compute first-open flag, then mark visited ----
-    // Only typewriter the first time we open a given id (and only if there's content)
-    const hasContent =
-      (Array.isArray(graphData?.notes?.[targetId]) ? graphData.notes[targetId].join('\n\n') : (graphData?.notes?.[targetId] || '')).trim().length > 0;
-    const unseenNow = isUnseen(targetId);
-    typewriterRef.current = Boolean(unseenNow && hasContent);
-
+    // Mark as visited
     if (targetType === 'node') markNodeVisited(targetId);
     else if (targetType === 'edge') markEdgeVisited(targetId);
 
@@ -594,6 +647,11 @@ function App() {
 
   // Update handleCloseNoteViewing to check the transition flag
   const handleCloseNoteViewing = useCallback(() => {
+    // Disable and unmount typewriter immediately on close
+    setTypewriterEnabled(false);
+    setShouldMountTypewriter(false); // Unmount TypewriterText component
+    latestZoomTokenRef.current = null; // invalidate any pending completion
+
     // Prevent duplicate execution and transitions
     if (isClosingNoteViewRef.current || isTransitioningRef.current) {
       printDebug('🚫 [App] handleCloseNoteViewing skipped (already in progress or transitioning)');
@@ -608,6 +666,7 @@ function App() {
         // Actual close: background click, Escape, or re-click same selected node
         if (ZOOM_TO_SELECTION && mode === 'playing' && hasOriginalCamera()) {
           printDebug('🎥 [App] Restoring original camera (note viewer close)');
+          // Optionally await to ensure smoothness before other UI changes
           restoreOriginalCamera(true);
         }
       } else {
@@ -1221,7 +1280,9 @@ useEffect(() => {
           targetId={noteViewingTarget}
           notes={noteViewingTarget ? (graphData.notes?.[noteViewingTarget] || []) : []}
           onClose={handleCloseNoteViewing}
-          shouldTypewriter={typewriterRef.current}
+          shouldTypewriter={typewriterEnabled && typewriterRef.current}
+          shouldShowText={!typewriterRef.current || typewriterEnabled}
+          shouldMountTypewriter={shouldMountTypewriter}
         />
 
         <HelpModal

@@ -8,6 +8,7 @@
 // import { printDebug } from "../utils/debug.js";
 
 //// Dependencies (soft): tokens for sizes/offsets //////////////////////////////////
+import { printDebug } from '../utils/debug.js';
 
 let TOKENS = {
   NODE_SIZES: {
@@ -32,7 +33,7 @@ try {
   };
 } catch (e) {
   // Fall back to local TOKENS
-  console.log('📏 [overlayManager] Using default tokens (tokens.js not found)', e);
+  printDebug('📏 [overlayManager] Using default tokens (tokens.js not found)', e);
 }
 
 const CLS = {

@@ -58,22 +58,47 @@ export function useGraphOperations({
       
       if (allNodes.length === 0) {
         printDebug('🎥 GraphOps: No nodes to fit, centering view');
+        
+        // Pause viewport streaming during animation to prevent competing render cycles
+        const hasStreamingControl = typeof cyInstance.__pauseViewportStreaming === 'function';
+        if (hasStreamingControl) {
+          cyInstance.__pauseViewportStreaming();
+        }
+        
+        // Stop any ongoing animations to prevent interruption
+        cyInstance.stop(true, true); // clearQueue=true, jumpToEnd=true
+        
         // No nodes to fit to, animate to center
         cyInstance.animate({
           pan: { x: 0, y: 0 },
           zoom: 1
         }, {
           duration: 400,
-          easing: 'ease-in-out',
+          easing: 'ease-in-out-cubic',
+          queue: false, // Don't queue this animation
           complete: () => {
             dispatch({ type: ACTION_TYPES.SET_ZOOM_INTERNAL, payload: { zoom: 1 } });
             dispatch({ type: ACTION_TYPES.SET_CAMERA_POSITION_INTERNAL, payload: { position: { x: 0, y: 0 } } });
+            
+            // Resume viewport streaming after animation completes
+            if (hasStreamingControl) {
+              cyInstance.__resumeViewportStreaming();
+            }
           }
         });
         return;
       }
 
       printDebug('🎥 GraphOps: Animating fit to all nodes');
+
+      // Pause viewport streaming during animation to prevent competing render cycles
+      const hasStreamingControl = typeof cyInstance.__pauseViewportStreaming === 'function';
+      if (hasStreamingControl) {
+        cyInstance.__pauseViewportStreaming();
+      }
+
+      // Stop any ongoing animations to prevent interruption
+      cyInstance.stop(true, true); // clearQueue=true, jumpToEnd=true
 
       // Use animate with fit option for smooth transition
       cyInstance.animate({
@@ -83,7 +108,8 @@ export function useGraphOperations({
         }
       }, {
         duration: 400,
-        easing: 'ease-in-out',
+        easing: 'ease-in-out-cubic',
+        queue: false, // Don't queue this animation
         complete: () => {
           // Update app state with the new camera position after animation
           const finalZoom = cyInstance.zoom();
@@ -93,6 +119,11 @@ export function useGraphOperations({
           
           dispatch({ type: ACTION_TYPES.SET_ZOOM_INTERNAL, payload: { zoom: finalZoom } });
           dispatch({ type: ACTION_TYPES.SET_CAMERA_POSITION_INTERNAL, payload: { position: finalPan } });
+          
+          // Resume viewport streaming after animation completes
+          if (hasStreamingControl) {
+            cyInstance.__resumeViewportStreaming();
+          }
         }
       });
     } catch (error) {

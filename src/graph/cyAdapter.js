@@ -355,7 +355,7 @@ export async function mountCy({ container, graph, styles = cytoscapeStyles, mode
     try { 
       cy.$('node.edge-note-count, node.edge-unseen, node.note-count, node.unseen').stop(true, true); 
     } catch {
-      console.log('Error stopping animations');
+      printDebug('Error stopping animations');
     }
 
     try { 
@@ -408,7 +408,7 @@ export async function mountCy({ container, graph, styles = cytoscapeStyles, mode
     try { 
       cy.$('node.edge-note-count, node.edge-unseen, node.note-count, node.unseen').stop(true, true); 
     } catch {
-      console.log('Error stopping animations');
+      printDebug('Error stopping animations');
     }
 
     try { 

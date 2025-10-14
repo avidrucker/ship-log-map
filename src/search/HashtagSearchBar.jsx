@@ -136,6 +136,16 @@ export default function HashtagSearchBar({ nodes, edges, getNodeNotes, getEdgeNo
       
       if (combinedSelector) {
         const matchedElements = cy.$(combinedSelector);
+        
+        // Pause viewport streaming during animation to prevent competing render cycles
+        const hasStreamingControl = typeof cy.__pauseViewportStreaming === 'function';
+        if (hasStreamingControl) {
+          cy.__pauseViewportStreaming();
+        }
+        
+        // Stop any ongoing animations to prevent interruption
+        cy.stop(true, true); // clearQueue=true, jumpToEnd=true
+        
         cy.animate({ 
           fit: { 
             eles: matchedElements, 
@@ -143,7 +153,14 @@ export default function HashtagSearchBar({ nodes, edges, getNodeNotes, getEdgeNo
           } 
         }, { 
           duration: 400, 
-          easing: 'ease-in-out' 
+          easing: 'ease-in-out-cubic',
+          queue: false, // Don't queue this animation
+          complete: () => {
+            // Resume viewport streaming after animation completes
+            if (hasStreamingControl) {
+              cy.__resumeViewportStreaming();
+            }
+          }
         });
       }
     }

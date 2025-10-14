@@ -91,14 +91,21 @@ function CytoscapeGraph({
     const attachId = ++attachmentCounter;
     //// console.log(`🔵 [attachViewportStreaming #${attachId}] Attaching viewport handlers`);
     
+    let isEnabled = true; // Flag to enable/disable streaming without detaching
+    
     const schedule = () => {
+      if (!isEnabled) {
+        printDebug(`⏸️ [ViewportStreaming] schedule() called but DISABLED - skipping`);
+        return; // Skip if disabled
+      }
       if (!onViewportRef.current) return;
       if (viewportRafIdRef.current) return;
-      
-      //// console.log(`🔵 [attachViewportStreaming #${attachId}] Scheduling viewport rAF`); // Debug log
-      
+
+      printDebug(`🔵 [ViewportStreaming] Scheduling viewport update rAF`);
+
       viewportRafIdRef.current = requestAnimationFrame(() => {
         viewportRafIdRef.current = 0;
+        printDebug(`📡 [ViewportStreaming] Executing viewport update at ${performance.now().toFixed(2)}ms`);
         try {
           const p = cy.pan();
           const z = cy.zoom();
@@ -115,6 +122,20 @@ function CytoscapeGraph({
     // seed once
     schedule();
 
+    // Expose pause/resume on the cy instance for use during animations
+    cy.__pauseViewportStreaming = () => {
+      isEnabled = false;
+      if (viewportRafIdRef.current) {
+        cancelAnimationFrame(viewportRafIdRef.current);
+        viewportRafIdRef.current = 0;
+      }
+    };
+    
+    cy.__resumeViewportStreaming = () => {
+      isEnabled = true;
+      schedule(); // Trigger one final update after resume
+    };
+
     const cleanup = () => {
       //// console.log(`🔴 [attachViewportStreaming #${attachId}] Cleaning up viewport handlers`);
       cy.off('pan zoom', schedule);
@@ -122,6 +143,8 @@ function CytoscapeGraph({
         cancelAnimationFrame(viewportRafIdRef.current);
         viewportRafIdRef.current = 0;
       }
+      delete cy.__pauseViewportStreaming;
+      delete cy.__resumeViewportStreaming;
     };
     return cleanup;
   };
@@ -149,12 +172,11 @@ function CytoscapeGraph({
       }
       
       rafId = requestAnimationFrame(() => {
-        console.log("banana");
         rafId = null;
         lastUpdateTime = performance.now();
         
         try {
-          console.log("[CYTOSCAPEGRAPH] Refreshing overlay positions during drag");
+          printDebug("[CYTOSCAPEGRAPH] Refreshing overlay positions during drag");
           refreshOverlayPositions(cy);
         } catch (e) {
           printWarn('edge-count update failed:', e);
@@ -553,11 +575,10 @@ function CytoscapeGraph({
       isChecking = true;
       
       rafId = requestAnimationFrame(() => {
-        console.log("cheese");
         isChecking = false;
         
         if (hasPendingGrayscaleConversions()) {
-          console.log('🎨 [CytoscapeGraph] raf Checking for completed grayscale conversions...');
+          printDebug('🎨 [CytoscapeGraph] raf Checking for completed grayscale conversions...');
           const updated = updateCompletedGrayscaleImages(cy, { nodes, edges, mapName, cdnBaseUrl });
           if (updated) {
             cy.forceRender();

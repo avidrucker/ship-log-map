@@ -17,6 +17,30 @@ export default function TypewriterText({
   const rafRef = React.useRef(null);
   const startTimeRef = React.useRef(null);
 
+  // 🐛 Debug: Log when component mounts/unmounts
+  React.useEffect(() => {
+    console.log('🎭 [TypewriterText] Component MOUNTED:', { 
+      enabled, 
+      textLength: text.length,
+      timestamp: performance.now() 
+    });
+    
+    return () => {
+      console.log('🎭 [TypewriterText] Component UNMOUNTED:', { 
+        timestamp: performance.now() 
+      });
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty deps = mount/unmount only (intentionally ignoring enabled/text)
+
+  // 🐛 Debug: Log when enabled flag changes
+  React.useEffect(() => {
+    console.log('🎭 [TypewriterText] enabled flag changed:', { 
+      enabled, 
+      timestamp: performance.now() 
+    });
+  }, [enabled]);
+
   React.useEffect(() => {
     if (!enabled) {
       setOut(text);
@@ -32,7 +56,7 @@ export default function TypewriterText({
     const totalDuration = text.length * msPerChar;
 
     const animate = (currentTime) => {
-      console.log("animating typewriter text")
+      // console.log("animating typewriter text")
       if (!startTimeRef.current) {
         startTimeRef.current = currentTime;
       }

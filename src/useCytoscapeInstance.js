@@ -119,36 +119,60 @@ export function useCytoscapeInstance() {
   }, []);
 
   // Restore camera to original state with smooth animation
+  // Returns: Promise<void> when animation completes (or resolves immediately if not animating)
   const restoreOriginalCamera = useCallback((animate = true) => {
     const cy = cytoscapeRef.current;
-    if (!cy || !originalCamera) return false;
+    if (!cy || !originalCamera) return Promise.resolve(false);
     
     try {
       if (animate) {
-        cy.animate({
-          zoom: originalCamera.zoom,
-          pan: originalCamera.pan
-        }, {
-          duration: 500,
-          easing: 'ease-out'
+        // Pause viewport streaming during animation to prevent competing render cycles
+        const hasStreamingControl = typeof cy.__pauseViewportStreaming === 'function';
+        if (hasStreamingControl) {
+          cy.__pauseViewportStreaming();
+        }
+        
+        // Stop any ongoing animations to prevent interruption
+        cy.stop(true, true); // clearQueue=true, jumpToEnd=true
+        
+        // Use cy.animate() with complete callback for better reliability
+        return new Promise((resolve) => {
+          cy.animate(
+            { zoom: originalCamera.zoom, pan: originalCamera.pan },
+            {
+              duration: 500,
+              easing: 'ease-in-out-cubic',
+              queue: false, // Don't queue this animation
+              complete: () => {
+                setOriginalCamera(null);
+                
+                // Resume viewport streaming after animation completes
+                if (hasStreamingControl) {
+                  cy.__resumeViewportStreaming();
+                }
+                
+                resolve(true);
+              }
+            }
+          );
         });
-      } else {
+      } else{
         cy.zoom(originalCamera.zoom);
         cy.pan(originalCamera.pan);
+        setOriginalCamera(null);
+        return Promise.resolve(true);
       }
-      
-      setOriginalCamera(null);
-      return true;
     } catch (error) {
       console.warn('Failed to restore original camera:', error);
-      return false;
+      return Promise.resolve(false); // fail closed so callers don't hang
     }
   }, [originalCamera]);
 
   // Fit to selection in the top half of the viewport
+  // Returns: Promise<void> that resolves when the camera finishes moving
   const fitToSelection = useCallback((elementIds, options = {}) => {
     const cy = cytoscapeRef.current;
-    if (!cy || !elementIds || elementIds.length === 0) return false;
+    if (!cy || !elementIds || elementIds.length === 0) return Promise.resolve(false);
 
     const {
       animate = true,
@@ -166,7 +190,7 @@ export function useCytoscapeInstance() {
 
       // Get the elements to fit
       const elements = cy.elements().filter(el => elementIds.includes(el.id()));
-      if (elements.length === 0) return false;
+      if (elements.length === 0) return Promise.resolve(false);
 
       const containerWidth = cy.width();
       const containerHeight = cy.height();
@@ -271,24 +295,46 @@ export function useCytoscapeInstance() {
 
       // Apply the transformation
       if (animate) {
-        cy.animate({
-          zoom: targetZoom,
-          pan: targetPan
-        }, {
-          duration: 500,
-          easing: 'ease-out'
+        // Pause viewport streaming during animation to prevent competing render cycles
+        const hasStreamingControl = typeof cy.__pauseViewportStreaming === 'function';
+        if (hasStreamingControl) {
+          cy.__pauseViewportStreaming();
+        }
+        
+        // Stop any ongoing animations to prevent interruption
+        cy.stop(true, true); // clearQueue=true, jumpToEnd=true
+        
+        // Use cy.animate() with a proper promise-based approach
+        return new Promise((resolve) => {
+          cy.animate(
+            { 
+              zoom: targetZoom, 
+              pan: targetPan 
+            },
+            {
+              duration: 500,
+              easing: 'ease-in-out-cubic',
+              complete: () => {
+                // Resume viewport streaming after animation completes
+                if (hasStreamingControl) {
+                  cy.__resumeViewportStreaming();
+                }
+                resolve(true);
+              }
+            }
+          );
         });
       } else {
         cy.zoom(targetZoom);
         cy.pan(targetPan);
+        printDebug("Fit to selection (instant):", { elementIds, targetHalf, targetZoom, targetPan });
+        return Promise.resolve(true);
       }
 
-      printDebug("Fit to selection:", { elementIds, targetHalf, targetZoom, targetPan });
-
-      return true;
+      // Note: animated branch already returned a promise
     } catch (error) {
       console.warn('Failed to fit to selection:', error);
-      return false;
+      return Promise.resolve(false);
     }
   }, [saveOriginalCamera]);
 

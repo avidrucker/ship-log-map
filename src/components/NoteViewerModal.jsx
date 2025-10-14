@@ -20,7 +20,9 @@ function NoteViewerModal({
   targetId,
   notes, // array of note strings for this target
   onClose,
-  shouldTypewriter = false
+  shouldTypewriter = false,
+  shouldShowText = true, // controls whether text should be visible at all
+  shouldMountTypewriter = false // NEW: controls whether TypewriterText component should mount
 }) {
   // Add keyboard event listener for Escape key
   useEffect(() => {
@@ -106,7 +108,14 @@ function NoteViewerModal({
                 wordBreak: "break-word",
                 fontSize: "14px",
               }}>
-                {shouldTypewriter ? (<TypewriterText text={note} enabled />) : (note)}
+                {shouldShowText ? (
+                  // Only mount TypewriterText if shouldMountTypewriter is true
+                  shouldTypewriter && shouldMountTypewriter ? (
+                    <TypewriterText text={note} enabled />
+                  ) : (
+                    note
+                  )
+                ) : null}
               </li>
             ))}
           </ul>
