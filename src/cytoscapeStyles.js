@@ -157,7 +157,7 @@ const edgeBase = [
       "curve-style": "bezier",
       "arrow-scale": 2.5,
       // 👇 this is the "second, thicker line" underneath
-      'underlay-color': 'gray',    // your “border” color
+      'underlay-color': 'gray',    // your "border" color
       'underlay-opacity': 1,
       'underlay-padding': 5,       // how much thicker than the line (px)
     }

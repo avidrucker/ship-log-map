@@ -65,7 +65,7 @@ function BgImageLayer({
         left: 0,
         top: 0,
         // Let natural image size + CSS scale govern dimensions.
-        // This avoids container-dependent “contain/cover” resizing.
+        // This avoids container-dependent "contain/cover" resizing.
         pointerEvents: "none",
         zIndex: 0,
         opacity: opacity / 100,
