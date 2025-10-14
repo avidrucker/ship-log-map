@@ -1,41 +1,42 @@
 // public/service-worker.js
 
 /* ship-log-map: Service Worker (offline + update + installable)
- * Scope: this file must be served from /ship-log-map/service-worker.js
- * It will only control pages under /ship-log-map/ (non-overlapping with other apps).
+ * IMPORTANT: Must be served at <BASE_URL>/service-worker.js
+ * Example on GitHub Pages: https://<user>.github.io/ship-log-map/service-worker.js
  */
 
-const APP_VERSION = '0.1.7'; // <-- CI will inject package.json version (see README/CI step)
+const APP_VERSION = '0.1.7'; // optionally replaced by CI
 const CACHE_PREFIX = 'ship-log-map';
 const PRECACHE = `${CACHE_PREFIX}-precache-v${APP_VERSION}`;
-const RUNTIME = `${CACHE_PREFIX}-runtime-v${APP_VERSION}`;
+const RUNTIME  = `${CACHE_PREFIX}-runtime-v${APP_VERSION}`;
 
-// Compute BASE_URL from the service worker script URL directory.
-// Example: https://avidrucker.github.io/ship-log-map/service-worker.js -> '/ship-log-map/'
+// Derive BASE_URL from this file's own URL directory, e.g. '/ship-log-map/'
 const BASE_URL = (() => {
   const url = new URL(self.location.href);
   const path = url.pathname.replace(/[^/]+$/, ''); // drop filename
   return path.endsWith('/') ? path : path + '/';
 })();
 
+// Core URLs we always want available offline
 const CORE_URLS = [
   `${BASE_URL}`,
   `${BASE_URL}index.html`,
   `${BASE_URL}manifest.webmanifest`,
   `${BASE_URL}offline.html`,
-  // Icons (you will add these soon)
   `${BASE_URL}logo192.png`,
   `${BASE_URL}logo512.png`,
+  // Vite’s default dev asset; harmless if missing in prod:
+  `${BASE_URL}vite.svg`,
 ];
 
-// Message channel (optional): allow page to request immediate activation
+// Support “skip waiting” from the app
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
   }
 });
 
-// Helper: fetch index.html and pull out hashed asset URLs that Vite injects (assets/*.js|css)
+// ---- Build asset discovery (read index.html, collect /assets/*.js|.css and linked styles) ----
 async function discoverBuildAssets() {
   try {
     const res = await fetch(`${BASE_URL}index.html`, { cache: 'no-store' });
@@ -43,56 +44,60 @@ async function discoverBuildAssets() {
     const html = await res.text();
     const urls = new Set();
 
-    const assetRegex = new RegExp(`${BASE_URL.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}assets/[^"']+\\.(?:js|css)`, 'g');
+    // Capture hashed assets emitted by Vite under <base>/assets/
+    const assetRegex = new RegExp(
+      `${BASE_URL.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}assets/[^"']+\\.(?:js|css)`,
+      'g'
+    );
     for (const m of html.matchAll(assetRegex)) {
       urls.add(m[0]);
     }
 
-    // Also cache the Vite SVG and any CSS referenced by link tags
-    const viteSvg = `${BASE_URL}vite.svg`;
-    urls.add(viteSvg);
-
-    // Look for <link rel="stylesheet" href="..."> too
+    // Capture additional linked stylesheets (handle relative + absolute)
     const linkHrefRegex = /<link\s+[^>]*rel=["']stylesheet["'][^>]*href=["']([^"']+)["']/gi;
+    const baseForHtml = new URL(BASE_URL, self.location.origin);
     let lm;
     while ((lm = linkHrefRegex.exec(html)) !== null) {
-      const href = lm[1].startsWith('http') ? lm[1] : new URL(lm[1], `${location.origin}${BASE_URL}`).pathname.replace(location.origin, '');
-      // Only cache same-origin & within scope
-      if (href.startsWith(BASE_URL)) urls.add(href);
+      const hrefAbs = new URL(lm[1], baseForHtml).href;
+      const u = new URL(hrefAbs);
+      // Same-origin and within our scope
+      if (u.origin === self.location.origin && u.pathname.startsWith(BASE_URL)) {
+        urls.add(u.pathname);
+      }
     }
 
     return Array.from(urls);
   } catch (_e) {
+    // Fail-soft: no dynamic assets discovered
     return [];
   }
 }
 
-// Install: precache the app shell and discovered build assets
+// ---- Install: precache core + discovered build assets ----
 self.addEventListener('install', (event) => {
   event.waitUntil((async () => {
     const cache = await caches.open(PRECACHE);
-    const assets = await discoverBuildAssets();
-    const toCache = [...CORE_URLS, ...assets];
+    const dynamicAssets = await discoverBuildAssets();
+    const toCache = [...CORE_URLS, ...dynamicAssets];
     await cache.addAll(toCache);
-    // Take over quickly
     await self.skipWaiting();
   })());
 });
 
-// Activate: clean old caches and claim clients
+// ---- Activate: clean old caches & take control ----
 self.addEventListener('activate', (event) => {
   event.waitUntil((async () => {
     const names = await caches.keys();
     await Promise.all(
       names
-        .filter((n) => ![PRECACHE, RUNTIME].includes(n) && n.startsWith(CACHE_PREFIX))
+        .filter((n) => n.startsWith(CACHE_PREFIX) && ![PRECACHE, RUNTIME].includes(n))
         .map((n) => caches.delete(n))
     );
     await self.clients.claim();
   })());
 });
 
-// Strategy helpers
+// ---- Strategies ----
 async function networkFirst(request) {
   try {
     const fresh = await fetch(request);
@@ -102,7 +107,6 @@ async function networkFirst(request) {
   } catch (_e) {
     const cached = await caches.match(request);
     if (cached) return cached;
-    // If it's a navigation, fall back to cached index or offline page
     if (request.mode === 'navigate') {
       const index = await caches.match(`${BASE_URL}index.html`);
       if (index) return index;
@@ -122,38 +126,39 @@ async function cacheFirst(request) {
   return res;
 }
 
-// Fetch handler
+// ---- Fetch routing ----
 self.addEventListener('fetch', (event) => {
   const { request } = event;
 
-  // Only handle GET requests
+  // Only deal with GETs and requests within our scope
   if (request.method !== 'GET') return;
 
   const url = new URL(request.url);
+  if (url.origin !== self.location.origin) return;
+  if (!url.pathname.startsWith(BASE_URL)) return;
 
-  // Only handle requests within our scope (same origin + path starts with BASE_URL)
-  if (url.origin !== location.origin || !url.pathname.startsWith(BASE_URL)) {
-    return;
-  }
-
-  // Navigations -> Network-first with offline fallback
+  // Navigations: network-first with offline fallback
   if (request.mode === 'navigate') {
     event.respondWith(networkFirst(request));
     return;
   }
 
-  // HTML files -> Network-first
+  // HTML files: network-first (fresh content when online)
   if (url.pathname.endsWith('.html')) {
     event.respondWith(networkFirst(request));
     return;
   }
 
-  // Hashed build assets (Vite) -> Cache-first (they are content-hashed)
-  if (url.pathname.startsWith(`${BASE_URL}assets/`) || url.pathname.endsWith('.js') || url.pathname.endsWith('.css')) {
+  // Hashed build assets: cache-first (content-hashed by Vite)
+  if (
+    url.pathname.startsWith(`${BASE_URL}assets/`) ||
+    url.pathname.endsWith('.js') ||
+    url.pathname.endsWith('.css')
+  ) {
     event.respondWith(cacheFirst(request));
     return;
   }
 
-  // Everything else under scope -> Cache-first as a safe default
+  // Default: cache-first
   event.respondWith(cacheFirst(request));
 });
