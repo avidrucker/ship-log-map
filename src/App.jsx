@@ -57,6 +57,7 @@ import NoteEditorModal from "./components/NoteEditorModal.jsx";
 import NoteViewerModal from "./components/NoteViewerModal.jsx";
 import DebugModal from "./components/DebugModal.jsx";
 import ShareModal from "./components/ShareModal.jsx";
+import ReadingModal from "./components/ReadingModal.jsx";
 import CameraInfo from "./components/CameraInfo.jsx";
 import ErrorDisplay from "./components/ErrorDisplay.jsx";
 import { useCytoscapeInstance } from "./useCytoscapeInstance";
@@ -258,6 +259,11 @@ function App() {
   const handleToggleNoteCountOverlay = useCallback(() => {
     setShowNoteCountOverlay(v => !v);
   }, []);
+
+  // Reading modal state
+  const [readingModalOpen, setReadingModalOpen] = useState(false);
+  const openReadingModal = useCallback(() => setReadingModalOpen(true), []);
+  const closeReadingModal = useCallback(() => setReadingModalOpen(false), []);
 
   // Share modal state
   // Centralized modal helpers (note editor/viewer/debug via reducer, share via local)
@@ -1257,6 +1263,7 @@ useEffect(() => {
           onToggleBgImageVisible={toggleBgImageVisible}
           onClearVisited={handleClearVisited}
           onOpenHelpModal={modalOps.openHelpModal}
+          onOpenReadingModal={openReadingModal}
         />
 
         <NoteEditorModal
@@ -1304,6 +1311,15 @@ useEffect(() => {
           onClose={modalOps.closeShareModal}
           mapName={mapName}
           cdnBaseUrl={cdnBaseUrl}
+        />
+
+        <ReadingModal
+          isOpen={readingModalOpen}
+          onClose={closeReadingModal}
+          nodes={graphData.nodes}
+          notes={graphData.notes}
+          cdnBaseUrl={cdnBaseUrl}
+          mapName={mapName}
         />
 
         {(!CAMERA_INFO_HIDDEN && canEdit) && (

@@ -34,7 +34,8 @@ function UniversalControls({
   bgImage,
   onToggleBgImageVisible,
   onClearVisited,
-  onOpenHelpModal
+  onOpenHelpModal,
+  onOpenReadingModal
 }) {
 
   const { open } = useSearchUI();
@@ -113,6 +114,19 @@ function UniversalControls({
         title="Search Hashtags"
       >
         Search
+      </button>
+      <button
+        style={{ 
+          padding: '6px 10px', 
+          background: '#00796b', 
+          color: '#fff', 
+          border: '1px solid #004d40', 
+          cursor: 'pointer' 
+        }}
+        onClick={onOpenReadingModal}
+        title="View all notes in reading mode"
+      >
+        Read
       </button>
       <button
         type="button"
