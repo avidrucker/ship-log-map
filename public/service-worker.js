@@ -1,62 +1,36 @@
-// public/service-worker.js
-
 /* ship-log-map: Service Worker (offline + update + installable)
  * Scope: this file must be served from /ship-log-map/service-worker.js
- * It will only control pages under /ship-log-map/ (non-overlapping with other apps).
+ * It will only control pages under /ship-log-map/.
  */
 
-/* ship-log-map: Service Worker (offline + update + installable) */
-
-const APP_VERSION = '0.0.1';
+const APP_VERSION = '0.0.1';                         // bump on each deploy
 const CACHE_PREFIX = 'ship-log-map';
 const PRECACHE = `${CACHE_PREFIX}-precache-v${APP_VERSION}`;
-const RUNTIME = `${CACHE_PREFIX}-runtime-v${APP_VERSION}`;
+const RUNTIME  = `${CACHE_PREFIX}-runtime-v${APP_VERSION}`;
 
-// ✅ Compute BASE_URL from service worker location
+// Derive BASE_URL from where this SW is served (works on GH Pages)
 const BASE_URL = (() => {
   const url = new URL(self.location.href);
   const path = url.pathname.replace(/[^/]+$/, '');
   return path.endsWith('/') ? path : path + '/';
 })();
 
-// ✅ Logger for SW - stores logs in IndexedDB and broadcasts to main thread
+// --------- lightweight logger -> BroadcastChannel (visible in your Debug modal)
 const SW_LOG_CHANNEL = 'sw-logs';
 const broadcast = new BroadcastChannel(SW_LOG_CHANNEL);
-
-function swLog(type, category, message, data = null) {
-  const entry = {
-    timestamp: new Date().toISOString(),
-    type,
-    category,
-    message,
-    ...(data && { data })
-  };
-  
-  // Send to main thread via broadcast channel
-  try {
-    broadcast.postMessage(entry);
-  } catch (err) {
-    console.error('[SW] Failed to broadcast log:', err);
-  }
-  
-  // Also log to SW console
-  const consoleMsg = `[SW ${category}] ${message}`;
-  switch (type) {
-    case 'error':
-      console.error(consoleMsg, data || '');
-      break;
-    case 'warn':
-      console.warn(consoleMsg, data || '');
-      break;
-    default:
-      console.log(consoleMsg, data || '');
-  }
+function swLog(type, category, message, data = undefined) {
+  const entry = { timestamp: new Date().toISOString(), type, category, message, data };
+  try { broadcast.postMessage(entry); } catch {}
+  const msg = `[SW ${category}] ${message}`;
+  if (type === 'error') console.error(msg, data ?? '');
+  else if (type === 'warn') console.warn(msg, data ?? '');
+  else console.log(msg, data ?? '');
 }
+swLog('info', 'init', `BASE_URL: ${BASE_URL}`);
 
-swLog('info', 'init', `BASE_URL detected: ${BASE_URL}`);
-
+// --------- core shell we always want available offline
 const CORE_URLS = [
-  `${BASE_URL}`,
+  `${BASE_URL}`,                    // root under scope
   `${BASE_URL}index.html`,
   `${BASE_URL}manifest.webmanifest`,
   `${BASE_URL}offline.html`,
@@ -65,248 +39,272 @@ const CORE_URLS = [
   `${BASE_URL}favicon.ico`,
 ];
 
-// Add message handler to receive image list:
-self.addEventListener('message', (event) => {
-  if (event.data && event.data.type === 'CACHE_IMAGES') {
-    const urls = event.data.urls;
-    swLog('info', 'cache', `Received request to cache ${urls.length} images`);
-    
-    event.waitUntil((async () => {
-      const cache = await caches.open(RUNTIME);
-      const results = await Promise.allSettled(
-        urls.map(url => cache.add(url).catch(err => {
-          swLog('warn', 'cache', `Failed to cache image: ${url}`, { error: err.message });
-        }))
-      );
-      swLog('success', 'cache', `Cached ${urls.length} images`, { 
-        succeeded: results.filter(r => r.status === 'fulfilled').length 
-      });
-    })());
-  }
-});
-
-// ✅ IMPROVED: Discover build assets more reliably
+// --------- helpers
 async function discoverBuildAssets() {
   try {
+    // Look at built index.html to find hashed JS/CSS emitted by Vite
     const res = await fetch(`${BASE_URL}index.html`, { cache: 'no-store' });
     if (!res.ok) return [];
     const html = await res.text();
     const urls = new Set();
 
-    // Match script src and link href
-    const scriptRegex = /<script[^>]+src=["']([^"']+)["']/gi;
-    const linkRegex = /<link[^>]+href=["']([^"']+)["']/gi;
-    
-    let match;
-    
-    // Find all script tags
-    while ((match = scriptRegex.exec(html)) !== null) {
-      let src = match[1];
-      // Convert relative paths to absolute
-      if (!src.startsWith('http')) {
-        if (src.startsWith('/')) {
-          src = `${self.location.origin}${src}`;
-        } else {
-          src = `${self.location.origin}${BASE_URL}${src}`;
+    const attr = (re) => {
+      let m; while ((m = re.exec(html))) {
+        let href = m[1];
+        if (!/^https?:\/\//.test(href)) {
+          href = href.startsWith('/')
+            ? `${self.location.origin}${href}`
+            : `${self.location.origin}${BASE_URL}${href}`;
         }
+        if (href.startsWith(self.location.origin)) urls.add(href);
       }
-      // Only cache same-origin assets
-      if (src.startsWith(self.location.origin)) {
-        urls.add(src);
-      }
-    }
-    
-    // Find all link tags (CSS, icons, etc.)
-    while ((match = linkRegex.exec(html)) !== null) {
-      let href = match[1];
-      // Convert relative paths to absolute
-      if (!href.startsWith('http')) {
-        if (href.startsWith('/')) {
-          href = `${self.location.origin}${href}`;
-        } else {
-          href = `${self.location.origin}${BASE_URL}${href}`;
-        }
-      }
-      // Only cache same-origin assets
-      if (href.startsWith(self.location.origin)) {
-        urls.add(href);
-      }
-    }
+    };
 
-    const assetList = Array.from(urls);
-    swLog('info', 'install', `Discovered ${assetList.length} assets`, { count: assetList.length, assets: assetList.slice(0, 5) });
-    return assetList;
+    attr(/<script[^>]+src=["']([^"']+)["']/gi);
+    attr(/<link[^>]+href=["']([^"']+)["']/gi);
+
+    const assets = [...urls];
+    swLog('info', 'install', `Discovered ${assets.length} build assets`, { sample: assets.slice(0,5) });
+    return assets;
   } catch (err) {
-    swLog('error', 'install', 'Failed to discover assets', { error: err.message });
+    swLog('warn', 'install', 'Asset discovery failed', { error: err.message });
     return [];
   }
 }
 
-async function getGraphImages() {
-  // Read from localStorage (available in SW via clients API)
-  const clients = await self.clients.matchAll();
-  if (clients.length === 0) return [];
-  
-  // This is hacky but works - you'd need to expose image URLs somehow
-  // Better: Add a message handler to receive image list from main thread
-  return [];
+async function cacheAddAllIndividually(cacheName, urls) {
+  const cache = await caches.open(cacheName);
+  await Promise.all(urls.map(async (u) => {
+    try { await cache.add(u); }
+    catch (err) { swLog('warn', 'cache', `Failed to cache: ${u}`, { error: err.message }); }
+  }));
 }
 
-// Install: precache
+async function cachedIndexFallback() {
+  // Try exact nav request first (for route-style documents)
+  // Then index.html, then BASE_URL root, then offline.html
+  const idx = await caches.match(`${BASE_URL}index.html`);
+  if (idx) return idx;
+  const root = await caches.match(`${BASE_URL}`);
+  if (root) return root;
+  const off = await caches.match(`${BASE_URL}offline.html`);
+  if (off) return off;
+  return new Response('Offline', { status: 503, statusText: 'Offline' });
+}
+
+// --------- message channel: cache images + diagnostics
+self.addEventListener('message', (event) => {
+  const msg = event.data || {};
+  if (msg.type === 'CACHE_IMAGES') {
+    const urls = Array.isArray(msg.urls) ? msg.urls : [];
+    swLog('info', 'cache', `CACHE_IMAGES: ${urls.length} img(s)`);
+    event.waitUntil((async () => {
+      // Skip if offline: avoid noisy failures when testing airplane mode
+      const online = await (async () => {
+        try {
+          // HEAD/GET to a same-origin URL – fast and private cache-busting
+          const ping = await fetch(`${BASE_URL}index.html`, { method: 'HEAD', cache: 'no-store' });
+          return ping.ok;
+        } catch { return false; }
+      })();
+      if (!online) {
+        swLog('info', 'cache', 'Offline – deferring image warmup');
+        // Remember the list so we can warm on next activate/online
+        self.graphImageList = urls;
+        return;
+      }
+      const cache = await caches.open(RUNTIME);
+      await Promise.all(urls.map(async (u) => {
+        try {
+          const res = await fetch(u, { cache: 'no-store' });
+          if (res.ok) await cache.put(u, res.clone());
+        } catch (err) {
+          swLog('warn', 'cache', `Image cache fail: ${u}`, { error: err.message });
+        }
+      }));
+      // keep list for warm-on-activate
+      self.graphImageList = urls;
+    })());
+    return;
+  }
+
+  if (msg.type === 'GET_STATUS') {
+    event.waitUntil((async () => {
+      const names = await caches.keys();
+      const details = {};
+      for (const n of names) {
+        const c = await caches.open(n);
+        const ks = await c.keys();
+        details[n] = ks.map(k => k.url);
+      }
+      swLog('info', 'status', 'Cache status', { names, detailsSample: Object.fromEntries(Object.entries(details).slice(0,1)) });
+    })());
+    return;
+  }
+
+  if (msg.type === 'PING') {
+    swLog('info', 'status', 'PING received');
+  }
+});
+
+// --------- install
 self.addEventListener('install', (event) => {
-  swLog('info', 'install', 'Service worker installing...');
+  swLog('info', 'install', 'Installing…');
   event.waitUntil((async () => {
-    const cache = await caches.open(PRECACHE);
     const assets = await discoverBuildAssets();
-    const images = await getGraphImages(); // NEW: Get image URLs
-    const toCache = [...CORE_URLS, ...assets, ...images]; // Include images
-    
-    swLog('info', 'install', `Attempting to cache ${toCache.length} URLs`, { count: toCache.length });
-    
-    // Cache each URL individually to avoid failures blocking install
-    const results = await Promise.allSettled(
-      toCache.map(url => cache.add(url).catch(err => {
-        swLog('warn', 'cache', `Failed to cache: ${url}`, { error: err.message });
-      }))
-    );
-    
-    const failed = results.filter(r => r.status === 'rejected');
-    if (failed.length > 0) {
-      swLog('warn', 'install', `${failed.length} assets failed to cache`, { failedCount: failed.length });
-    } else {
-      swLog('success', 'install', `Successfully cached ${toCache.length} assets`);
-    }
-    
+    const toCache = [...CORE_URLS, ...assets];
+    swLog('info', 'install', `Caching ${toCache.length} URL(s)`);
+    await cacheAddAllIndividually(PRECACHE, toCache);
     await self.skipWaiting();
-    swLog('info', 'install', 'Install complete, skipping waiting');
+    swLog('info', 'install', 'skipWaiting complete');
   })());
 });
 
-// Activate: clean old caches
+// --------- activate
 self.addEventListener('activate', (event) => {
-  swLog('info', 'activate', 'Service worker activating...');
+  swLog('info', 'activate', 'Activating…');
   event.waitUntil((async () => {
-    const names = await caches.keys();
-    const oldCaches = names.filter((n) => ![PRECACHE, RUNTIME].includes(n) && n.startsWith(CACHE_PREFIX));
-    
-    if (oldCaches.length > 0) {
-      swLog('info', 'activate', `Deleting ${oldCaches.length} old caches`, { caches: oldCaches });
-      await Promise.all(oldCaches.map((n) => caches.delete(n)));
+    // Navigation preload improves reliability on mobile
+    if ('navigationPreload' in self.registration) {
+      try { await self.registration.navigationPreload.enable(); swLog('info', 'activate', 'Navigation preload enabled'); } catch {}
     }
-    
+
+    // Clean old caches
+    const keep = new Set([PRECACHE, RUNTIME]);
+    const names = await caches.keys();
+    await Promise.all(names.map((n) => {
+      if (n.startsWith(CACHE_PREFIX) && !keep.has(n)) {
+        swLog('info', 'activate', `Deleting old cache: ${n}`);
+        return caches.delete(n);
+      }
+    }));
+
+    // Optional: warm image cache from last session
+    if (Array.isArray(self.graphImageList) && self.graphImageList.length) {
+      const cache = await caches.open(RUNTIME);
+      await Promise.all(self.graphImageList.map(async (u) => {
+        try { const r = await fetch(u, { cache: 'no-store' }); if (r.ok) await cache.put(u, r.clone()); } catch {}
+      }));
+      swLog('info', 'activate', `Warmed ${self.graphImageList.length} images`);
+    }
+
     await self.clients.claim();
-    swLog('success', 'activate', 'Service worker activated and claimed clients');
+    swLog('success', 'activate', 'Activated & claimed clients');
   })());
 });
 
-// Strategy helpers
+// --------- small strategy helpers
 async function networkFirst(request) {
-  const url = request.url.length > 100 ? request.url.substring(0, 100) + '...' : request.url;
   try {
-    swLog('info', 'fetch', `Network first: ${url}`);
-    const fresh = await fetch(request);
-    const cache = await caches.open(RUNTIME);
-    if (fresh && fresh.ok) {
-      cache.put(request, fresh.clone());
-      swLog('info', 'cache', `Cached fresh response: ${url}`);
+    const preloaded = ('preloadResponse' in request) ? null : null; // placeholder (not used here)
+    const res = await fetch(request);
+    if (res && res.ok) {
+      const cache = await caches.open(RUNTIME);
+      cache.put(request, res.clone());
     }
-    return fresh;
-  } catch (err) {
-    swLog('warn', 'fetch', `Network failed, trying cache: ${url}`);
-    const cached = await caches.match(request);
-    if (cached) {
-      swLog('success', 'cache', `Cache hit (offline): ${url}`);
-      return cached;
-    }
-    
-    // Navigation fallback
-    if (request.mode === 'navigate') {
-      const index = await caches.match(`${BASE_URL}index.html`);
-      if (index) {
-        swLog('info', 'fetch', 'Serving index.html fallback for navigation');
-        return index;
-      }
-      const offline = await caches.match(`${BASE_URL}offline.html`);
-      if (offline) {
-        swLog('info', 'fetch', 'Serving offline.html');
-        return offline;
-      }
-    }
-    swLog('error', 'fetch', `Network and cache both failed: ${url}`, { error: err.message });
-    throw err;
+    return res;
+  } catch {
+    const hit = await caches.match(request);
+    if (hit) return hit;
+    return cachedIndexFallback();
   }
 }
 
 async function cacheFirst(request) {
-  const url = request.url.length > 100 ? request.url.substring(0, 100) + '...' : request.url;
-  const cached = await caches.match(request);
-  if (cached) {
-    swLog('success', 'cache', `Cache hit: ${url}`);
-    return cached;
-  }
-  swLog('info', 'fetch', `Cache miss, fetching: ${url}`);
-  try {
-    const res = await fetch(request);
+  const hit = await caches.match(request);
+  if (hit) return hit;
+  const res = await fetch(request);
+  if (res && res.ok) {
     const cache = await caches.open(RUNTIME);
-    if (res && res.ok) {
-      cache.put(request, res.clone());
-      swLog('info', 'cache', `Cached new response: ${url}`);
-    }
-    return res;
-  } catch (err) {
-    swLog('error', 'fetch', `Fetch failed: ${url}`, { error: err.message });
-    throw err;
+    cache.put(request, res.clone());
   }
+  return res;
 }
 
-// Fetch handler
+// --------- FETCH: handle navigations FIRST (Android-safe), then assets/images
 self.addEventListener('fetch', (event) => {
   const { request } = event;
+
+  // 1) Always intercept navigations first
+  if (request.mode === 'navigate' || request.destination === 'document') {
+    event.respondWith((async () => {
+      try {
+        // Prefer navigation preload if present
+        const preloaded = 'preloadResponse' in event ? await event.preloadResponse : undefined;
+        if (preloaded) {
+          const cache = await caches.open(RUNTIME);
+          cache.put(request, preloaded.clone());
+          swLog('info', 'fetch', 'Nav preload used');
+          return preloaded;
+        }
+        const fresh = await fetch(request);
+        // Cache the fresh shell
+        if (fresh && fresh.ok) {
+          const cache = await caches.open(RUNTIME);
+          cache.put(request, fresh.clone());
+        }
+        return fresh;
+      } catch (err) {
+        swLog('warn', 'fetch', `Nav failed → fallback (${err.message})`);
+        const exact = await caches.match(request);
+        if (exact) return exact;
+        return cachedIndexFallback();
+      }
+    })());
+    return;
+  }
+
+  // 2) Non-GET requests after nav → ignore
   if (request.method !== 'GET') return;
 
+  // 3) Everything else: choose sensible strategies
   const url = new URL(request.url);
+  const sameOrigin = url.origin === self.location.origin;
 
-  // ✅ NEW: Allow caching of same-site images (avidrucker.github.io)
-  const isSameOrigin = url.origin === self.location.origin;
-  const isSameSiteImage = 
-    url.hostname === 'avidrucker.github.io' && 
-    url.pathname.match(/\.(jpg|jpeg|png|gif|webp|svg)$/i);
+  const isImage = /\.(png|jpe?g|gif|webp|svg)$/.test(url.pathname);
+  // Allowlist your CDN host so SW will handle those images, even cross-origin.
+  const isCdnImage = isImage && url.origin === 'https://avidrucker.github.io';
 
-  // Skip cross-origin requests EXCEPT same-site images
-  if (!isSameOrigin && !isSameSiteImage) {
-    if (!self.loggedCrossOrigins) self.loggedCrossOrigins = new Set();
-    if (!self.loggedCrossOrigins.has(url.origin)) {
+  // Same-origin images OR allowlisted CDN images → Cache-First
+  if ((sameOrigin && isImage) || isCdnImage) {
+    event.respondWith(cacheFirst(request));
+    return;
+  }
+
+  // Built HTML fragments → Network-First
+  if (sameOrigin && url.pathname.endsWith('.html')) {
+    event.respondWith(networkFirst(request));
+    return;
+  }
+
+  // JS/CSS/assets/wasm → Cache-First
+  if (sameOrigin && (url.pathname.includes('/assets/') || /\.((js|css|mjs|wasm))$/.test(url.pathname))) {
+    event.respondWith(cacheFirst(request));
+    return;
+  }
+
+  // Cross-origin (non-allowlisted) → ignore
+  if (!sameOrigin && !isCdnImage) {
+    // One-time log per origin
+    self._loggedXO ??= new Set();
+    if (!self._loggedXO.has(url.origin)) {
       swLog('info', 'fetch', `Ignoring cross-origin: ${url.origin}`);
-      self.loggedCrossOrigins.add(url.origin);
+      self._loggedXO.add(url.origin);
     }
     return;
   }
 
-  // ✅ Handle same-site images with cache-first
-  if (isSameSiteImage) {
-    swLog('info', 'fetch', `Handling same-site image: ${url.pathname}`);
-    event.respondWith(cacheFirst(request));
-    return;
-  }
-
-  // Navigation -> Network-first
-  if (request.mode === 'navigate') {
-    event.respondWith(networkFirst(request));
-    return;
-  }
-
-  // HTML -> Network-first
-  if (url.pathname.endsWith('.html')) {
-    event.respondWith(networkFirst(request));
-    return;
-  }
-
-  // Assets (JS/CSS) -> Cache-first
-  if (url.pathname.includes('/assets/') || url.pathname.endsWith('.js') || url.pathname.endsWith('.css')) {
-    event.respondWith(cacheFirst(request));
-    return;
-  }
-
-  // Everything else -> Cache-first
+  // Default same-origin → Cache-First
   event.respondWith(cacheFirst(request));
+});
+
+
+self.addEventListener('sync', async (e) => {
+  if (e.tag === 'warm-images' && Array.isArray(self.graphImageList) && self.graphImageList.length) {
+    const cache = await caches.open(RUNTIME);
+    await Promise.all(self.graphImageList.map(async (u) => {
+      try { const r = await fetch(u, { cache: 'no-store' }); if (r.ok) await cache.put(u, r.clone()); } catch {}
+    }));
+    swLog('info', 'sync', `Warm-images sync completed (${self.graphImageList.length})`);
+  }
 });

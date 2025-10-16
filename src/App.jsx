@@ -110,6 +110,25 @@ import { makeVisitedLookup } from './utils/visitedLookup.js';
 
 import HelpModal from "./components/HelpModal.jsx";
 
+import { cacheGraphImages } from './swRegistration';
+
+function uniqueSorted(arr) {
+  return Array.from(new Set(arr)).sort();
+}
+
+function hashList(urls) {
+  // tiny DJB2 string hash
+  let h = 5381;
+  for (let i = 0; i < urls.length; i++) {
+    const s = urls[i];
+    for (let j = 0; j < s.length; j++) {
+      h = ((h << 5) + h) ^ s.charCodeAt(j);
+    }
+  }
+  // stringify as base36 so it’s short
+  return (h >>> 0).toString(36);
+}
+
 /** ---------- helpers & migration ---------- **/
 // Memoize the notes object itself to prevent unnecessary re-renders
 const createGetNodeNotes = (notes) => (node) => {
@@ -598,45 +617,36 @@ function App() {
     dispatchAppState({ type: ACTION_TYPES.SET_LOAD_ERROR, payload: { error: null } });
   }, []);
 
-  // cache images correctly from their CDN
+// Warm the SW image cache ONCE per image set (and when it changes).
+// Fires only when: SW is available, CDN load is done, we’re online, and the URL list changed.
+const didWarmRef = useRef(false);
 useEffect(() => {
-  console.log('🚀 [App] SW cache effect triggered', { hasServiceWorker: 'serviceWorker' in navigator, hasController: navigator.serviceWorker?.controller ? 'YES' : 'NO', nodeCount: graphData.nodes.length, cdnBaseUrl, mapName });
-
-    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-      // ✅ Log raw image URLs from graph data
-      const rawImageUrls = graphData.nodes
-        .map(node => node.imageUrl)
-        .filter(url => url && url !== 'unspecified');
-      
-      console.log('📦 [App] Raw image URLs from graph:', {
-        count: rawImageUrls.length,
-        sample: rawImageUrls.slice(0, 3)
-      });
-
-      // ✅ Process each URL individually with logging
-      const imageUrls = rawImageUrls.map(imageUrl => {
-        const result = buildFullImageUrl(imageUrl, cdnBaseUrl, mapName);
-        console.log('🔄 [App] Processed:', imageUrl, '→', result);
-        return result;
-      });
-      
-      printDebug('[SW] Requesting cache for images:', imageUrls.slice(0, 3));
-      
-      console.log('🖼️ [App] Sending image URLs to SW:', {
-        count: imageUrls.length,
-        sample: imageUrls.slice(0, 3),
-        cdnBaseUrl,
-        mapName
-      });
-
-      navigator.serviceWorker.controller.postMessage({
-        type: 'CACHE_IMAGES',
-        urls: imageUrls
-      });
-    } else {
-      console.warn('⚠️ [App] Service worker not available or not controlling page');
-    }
-  }, [graphData, cdnBaseUrl, mapName]);
+  if (!('serviceWorker' in navigator)) return;
+  if (isLoadingFromCDN) return; // wait until CDN load completes
+  // Build absolute image URLs from the current graph
+  const raw = (graphData.nodes || [])
+    .map(n => n.imageUrl)
+    .filter(u => u && u !== 'unspecified');
+  const full = uniqueSorted(raw.map(u => buildFullImageUrl(u, cdnBaseUrl, mapName)));
+  if (full.length === 0) return;
+  const hash = hashList(full);
+  const key = `shipLog:imageListHash:${mapName || 'default'}`;
+  const prev = localStorage.getItem(key);
+  // Only warm if new set or first time this session
+  if (prev === hash && didWarmRef.current) return;
+  // If offline, retry once we’re online
+  const doWarm = () => {
+    cacheGraphImages(full);               // handles SW-ready & controller internally
+    localStorage.setItem(key, hash);      // remember this set
+    didWarmRef.current = true;
+  };
+  if (navigator.onLine) {
+    doWarm();
+  } else {
+    const once = () => { window.removeEventListener('online', once); doWarm(); };
+    window.addEventListener('online', once, { once: true });
+  }
+}, [isLoadingFromCDN, graphData.nodes, cdnBaseUrl, mapName]);
 
   const isTransitioningRef = useRef(false);
 
