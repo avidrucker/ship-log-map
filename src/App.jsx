@@ -122,6 +122,51 @@ const createGetEdgeNotes = (notes) => (edge) => {
   return Array.isArray(edgeNotes) ? edgeNotes : [];
 };
 
+// Add this helper at the top of App.jsx or in a separate utils file
+// Replace the buildFullImageUrl function with this improved version:
+// Normalizes a CDN base + image path so the map segment appears exactly once
+function buildFullImageUrl(imageUrl, cdnBaseUrl, mapName) {
+  // 1) keep data URLs as-is
+  if (!imageUrl || imageUrl.startsWith('data:')) return imageUrl;
+
+  // 2) absolute URLs: return as-is
+  if (/^https?:\/\//i.test(imageUrl)) return imageUrl;
+
+  if (!cdnBaseUrl) return imageUrl;
+
+  // Normalize pieces
+  const baseNoTrail = cdnBaseUrl.replace(/\/+$/, '');   // remove trailing slash(es)
+  let pathNoLead   = imageUrl.replace(/^\/+/, '');      // remove leading slash(es)
+
+  // Detect both encoded and decoded mapName at the beginning of the path
+  const mapNameDecoded = mapName || '';
+  const mapNameEncoded = encodeURIComponent(mapNameDecoded);
+
+  const startsWithDecoded = pathNoLead.startsWith(mapNameDecoded + '/');
+  const startsWithEncoded = pathNoLead.startsWith(mapNameEncoded + '/');
+
+  // If the path already starts with the map name (decoded or encoded), strip it once
+  if (startsWithDecoded) {
+    pathNoLead = pathNoLead.slice((mapNameDecoded + '/').length);
+  } else if (startsWithEncoded) {
+    pathNoLead = pathNoLead.slice((mapNameEncoded + '/').length);
+  }
+
+  // Now ensure the base ends with exactly one map segment.
+  // If base already ends with the map name (encoded or decoded), keep it;
+  // otherwise append the ENCODED map name (safe for URLs).
+  const baseEndsWithDecoded = baseNoTrail.endsWith('/' + mapNameDecoded);
+  const baseEndsWithEncoded = baseNoTrail.endsWith('/' + mapNameEncoded);
+
+  const baseWithMap = (baseEndsWithDecoded || baseEndsWithEncoded)
+    ? baseNoTrail
+    : `${baseNoTrail}/${mapNameEncoded}`;
+
+  // Join
+  return `${baseWithMap}/${pathNoLead}`;
+}
+
+
 function App() {
   
   // previously editingEnabled, getEditingEnabledFromQuery
@@ -536,6 +581,9 @@ function App() {
     [graphData.nodes, graphData.edges, visited]
   );
 
+  // ✅ ADD THIS RIGHT AFTER THE HOOK DECLARATIONS
+  console.log('🏁 [App] Component rendered with:', { cdnBaseUrl, mapName, nodeCount: graphData.nodes.length, firstNodeImage: graphData.nodes[0]?.imageUrl });
+
   /** ---------- handlers ---------- **/
 
   // REFACTOR STEP 1: Replace handleFitToView with hook function
@@ -549,6 +597,46 @@ function App() {
   const clearError = useCallback(() => {
     dispatchAppState({ type: ACTION_TYPES.SET_LOAD_ERROR, payload: { error: null } });
   }, []);
+
+  // cache images correctly from their CDN
+useEffect(() => {
+  console.log('🚀 [App] SW cache effect triggered', { hasServiceWorker: 'serviceWorker' in navigator, hasController: navigator.serviceWorker?.controller ? 'YES' : 'NO', nodeCount: graphData.nodes.length, cdnBaseUrl, mapName });
+
+    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+      // ✅ Log raw image URLs from graph data
+      const rawImageUrls = graphData.nodes
+        .map(node => node.imageUrl)
+        .filter(url => url && url !== 'unspecified');
+      
+      console.log('📦 [App] Raw image URLs from graph:', {
+        count: rawImageUrls.length,
+        sample: rawImageUrls.slice(0, 3)
+      });
+
+      // ✅ Process each URL individually with logging
+      const imageUrls = rawImageUrls.map(imageUrl => {
+        const result = buildFullImageUrl(imageUrl, cdnBaseUrl, mapName);
+        console.log('🔄 [App] Processed:', imageUrl, '→', result);
+        return result;
+      });
+      
+      printDebug('[SW] Requesting cache for images:', imageUrls.slice(0, 3));
+      
+      console.log('🖼️ [App] Sending image URLs to SW:', {
+        count: imageUrls.length,
+        sample: imageUrls.slice(0, 3),
+        cdnBaseUrl,
+        mapName
+      });
+
+      navigator.serviceWorker.controller.postMessage({
+        type: 'CACHE_IMAGES',
+        urls: imageUrls
+      });
+    } else {
+      console.warn('⚠️ [App] Service worker not available or not controlling page');
+    }
+  }, [graphData, cdnBaseUrl, mapName]);
 
   const isTransitioningRef = useRef(false);
 

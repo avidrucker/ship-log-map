@@ -1,44 +1,60 @@
+import swLogger from './utils/swLogger';
+
 export function registerSW() {
   if (!('serviceWorker' in navigator)) {
-    console.warn('[PWA] Service Worker not supported');
+    swLogger.warn('registration', 'Service Worker not supported in this browser');
     return;
   }
 
   // ✅ Skip in dev (unless you want to test)
   if (import.meta.env.DEV) {
-    console.log('[PWA] Skipping SW registration in dev mode');
+    swLogger.info('registration', 'Skipping SW registration in dev mode');
     return;
   }
 
   const swUrl = `${import.meta.env.BASE_URL}service-worker.js`;
-  console.log('[PWA] Registering service worker:', swUrl);
+  swLogger.info('registration', `Starting SW registration: ${swUrl}`);
 
   window.addEventListener('load', () => {
     navigator.serviceWorker.register(swUrl).then((reg) => {
-      console.log('[PWA] Service worker registered successfully:', reg.scope);
+      swLogger.success('registration', `Service worker registered successfully`, { scope: reg.scope });
+      
+      // Log initial state
+      if (reg.active) {
+        swLogger.info('registration', 'Service worker is active', { state: reg.active.state });
+      }
+      if (reg.waiting) {
+        swLogger.warn('registration', 'Service worker is waiting to activate');
+      }
+      if (reg.installing) {
+        swLogger.info('registration', 'Service worker is installing');
+      }
       
       reg.addEventListener('updatefound', () => {
         const nw = reg.installing;
         if (!nw) return;
         
-        console.log('[PWA] New service worker installing...');
+        swLogger.info('registration', 'New service worker detected, installing...');
         
         nw.addEventListener('statechange', () => {
-          console.log('[PWA] Service worker state:', nw.state);
+          swLogger.info('registration', `Service worker state changed: ${nw.state}`);
           
           if (nw.state === 'installed' && navigator.serviceWorker.controller) {
-            console.log('[PWA] New version available. Reload to update.');
+            swLogger.success('registration', 'New version available. Reload to update.');
+          }
+          if (nw.state === 'activated') {
+            swLogger.success('registration', 'New service worker activated');
           }
         });
       });
 
       navigator.serviceWorker.addEventListener('controllerchange', () => {
-        console.log('[PWA] Controller changed, reloading...');
+        swLogger.info('registration', 'Controller changed, app will reload');
         // Uncomment to auto-reload:
         // window.location.reload();
       });
     }).catch((err) => {
-      console.error('[PWA] SW registration failed:', err);
+      swLogger.error('registration', 'SW registration failed', { error: err.message, stack: err.stack });
     });
   });
 }

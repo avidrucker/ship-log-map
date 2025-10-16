@@ -11,10 +11,11 @@
  * - isOpen, onClose, state snapshots, test asset hooks.
  */
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { GRAYSCALE_IMAGES } from "../config/features.js";
 import { printDebug } from "../utils/debug.js";
 import { clearAllImageCaches, getImageCacheStats } from "../utils/imageLoader.js";
+import swLogger from "../utils/swLogger.js";
 
 function DebugModal({ isOpen, onClose, debugData, getCytoscapeInstance }) {
   const [copySuccess, setCopySuccess] = useState(false);
@@ -24,6 +25,17 @@ function DebugModal({ isOpen, onClose, debugData, getCytoscapeInstance }) {
   const [showDiagnostics, setShowDiagnostics] = useState(false);
   const [diagnosticsJson, setDiagnosticsJson] = useState('');
   const [clearedDiagnostics, setClearedDiagnostics] = useState(false);
+  const [showSWLogs, setShowSWLogs] = useState(false);
+  const [swLogs, setSwLogs] = useState([]);
+  const [swLogFilter, setSwLogFilter] = useState('all'); // 'all', 'errors', 'cache', 'fetch'
+  const [swLogsClearSuccess, setSwLogsClearSuccess] = useState(false);
+
+  // Load SW logs when modal opens or logs section is shown
+  useEffect(() => {
+    if (isOpen && showSWLogs) {
+      setSwLogs(swLogger.getLogs());
+    }
+  }, [isOpen, showSWLogs]);
 
   if (!isOpen) return null;
 
@@ -110,6 +122,33 @@ function DebugModal({ isOpen, onClose, debugData, getCytoscapeInstance }) {
     } catch (e) { console.error('Failed to clear diagnostics', e); }
   };
 
+  const handleToggleSWLogs = () => {
+    const newState = !showSWLogs;
+    setShowSWLogs(newState);
+    if (newState) {
+      setSwLogs(swLogger.getLogs());
+    }
+  };
+
+  const handleClearSWLogs = () => {
+    swLogger.clearLogs();
+    setSwLogs([]);
+    setSwLogsClearSuccess(true);
+    setTimeout(() => setSwLogsClearSuccess(false), 1500);
+  };
+
+  const handleRefreshSWLogs = () => {
+    setSwLogs(swLogger.getLogs());
+  };
+
+  const getFilteredSWLogs = () => {
+    if (swLogFilter === 'all') return swLogs;
+    if (swLogFilter === 'errors') return swLogs.filter(log => log.type === 'error' || log.type === 'warn');
+    if (swLogFilter === 'cache') return swLogs.filter(log => log.category === 'cache');
+    if (swLogFilter === 'fetch') return swLogs.filter(log => log.category === 'fetch');
+    return swLogs;
+  };
+
   const handleBackgroundClick = (e) => {
     if (e.target === e.currentTarget) {
       onClose();
@@ -145,24 +184,24 @@ function DebugModal({ isOpen, onClose, debugData, getCytoscapeInstance }) {
           backgroundColor: "#1e1e1e",
           border: "1px solid #444",
           borderRadius: "8px",
-          padding: "20px",
-          maxWidth: "80%",
-          maxHeight: "80%",
-          overflow: "hidden",
+          maxWidth: "90%",
+          maxHeight: "90vh",
+          width: "900px",
           display: "flex",
           flexDirection: "column",
-          color: "#fff"
+          color: "#fff",
+          overflow: "hidden"
         }}
       >
-        {/* Header */}
+        {/* Fixed Header */}
         <div
           style={{
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
-            marginBottom: "15px",
+            padding: "20px 20px 15px 20px",
             borderBottom: "1px solid #444",
-            paddingBottom: "10px"
+            flexShrink: 0
           }}
         >
           <h2 style={{ margin: 0, color: "#fff", fontSize: "18px" }}>
@@ -188,6 +227,15 @@ function DebugModal({ isOpen, onClose, debugData, getCytoscapeInstance }) {
             ×
           </button>
         </div>
+
+        {/* Scrollable Content Area */}
+        <div
+          style={{
+            flex: 1,
+            overflow: "auto",
+            padding: "20px"
+          }}
+        >
 
         {/* Copy button and cache management */}
         <div style={{ marginBottom: "10px", display: "flex", gap: "10px", flexWrap: "wrap" }}>
@@ -286,6 +334,72 @@ function DebugModal({ isOpen, onClose, debugData, getCytoscapeInstance }) {
             {clearedDiagnostics ? "✓ Diagnostics Cleared" : "Clear Diagnostics"}
           </button>
 
+          {/* Service Worker Logs */}
+          <button
+            onClick={handleToggleSWLogs}
+            style={{
+              padding: "8px 16px",
+              backgroundColor: showSWLogs ? "#555" : "#ff6f00",
+              color: "#fff",
+              border: "none",
+              borderRadius: "4px",
+              cursor: "pointer",
+              fontSize: "14px"
+            }}
+          >
+            {showSWLogs ? "Hide SW Logs" : "Show SW Logs"}
+          </button>
+          {showSWLogs && (
+            <>
+              <button
+                onClick={handleRefreshSWLogs}
+                style={{
+                  padding: "8px 16px",
+                  backgroundColor: "#2196f3",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: "4px",
+                  cursor: "pointer",
+                  fontSize: "14px"
+                }}
+              >
+                🔄 Refresh Logs
+              </button>
+              <button
+                onClick={handleClearSWLogs}
+                style={{
+                  padding: "8px 16px",
+                  backgroundColor: swLogsClearSuccess ? "#4caf50" : "#f44336",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: "4px",
+                  cursor: "pointer",
+                  fontSize: "14px"
+                }}
+              >
+                {swLogsClearSuccess ? "✓ SW Logs Cleared" : "Clear SW Logs"}
+              </button>
+              <select
+                value={swLogFilter}
+                onChange={(e) => setSwLogFilter(e.target.value)}
+                style={{
+                  padding: "8px 16px",
+                  backgroundColor: "#333",
+                  color: "#fff",
+                  border: "1px solid #555",
+                  borderRadius: "4px",
+                  cursor: "pointer",
+                  fontSize: "14px"
+                }}
+              >
+                <option value="all">All Logs</option>
+                <option value="errors">Errors/Warnings</option>
+                <option value="cache">Cache Ops</option>
+                <option value="fetch">Network Fetch</option>
+              </select>
+            </>
+          )}
+
             {/* Quick map navigation buttons */}
           <button
             style={{
@@ -324,13 +438,91 @@ function DebugModal({ isOpen, onClose, debugData, getCytoscapeInstance }) {
           <div>Cache size: ~{Math.round(cacheStats.cacheSize / 1024)}KB</div>
           <div>Default Placeholder: {cacheStats.hasDefaultPlaceholder ? `Loaded (${cacheStats.defaultPlaceholderLength} chars)` : 'Not loaded'} </div>
           <div>Diagnostics Entries: {cacheStats.diagnosticsCount}</div>
+          {showSWLogs && (
+            <>
+              <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #444' }}>
+                <strong>Service Worker Logs:</strong> {swLogs.length} entries
+              </div>
+              <div>
+                Cache Hits: {swLogger.getStats().cacheHits} | 
+                Cache Misses: {swLogger.getStats().cacheMisses} | 
+                Errors: {swLogger.getStats().errors}
+              </div>
+            </>
+          )}
         </div>
+
+        {showSWLogs && (
+          <div style={{
+            minHeight: '200px',
+            backgroundColor: '#0d1117',
+            border: '1px solid #30363d',
+            borderRadius: '4px',
+            padding: '10px',
+            marginBottom: '10px'
+          }}>
+            <div style={{ fontSize: '12px', color: '#bbb', marginBottom: '8px', fontWeight: 'bold' }}>
+              Service Worker Logs ({getFilteredSWLogs().length} entries)
+            </div>
+            <div style={{ fontSize: '11px', lineHeight: 1.5 }}>
+              {getFilteredSWLogs().length === 0 ? (
+                <div style={{ color: '#888', fontStyle: 'italic' }}>No logs yet. Logs will appear here as the service worker operates.</div>
+              ) : (
+                getFilteredSWLogs().map((log, idx) => {
+                  const time = new Date(log.timestamp).toLocaleTimeString();
+                  let color = '#e6edf3';
+                  let icon = 'ℹ️';
+                  
+                  if (log.type === 'error') { color = '#ff6b6b'; icon = '❌'; }
+                  else if (log.type === 'warn') { color = '#ffa500'; icon = '⚠️'; }
+                  else if (log.type === 'success') { color = '#4caf50'; icon = '✅'; }
+                  
+                  return (
+                    <div key={idx} style={{ 
+                      marginBottom: '6px', 
+                      paddingBottom: '6px', 
+                      borderBottom: '1px solid #21262d',
+                      color 
+                    }}>
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'start' }}>
+                        <span style={{ flexShrink: 0 }}>{icon}</span>
+                        <span style={{ color: '#8b949e', fontSize: '10px', flexShrink: 0 }}>{time}</span>
+                        <span style={{ 
+                          backgroundColor: log.category === 'cache' ? '#1e3a5f' : 
+                                         log.category === 'fetch' ? '#2d1e3f' :
+                                         log.category === 'install' ? '#1e3f1e' : '#3a3a3a',
+                          padding: '2px 6px',
+                          borderRadius: '3px',
+                          fontSize: '10px',
+                          flexShrink: 0
+                        }}>
+                          {log.category}
+                        </span>
+                        <span style={{ flex: 1, wordBreak: 'break-word' }}>{log.message}</span>
+                      </div>
+                      {log.data && (
+                        <div style={{ 
+                          marginTop: '4px', 
+                          marginLeft: '24px',
+                          fontSize: '10px', 
+                          color: '#6e7681',
+                          maxHeight: '60px',
+                          overflow: 'auto'
+                        }}>
+                          {typeof log.data === 'string' ? log.data : JSON.stringify(log.data, null, 2)}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        )}
 
         {showDiagnostics && (
           <div style={{
-            flex: 0,
-            maxHeight: '25%',
-            overflow: 'auto',
+            minHeight: '150px',
             backgroundColor: '#141a21',
             border: '1px solid #30363d',
             borderRadius: '4px',
@@ -345,14 +537,17 @@ function DebugModal({ isOpen, onClose, debugData, getCytoscapeInstance }) {
         {/* JSON content */}
         <div
           style={{
-            flex: 1,
-            overflow: "auto",
+            minHeight: "300px",
             backgroundColor: "#0d1117",
             border: "1px solid #30363d",
             borderRadius: "4px",
-            padding: "15px"
+            padding: "15px",
+            marginTop: "10px"
           }}
         >
+          <div style={{ fontSize: '12px', color: '#bbb', marginBottom: '8px', fontWeight: 'bold' }}>
+            App State JSON
+          </div>
           <pre
             style={{
               margin: 0,
@@ -366,6 +561,7 @@ function DebugModal({ isOpen, onClose, debugData, getCytoscapeInstance }) {
           >
             {formattedData}
           </pre>
+        </div>
         </div>
       </div>
     </div>

@@ -5,4 +5,12 @@ import react from '@vitejs/plugin-react-swc'
 export default defineConfig({
   plugins: [react()],
   base: '/ship-log-map/',
+  build: {
+    rollupOptions: {
+      input: {
+        main: './index.html',
+      }
+    }
+  },
+  publicDir: 'public',
 })
