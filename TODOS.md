@@ -122,7 +122,8 @@
 - [x] Hide unseen badges in editing mode, they should only be shown in playing mode
 - [x] Fix bug where renaming a node appears to delete notes on connecting edges, but no edge notes should be deleted when renaming a node
 - [x] Change camera display panel so that map name and CDN cannot be changed in playing mode, give tooltip to suggest changing modes in order to change
-- [ ] Create "Reading" modal which lists out all the images and their text so that way users can read through all the notes in one place without having to click on each node/edge individually
+- [x] Create "Reading" modal which lists out all the images and their text so that way users can read through all the notes in one place without having to click on each node/edge individually
+- [x] Add a "click on reading item to see item on map" feature where, if the user clicks on an item in the reading modal, the modal closes and the camera zooms and pans to that node/edge on the map
 
 Notes for Future Features
 - Listing out "layers" which show things such as electrical lines, water lines, Internet, etc. that can be toggled on and off
