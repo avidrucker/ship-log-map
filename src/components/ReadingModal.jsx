@@ -3,7 +3,7 @@ import React, { useEffect } from 'react';
 import { getDefaultPlaceholderSvg } from '../utils/imageLoader.js';
 import { TEST_ICON_SVG } from '../constants/testAssets.js';
 
-function ReadingModal({ isOpen, onClose, nodes = [], notes = {}, cdnBaseUrl = '', mapName = '' }) {
+function ReadingModal({ isOpen, onClose, nodes = [], notes = {}, cdnBaseUrl = '', mapName = '', getCy = null }) {
   // Close modal on Escape key
   useEffect(() => {
     if (!isOpen) return;
@@ -67,6 +67,53 @@ function ReadingModal({ isOpen, onClose, nodes = [], notes = {}, cdnBaseUrl = ''
     
     // Otherwise use the URL as-is (absolute URL)
     return imageUrl;
+  };
+
+  // Handle clicking on a node entry to navigate to it on the map
+  const handleNodeClick = (nodeId) => {
+    const cy = getCy?.();
+    if (!cy) return;
+
+    // Find the node element
+    const nodeEle = cy.$(`#${CSS.escape(String(nodeId))}`);
+    if (nodeEle.length === 0) return;
+
+    // Pause viewport streaming during animation to prevent competing render cycles
+    const hasStreamingControl = typeof cy.__pauseViewportStreaming === 'function';
+    if (hasStreamingControl) {
+      cy.__pauseViewportStreaming();
+    }
+
+    // Stop any ongoing animations
+    cy.stop(true, true);
+
+    // Close the modal first
+    onClose();
+
+    // Small delay to let modal close animation start
+    setTimeout(() => {
+      // Select the node
+      cy.$(':selected').unselect();
+      nodeEle.select();
+
+      // Animate to fit the node with padding (same as HashtagSearchBar)
+      cy.animate({
+        fit: {
+          eles: nodeEle,
+          padding: 50
+        }
+      }, {
+        duration: 400,
+        easing: 'ease-in-out-cubic',
+        queue: false,
+        complete: () => {
+          // Resume viewport streaming after animation completes
+          if (hasStreamingControl) {
+            cy.__resumeViewportStreaming();
+          }
+        }
+      });
+    }, 50);
   };
 
   return (
@@ -169,11 +216,22 @@ function ReadingModal({ isOpen, onClose, nodes = [], notes = {}, cdnBaseUrl = ''
               return (
                 <div 
                   key={node.id}
+                  onClick={() => handleNodeClick(node.id)}
                   style={{
                     padding: '20px',
                     backgroundColor: 'rgba(255, 255, 255, 0.05)',
                     borderRadius: '8px',
-                    border: '1px solid rgba(255, 255, 255, 0.1)'
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = 'rgba(79, 195, 247, 0.1)';
+                    e.currentTarget.style.borderColor = 'rgba(79, 195, 247, 0.3)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
+                    e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.1)';
                   }}
                 >
                   {/* Node header with image and title */}

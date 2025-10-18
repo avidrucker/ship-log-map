@@ -1418,6 +1418,7 @@ useEffect(() => {
           notes={graphData.notes}
           cdnBaseUrl={cdnBaseUrl}
           mapName={mapName}
+          getCy={getCytoscapeInstance}
         />
 
         {(!CAMERA_INFO_HIDDEN && canEdit) && (
