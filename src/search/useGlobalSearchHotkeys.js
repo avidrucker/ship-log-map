@@ -1,8 +1,13 @@
 import { useEffect } from 'react';
 import { printDebug } from '../utils/debug';
 
-export function useGlobalSearchHotkeys(openFn) {
+export function useGlobalSearchHotkeys(openFn, disabled = false) {
   useEffect(() => {
+    // Don't set up the listener if disabled (e.g., when reading modal is open)
+    if (disabled) {
+      return;
+    }
+
     function onKey(e) {
       const key = e.key?.toLowerCase();
       const mod = e.ctrlKey || e.metaKey; // Ctrl on Win/Linux, Cmd on macOS
@@ -25,5 +30,5 @@ export function useGlobalSearchHotkeys(openFn) {
     }
     window.addEventListener('keydown', onKey, { passive: false });
     return () => window.removeEventListener('keydown', onKey);
-  }, [openFn]);
+  }, [openFn, disabled]);
 }

@@ -230,11 +230,15 @@ function App() {
     calibration: bgCalibration
   } = useBgImageState();
 
+  // Reading modal state (declared early because it's used in useGlobalSearchHotkeys)
+  const [readingModalOpen, setReadingModalOpen] = useState(false);
+
   // Get search UI context for opening the search bar
   const { open: openSearchBar, isOpen } = useSearchUI();
 
   // Set up global hotkeys for search (Ctrl+F to open, Escape is handled by the search bar itself)
-  useGlobalSearchHotkeys(openSearchBar);
+  // Disable search hotkey when reading modal is open to allow normal browser search
+  useGlobalSearchHotkeys(openSearchBar, readingModalOpen);
 
   // ---------- graph (nodes/edges/notes/mode) ----------
   const [graphData, setGraphData] = useState(() => {
@@ -324,9 +328,14 @@ function App() {
     setShowNoteCountOverlay(v => !v);
   }, []);
 
-  // Reading modal state
-  const [readingModalOpen, setReadingModalOpen] = useState(false);
-  const openReadingModal = useCallback(() => setReadingModalOpen(true), []);
+  // Reading modal callbacks (state declared earlier before useGlobalSearchHotkeys)
+  const openReadingModal = useCallback(() => {
+    setReadingModalOpen(true);
+    // Auto-collapse universal menu when reading modal opens
+    if (!universalMenuCollapsed) {
+      dispatchAppState({ type: ACTION_TYPES.SET_UNIVERSAL_MENU_COLLAPSED, payload: { collapsed: true } });
+    }
+  }, [universalMenuCollapsed]);
   const closeReadingModal = useCallback(() => setReadingModalOpen(false), []);
 
   // Share modal state
@@ -1306,7 +1315,8 @@ useEffect(() => {
         />
 
         {/* Mobile Search Button - only visible on mobile, top center */}
-        <div className={`fixed top-0 left-0 right-0 z-999 pa2 dn-m dn-l tc w-100 ${isOpen ? 'dn' : ''}`}>
+        {/* Hide when reading modal is open to avoid interference */}
+        <div className={`fixed top-0 left-0 right-0 z-999 pa2 dn-m dn-l tc w-100 ${isOpen || readingModalOpen ? 'dn' : ''}`}>
             <div className="dib">
               <MobileSearchButton />
             </div>
