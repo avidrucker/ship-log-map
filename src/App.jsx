@@ -112,6 +112,8 @@ import HelpModal from "./components/HelpModal.jsx";
 
 import { cacheGraphImages } from './swRegistration';
 
+import { getNotesForTarget, hasContent } from './utils/notes.js';
+
 function uniqueSorted(arr) {
   return Array.from(new Set(arr)).sort();
 }
@@ -593,9 +595,8 @@ function App() {
   }, [clearVisitedForMap, mapName]);
 
   // Typewriter control: opens viewer immediately but delays typewriter until zoom completes
-  const [typewriterEnabled, setTypewriterEnabled] = useState(false);
-  const [shouldMountTypewriter, setShouldMountTypewriter] = useState(false); // NEW: Controls if TypewriterText component should mount at all
-  const typewriterRef = useRef(false);
+  // Store session data indexed by targetId to avoid race conditions with remounting
+  const [viewSessions, setViewSessions] = useState({});
   // Track the latest zoom start to ignore stale completions
   const latestZoomTokenRef = useRef(null);
 
@@ -610,7 +611,7 @@ function App() {
   );
 
   // ✅ ADD THIS RIGHT AFTER THE HOOK DECLARATIONS
-  console.log('🏁 [App] Component rendered with:', { cdnBaseUrl, mapName, nodeCount: graphData.nodes.length, firstNodeImage: graphData.nodes[0]?.imageUrl });
+  //// console.log('🏁 [App] Component rendered with:', { cdnBaseUrl, mapName, nodeCount: graphData.nodes.length, firstNodeImage: graphData.nodes[0]?.imageUrl });
 
   /** ---------- handlers ---------- **/
 
@@ -660,109 +661,125 @@ useEffect(() => {
   const isTransitioningRef = useRef(false);
 
   // Note viewing handlers - defined early to avoid circular dependencies
-// Update handleStartNoteViewing to use the flag
+  // Update handleStartNoteViewing to use the flag
   const handleStartNoteViewing = useCallback((targetId, targetType) => {
-    // Check if we're transitioning between nodes
-    const isTransitioning = noteViewingTarget && noteViewingTarget !== targetId;
+    // Check if we're switching between targets
+    const switching = !!noteViewingTarget && noteViewingTarget !== targetId;
     
-    if (isTransitioning) {
+    if (switching) {
+      // Set switching flag to prevent camera zoom-out on close
+      isSwitchingTargetsRef.current = true;
       isTransitioningRef.current = true;
-      // Clear the flag after the transition
+      // Clear transition flag after a brief delay
       setTimeout(() => {
         isTransitioningRef.current = false;
       }, 100);
     }
 
-    // Treat clicking another node while already viewing as a "switch", not a close+open
-    const switching = !!noteViewingTarget && noteViewingTarget !== targetId;
-    isSwitchingTargetsRef.current = switching;
-    pendingViewTargetRef.current = targetId;
-    // While opening/switching, suppress any empty-selection close from Cytoscape
-    suppressEmptyCloseRef.current = true;
+    // console.log('🎬 [handleStartNoteViewing] Starting:', {
+    //   targetId,
+    //   targetType,
+    //   switching,
+    //   previousTarget: noteViewingTarget,
+    //   timestamp: performance.now()
+    // });
 
-    // ---- Compute first-open flag for typewriter logic ----
-    // Only typewriter the first time we open a given id (and only if there's content)
-    const hasContent =
-      (Array.isArray(graphData?.notes?.[targetId]) ? graphData.notes[targetId].join('\n\n') : (graphData?.notes?.[targetId] || '')).trim().length > 0;
-    const unseenNow = isUnseen(targetId);
-    typewriterRef.current = Boolean(unseenNow && hasContent);
+    const unseenAtOpen = isUnseen(targetId) && hasContent(graphData, targetId);
+    const sessionId = Symbol('view-session');
 
-    // Open the viewer immediately, but don't mount TypewriterText yet.
-    // We'll mount it after the zoom animation completes.
-    setTypewriterEnabled(false);
-    setShouldMountTypewriter(false); // Don't mount TypewriterText during animation
+    // console.log('🔍 [handleStartNoteViewing] Unseen check:', {
+    //   targetId,
+    //   targetType,
+    //   isUnseen: isUnseen(targetId),
+    //   hasContent: hasContent(graphData, targetId),
+    //   unseenAtOpen,
+    //   ZOOM_TO_SELECTION
+    // });
 
-    // Zoom to selection if feature is enabled and we're in playing mode
-    if (ZOOM_TO_SELECTION && targetId) {
-      printDebug("📹 [StartNoteViewing] Beginning zoom sequence for:", targetId);
-      
-      // Only save the "original camera" once, on the first zoom-in. For switches, reuse it.
-      const shouldSaveCamera = !hasOriginalCamera();
-      const zoomStartTime = performance.now();
-      
-      const zoomPromise = fitToSelection([targetId], {
-        animate: true,
-        padding: 80,
-        targetHalf: 'top',
-        saveCamera: shouldSaveCamera,
-        zoomLevel: 'close'
-      });
+    // Create session for this target
+    setViewSessions(prev => ({
+      ...prev,
+      [targetId]: {
+        id: sessionId,
+        targetId,
+        isUnseenAtOpen: unseenAtOpen,
+        typewriterReady: !ZOOM_TO_SELECTION // if no zoom, we can typewriter immediately
+      }
+    }));
 
-      // Mount TypewriterText and enable it only when zoom completes AND we're still viewing this same target
-      const token = Symbol('zoom-token');
-      latestZoomTokenRef.current = token;
-      zoomPromise.finally(() => {
-        const zoomEndTime = performance.now();
-        const totalZoomTime = zoomEndTime - zoomStartTime;
-        
-        if (latestZoomTokenRef.current === token) {
-          printDebug("✅ [StartNoteViewing] Zoom complete, adding small delay before mounting typewriter:", {
-            targetId,
-            totalTime: totalZoomTime.toFixed(2) + 'ms',
-            willTypewriter: typewriterRef.current
-          });
-          
-          // Add a small delay to ensure viewport streaming has fully resumed
-          // and any pending renders have completed before mounting TypewriterText
-          setTimeout(() => {
-            if (latestZoomTokenRef.current === token) {
-              printDebug("⌨️ [StartNoteViewing] Mounting and enabling typewriter now");
-              setShouldMountTypewriter(true); // Mount the component
-              setTypewriterEnabled(true); // Enable animation
-            } else {
-              printDebug("⚠️ [StartNoteViewing] Token changed during delay - NOT enabling typewriter");
-            }
-          }, 100); // 100ms grace period for rendering to settle
-        } else {
-          printDebug("⚠️ [StartNoteViewing] Zoom complete but token mismatch - NOT enabling typewriter");
-        }
-      });
-    } else {
-      printDebug("📹 [StartNoteViewing] No zoom needed, mounting and enabling typewriter immediately");
-      // No zoom → mount and enable typewriter immediately
-      setShouldMountTypewriter(true);
-      setTypewriterEnabled(true);
-    }
-
-    // Open (or switch) the viewer
+    // Open/switch the viewer
     dispatchAppState({
       type: ACTION_TYPES.START_NOTE_VIEWING,
       payload: { targetId, targetType }
     });
 
-    // Mark as visited
+    // Mark visited immediately
     if (targetType === 'node') markNodeVisited(targetId);
-    else if (targetType === 'edge') markEdgeVisited(targetId);
+    else markEdgeVisited(targetId);
 
-    // NOTE: we now clear the guards when the new selection actually lands
-    // (see handleNodeSelectionChange).
-  }, [fitToSelection, noteViewingTarget, hasOriginalCamera, graphData, isUnseen, markNodeVisited, markEdgeVisited]);
+    if (ZOOM_TO_SELECTION && targetId) {
+      const token = sessionId; // reuse the session id as token
+      
+      // Determine camera behavior based on switching state
+      const shouldSaveCamera = !hasOriginalCamera();
+      
+      fitToSelection([targetId], {
+        animate: true,
+        padding: 80,
+        targetHalf: 'top',
+        saveCamera: shouldSaveCamera,
+        zoomLevel: 'close'
+      }).finally(() => {
+        // Only enable typewriter for the current live session
+        setTimeout(() => {
+          // console.log('⏰ [handleStartNoteViewing] Setting typewriterReady=true for session:', {
+          //   token: token.toString(),
+          //   targetId,
+          //   switching
+          // });
+          setViewSessions(prev => {
+            const session = prev[targetId];
+            const shouldUpdate = session && session.id === token;
+            // console.log('📝 [setViewSessions] Update check:', {
+            //   shouldUpdate,
+            //   prevId: session?.id?.toString(),
+            //   token: token.toString(),
+            //   prevTargetId: session?.targetId,
+            //   targetId
+            // });
+            if (!shouldUpdate) return prev;
+            return {
+              ...prev,
+              [targetId]: { ...session, typewriterReady: true }
+            };
+          });
+          
+          // Clear switching flag after zoom completes
+          if (switching) {
+            isSwitchingTargetsRef.current = false;
+          }
+        }, 100); // tiny grace to let rendering settle (keep your 100ms)
+      });
+    } else {
+      // No zoom, clear switching flag immediately
+      if (switching) {
+        setTimeout(() => {
+          isSwitchingTargetsRef.current = false;
+        }, 0);
+      }
+    }
+  }, [graphData, isUnseen, fitToSelection, hasOriginalCamera, markNodeVisited, markEdgeVisited, noteViewingTarget]);
 
   // Update handleCloseNoteViewing to check the transition flag
   const handleCloseNoteViewing = useCallback(() => {
-    // Disable and unmount typewriter immediately on close
-    setTypewriterEnabled(false);
-    setShouldMountTypewriter(false); // Unmount TypewriterText component
+    // Clear session for the closing target
+    if (noteViewingTarget) {
+      setViewSessions(prev => {
+        const { [noteViewingTarget]: _, ...rest } = prev;
+        return rest;
+      });
+    }
+
     latestZoomTokenRef.current = null; // invalidate any pending completion
 
     // Prevent duplicate execution and transitions
@@ -800,7 +817,7 @@ useEffect(() => {
       pendingViewTargetRef.current = null;
       isSwitchingTargetsRef.current = false;
     }
-  }, [mode, restoreOriginalCamera, hasOriginalCamera, clearCytoscapeSelections]);
+  }, [mode, restoreOriginalCamera, hasOriginalCamera, clearCytoscapeSelections, noteViewingTarget]);
 
   // Debug modal open/close now via modalOps
 
@@ -1392,12 +1409,12 @@ useEffect(() => {
         />
 
         <NoteViewerModal
+          key={noteViewingTarget || 'no-target'}
           targetId={noteViewingTarget}
-          notes={noteViewingTarget ? (graphData.notes?.[noteViewingTarget] || []) : []}
+          notes={noteViewingTarget ? getNotesForTarget(graphData, noteViewingTarget) : []}
           onClose={handleCloseNoteViewing}
-          shouldTypewriter={typewriterEnabled && typewriterRef.current}
-          shouldShowText={!typewriterRef.current || typewriterEnabled}
-          shouldMountTypewriter={shouldMountTypewriter}
+          isUnseenAtOpen={viewSessions[noteViewingTarget]?.isUnseenAtOpen || false}
+          typewriterReady={viewSessions[noteViewingTarget]?.typewriterReady || false}
         />
 
         <HelpModal

@@ -18,12 +18,19 @@ const BLUE_OUTLINE_COLOR = "#5878b6";
 
 function NoteViewerModal({
   targetId,
-  notes, // array of note strings for this target
+  notes,            // array of strings
   onClose,
-  shouldTypewriter = false,
-  shouldShowText = true, // controls whether text should be visible at all
-  shouldMountTypewriter = false // NEW: controls whether TypewriterText component should mount
+  isUnseenAtOpen,   // boolean
+  typewriterReady   // boolean
 }) {
+  // console.log('🎭 [NoteViewerModal] Rendered with props:', {
+  //   targetId,
+  //   noteCount: notes.length,
+  //   isUnseenAtOpen,
+  //   typewriterReady,
+  //   timestamp: performance.now()
+  // });
+
   // Add keyboard event listener for Escape key
   useEffect(() => {
     const handleKeyDown = (event) => {
@@ -108,14 +115,10 @@ function NoteViewerModal({
                 wordBreak: "break-word",
                 fontSize: "14px",
               }}>
-                {shouldShowText ? (
-                  // Only mount TypewriterText if shouldMountTypewriter is true
-                  shouldTypewriter && shouldMountTypewriter ? (
-                    <TypewriterText text={note} enabled />
-                  ) : (
-                    note
-                  )
-                ) : null}
+                {isUnseenAtOpen
+                  ? (typewriterReady ? <TypewriterText text={note} enabled /> : null)
+                  : note
+                }
               </li>
             ))}
           </ul>
