@@ -6,19 +6,12 @@ Running list of investigated-but-deferred improvements. Each entry includes the 
 
 ## Performance
 
-### PERF-1 — Lazy-load Cytoscape to improve TTI
+### ~~PERF-1 — Lazy-load Cytoscape to improve TTI~~ ✅ Fixed `1c6a7bd`
 **Priority:** High  
 **Effort:** 1–2 sessions  
-**File:** `src/components/CytoscapeGraph.jsx`, `src/graph/cyAdapter.js`
+**File:** `src/App.jsx`
 
-Cytoscape is 52% of the JS bundle (248 KB gzip). It's statically imported, blocking parse/eval before first render. The static+dynamic import conflict in `cyAdapter.js` prevents Rollup from splitting it.
-
-**Fix:**
-1. Change `CytoscapeGraph.jsx`'s import of `cyAdapter` to a dynamic `import()`
-2. Remove the redundant dynamic import in `App.jsx` (CytoscapeGraph already does it)
-3. Wrap `<CytoscapeGraph>` in `React.lazy()` + `<Suspense fallback={<LoadingSpinner />}>`
-
-**Impact:** ~248 KB gzip deferred past first render → measurable TTI on mobile/slow connections.
+`React.lazy()` + `<Suspense>` wraps `<CytoscapeGraph>` in App.jsx. Vite now splits cyAdapter (Cytoscape.js) into its own async chunk. Main bundle: 254 KB → 101 KB gzip; Cytoscape (150 KB gzip) deferred past first paint.
 
 ---
 
