@@ -72,13 +72,11 @@ Pre-built `cyNodeIds` / `cyEdgeIds` Sets from two bulk queries; replaced per-not
 
 ## UX / Feature
 
-### UX-1 — E2E: node click → modal latency not yet measured
+### ~~UX-1 — E2E: node click → modal latency not yet measured~~ ✅ Fixed `3ef5ea5`
 **Priority:** Low  
-**File:** `e2e/perf.spec.js`
+**File:** `e2e/perf.spec.js`, `src/components/CytoscapeGraph.jsx`
 
-The `node click → modal open latency` E2E test always skips because the canvas click lands on empty space (Cytoscape renders on canvas, coordinates are opaque to Playwright). 
-
-**Fix:** Query Cytoscape's `cy.nodes().first().renderedPosition()` via `page.evaluate()` and click that exact pixel. This gives a reliable hit on the first node without hardcoding coordinates.
+`CytoscapeGraph` now exposes cy on `containerRef.current._cy` after mount. The E2E test queries `.entry-parent` nodes via `page.evaluate()` to get the exact rendered pixel position, replacing the center-of-canvas guess.
 
 ---
 

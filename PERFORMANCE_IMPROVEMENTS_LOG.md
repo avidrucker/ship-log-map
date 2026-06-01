@@ -98,6 +98,22 @@ Vite now splits `cyAdapter.js` (which contains Cytoscape) into its own async chu
 
 ---
 
+### UX-1 — Node click → modal latency E2E test (now measuring real data)
+**Commit:** `524a5f2`  
+**Files:** `e2e/perf.spec.js`, `src/components/NoteViewerModal.jsx`, `src/components/CytoscapeGraph.jsx`
+
+**Problem:** The test always skipped because clicking the canvas center missed all nodes (Cytoscape hit-tests the canvas, not DOM elements).
+
+**Fix:**
+1. `CytoscapeGraph` now exposes cy on `containerRef.current._cy` after mount.
+2. `NoteViewerModal` gets `data-testid="note-viewer-modal"` for a reliable Playwright selector.
+3. Test uses `page.waitForFunction()` polling `cy.nodes('.entry-parent')` + viewport-bounds check, then clicks the exact `renderedPosition()`.
+4. Loads in playing-mode URL (no `canedit=true`) so node taps open the note viewer.
+
+**Measured baseline:** ~969ms click→modal (dominated by the zoom animation, ~300–600ms). Threshold set to 2000ms.
+
+---
+
 ### CytoscapeGraph sync effect — string-key fingerprint (drag-frame optimization)
 **Commit:** `7ab9b20`  
 **File changed:** `src/components/CytoscapeGraph.jsx` — domain sync effect + memos
