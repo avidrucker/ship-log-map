@@ -5,14 +5,9 @@
   },
   "transform": {},
   "testMatch": [
-    "**/__tests__/**/*.js",
-    "**/?(*.)+(spec|test).js"
+    "<rootDir>/src/perf/**/*.bench.test.js"
   ],
-  "testPathIgnorePatterns": [
-    "<rootDir>/node_modules/",
-    "<rootDir>/e2e/",
-    "\\.bench\\.test\\.js$"
-  ],
+  "testPathIgnorePatterns": ["<rootDir>/node_modules/"],
   "setupFilesAfterEnv": ["<rootDir>/src/setupTests.js"],
   "moduleNameMapper": {
     "^(\\.{1,2}/.*)\\.js$": "$1"

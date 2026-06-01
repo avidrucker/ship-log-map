@@ -1,0 +1,20 @@
+{
+  "_note": "Baseline captured before optimizations (Opt-A, Opt-B, Opt-C). Re-run `npm run perf` after each opt to compare.",
+  "buildIndex_10n":      { "p50_ms": 0.153 },
+  "buildIndex_50n":      { "p50_ms": 0.838 },
+  "buildIndex_100n":     { "p50_ms": 1.185 },
+  "buildIndex_200n":     { "p50_ms": 2.153 },
+  "extractHashtags_1":   { "p50_ms": 0.003 },
+  "extractHashtags_50":  { "p50_ms": 0.051 },
+  "extractHashtags_200": { "p50_ms": 0.240 },
+  "normalizeGraph_10":   { "p50_ms": 0.005 },
+  "normalizeGraph_100":  { "p50_ms": 0.004 },
+  "normalizeGraph_500":  { "p50_ms": 0.004 },
+  "serdeGraph_100n":     { "p50_ms": 0.764 },
+  "addNode_100n":        { "p50_ms": 0.014 },
+  "removeNode_100n":     { "p50_ms": 0.029 },
+  "getSuggestions_word_50n":    { "p50_ms": 0.013 },
+  "getSuggestions_hashtag_50n": { "p50_ms": 0.011 },
+  "getSuggestions_word_100n":   { "p50_ms": 0.013 },
+  "getSuggestions_hashtag_100n":{ "p50_ms": 0.010 }
+}

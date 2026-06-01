@@ -1,6 +1,6 @@
 // src/search/useHashtagIndex.js
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { extractHashtagsFromText, normalizeTag, tokenizeQuery } from './hashtagUtils';
 import { printDebug } from '../utils/debug';
 
@@ -25,12 +25,21 @@ export function useHashtagIndex({
   getNodeNotes = defaultNodeNotes,
   getEdgeNotes = defaultEdgeNotes
 }) {
-  const [hashtagIndex, setHashtagIndex] = useState(() => new Map()); // tag -> { nodes:Set, edges:Set }
-  const [labelIndex, setLabelIndex] = useState(() => new Map()); // label word -> Set(nodeIds)
-  const [allTagsSorted, setAllTagsSorted] = useState([]);
-  const [allLabelsSorted, setAllLabelsSorted] = useState([]);
-  const [wordToFullNamesMap, setWordToFullNamesMap] = useState(() => new Map());
-  const [fullNamesMap, setFullNamesMap] = useState(() => new Map());
+  // Opt-A: single state object → 1 setState per rebuild instead of 6
+  const [indexState, setIndexState] = useState(() => ({
+    hashtagIndex: new Map(),   // tag -> { nodes:Set, edges:Set }
+    labelIndex: new Map(),     // label word -> Set(nodeIds)
+    allTagsSorted: [],
+    allLabelsSorted: [],
+    wordToFullNamesMap: new Map(),
+    fullNamesMap: new Map(),
+  }));
+
+  const {
+    hashtagIndex, labelIndex,
+    allTagsSorted, allLabelsSorted,
+    wordToFullNamesMap, fullNamesMap,
+  } = indexState;
 
   useEffect(() => {
     const tagMap = new Map();
@@ -105,30 +114,33 @@ export function useHashtagIndex({
       }
     }
 
-    const sortedTags = Array.from(tagMap.keys()).sort();
-    const sortedLabels = Array.from(labelMap.keys()).sort();
-    
-    setHashtagIndex(tagMap);
-    setLabelIndex(labelMap);
-    setAllTagsSorted(sortedTags);
-    setAllLabelsSorted(sortedLabels);
-    
-    // Store the new maps for full place name handling
-    setWordToFullNamesMap(wordToFullNamesMap);
-    setFullNamesMap(fullNamesMap);
+    const allTagsSorted  = Array.from(tagMap.keys()).sort();
+    const allLabelsSorted = Array.from(labelMap.keys()).sort();
+
+    // Opt-A: single setState → 1 re-render per rebuild instead of 6
+    setIndexState({
+      hashtagIndex:     tagMap,
+      labelIndex:       labelMap,
+      allTagsSorted,
+      allLabelsSorted,
+      wordToFullNamesMap,
+      fullNamesMap,
+    });
     printDebug('✅ Indexing complete');
     printDebug(`📊 Total places indexed: ${fullNamesMap.size}`);
     printDebug(`📊 Total words indexed: ${wordToFullNamesMap.size}`);
     printDebug(`📊 Sample full names:`, Array.from(fullNamesMap.values()).slice(0, 5));
   }, [nodes, edges, getNodeNotes, getEdgeNotes]);
 
-  // Updated suggestions that include both hashtags and labels,
-  // and checks for multi-word and word-order matching
+  // Opt-B: useCallback stabilizes the returned function references so that consumers
+  // using getSuggestions/findMatchesFromTokens in their own deps don't re-run when
+  // the index hasn't actually changed (parent re-rendered with same nodes/edges).
+
   // Suggestions obey "mode":
   // - Hashtag mode: first token starts with '#': suggest ONLY hashtags (by last token prefix)
   // - Phrase mode: 2+ words, no '#': suggest ONLY full place names that start with the ENTIRE input
   // - Single-word mixed: 1 word, no '#': suggest hashtags AND place names that start with the word
-  function getSuggestions(input, limit = 12) {
+  const getSuggestions = useCallback(function getSuggestions(input, limit = 12) {
     const raw = (input || '').trim();
     if (!raw) return [];
     const q = raw.toLowerCase();
@@ -193,11 +205,11 @@ export function useHashtagIndex({
       }
     }
     return out;
-  }
+  }, [allTagsSorted, fullNamesMap, wordToFullNamesMap]);
 
   // Updated search function to handle both hashtags and labels
   // In useHashtagIndex.js, update findMatchesFromTokens to handle quoted place names:
-  function findMatchesFromTokens(tokens) {
+  const findMatchesFromTokens = useCallback(function findMatchesFromTokens(tokens) {
     if (!tokens.length) return { nodeIds: new Set(), edgeIds: new Set() };
 
     // Special case: if we have multiple unquoted tokens that could form a place name,
@@ -285,7 +297,7 @@ export function useHashtagIndex({
     const nodeIds = intersectSets(perTokenNodeSets);
     const edgeIds = intersectSets(perTokenEdgeSets);
     return { nodeIds, edgeIds };
-  }
+  }, [hashtagIndex, labelIndex, fullNamesMap]);
 
   return {
     hashtagIndex,         // Map(tag -> {nodes:Set, edges:Set})

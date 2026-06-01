@@ -49,7 +49,7 @@ function FpsCounter() {
   }, []);
 
   return (
-    <div style={{
+    <div data-testid="fps-counter" style={{
       background: "rgba(0,0,0,0.5)",
       color: "#fff",
       padding: "4px 10px",
