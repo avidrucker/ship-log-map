@@ -29,6 +29,12 @@ jobs:
     - name: Build the app
       run: npm run build
 
+    - name: Install Playwright browser
+      run: npx playwright install --with-deps chromium
+
+    - name: Smoke test (app must load without a JS crash)
+      run: npm run e2e:smoke
+
     - name: List built files
       run: |
         echo "Built files in dist/:"
