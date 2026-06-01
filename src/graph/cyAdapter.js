@@ -504,15 +504,16 @@ export function syncElements(cy, graph, options = {}) {
   const edgesChanged = !sortedArraysEqual(currentEdges, newEdges);
 
   if (!nodesChanged && !edgesChanged) {
+    // Build a single id→element map so we avoid N individual cy.getElementById() calls.
+    // Wrap in a batch so each .data() write defers style recalcs until endBatch().
+    const eleById = new Map();
+    cy.elements().forEach(el => eleById.set(el.id(), el));
+    cy.startBatch();
     newElements.forEach(newEl => {
-      if (newEl.group === 'nodes') {
-        const existingNode = cy.getElementById(newEl.data.id);
-        if (existingNode.length > 0) existingNode.data(newEl.data);
-      } else if (newEl.group === 'edges') {
-        const existingEdge = cy.getElementById(newEl.data.id);
-        if (existingEdge.length > 0) existingEdge.data(newEl.data);
-      }
+      const el = eleById.get(newEl.data.id);
+      if (el) el.data(newEl.data);
     });
+    cy.endBatch();
   } else {
     // Only compute when we actually need it (structural change path)
     const existingNodeIds = new Set(cy.nodes('.entry-parent').map(n => n.id()));

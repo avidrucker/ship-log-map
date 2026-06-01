@@ -51,14 +51,16 @@ export function normalizeGraphData(data) {
 // Assign missing coordinates using the default graph as reference
 export function hydrateCoordsIfMissing(graph, defaultGraph) {
   if (!graph || !defaultGraph) return graph;
-  
+
+  const defaultById = new Map(defaultGraph.nodes.map(dn => [dn.id, dn]));
+  const defaultByTitle = new Map(defaultGraph.nodes.map(dn => [dn.title, dn]));
+
   const hydratedNodes = graph.nodes.map(node => {
     if (typeof node.x === 'number' && typeof node.y === 'number') {
       return node; // Already has coordinates
     }
-    
-    // Find matching node in default graph
-    const defaultNode = defaultGraph.nodes.find(dn => dn.id === node.id || dn.title === node.title);
+
+    const defaultNode = defaultById.get(node.id) ?? defaultByTitle.get(node.title);
     if (defaultNode) {
       printDebug(`🎯 [mapHelpers] Hydrating coordinates for node "${node.id}" from default: (${defaultNode.x}, ${defaultNode.y})`);
       return {
@@ -67,7 +69,7 @@ export function hydrateCoordsIfMissing(graph, defaultGraph) {
         y: defaultNode.y
       };
     }
-    
+
     // Fallback to origin
     printDebug(`⚠️ [mapHelpers] No default coordinates found for node "${node.id}", using (0, 0)`);
     return {
