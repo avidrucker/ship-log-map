@@ -434,9 +434,15 @@ export async function mountCy({ container, graph, styles = cytoscapeStyles, mode
   }
 }
 
+function sortedArraysEqual(a, b) {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+
 // Replace elements with a fresh build from the domain state
 export function syncElements(cy, graph, options = {}) {
-  const existingNodeIds = new Set(cy.nodes('.entry-parent').map(n => n.id()));
+  // existingNodeIds is only needed in the structural-change path — moved inside that branch
   
   const onImageLoaded = (nodeId, imageUrl) => {
     if (!cy || cy.destroyed()) return;
@@ -492,8 +498,8 @@ export function syncElements(cy, graph, options = {}) {
   const currentEdges = cy.edges().map(e => e.id()).sort();
   const newNodes = newElements.filter(e => e.group === 'nodes').map(e => e.data.id).sort();
   const newEdges = newElements.filter(e => e.group === 'edges').map(e => e.data.id).sort();
-  const nodesChanged = JSON.stringify(currentNodes) !== JSON.stringify(newNodes);
-  const edgesChanged = JSON.stringify(currentEdges) !== JSON.stringify(newEdges);
+  const nodesChanged = !sortedArraysEqual(currentNodes, newNodes);
+  const edgesChanged = !sortedArraysEqual(currentEdges, newEdges);
 
   if (!nodesChanged && !edgesChanged) {
     newElements.forEach(newEl => {
@@ -506,6 +512,8 @@ export function syncElements(cy, graph, options = {}) {
       }
     });
   } else {
+    // Only compute when we actually need it (structural change path)
+    const existingNodeIds = new Set(cy.nodes('.entry-parent').map(n => n.id()));
     const newNodeIds = new Set();
     newElements.filter(e => e.group === 'nodes' && e.data.id.endsWith('__entry')).forEach(el => {
       const parentId = el.data.parent;

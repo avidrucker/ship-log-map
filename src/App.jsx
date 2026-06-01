@@ -609,10 +609,16 @@ function App() {
   const renderCountRef = useRef(0);
   renderCountRef.current++;
 
+  // Stable ID fingerprints — change only when nodes/edges are added or removed, not on position edits
+  const nodeIdsKey = useMemo(() => graphData.nodes.map(n => n.id).join('|'), [graphData.nodes]);
+  const edgeIdsKey = useMemo(() => graphData.edges.map(e => e.id).join('|'), [graphData.edges]);
+
   // Memoized visited lookup: isUnseen(id) -> boolean
+  // Uses ID fingerprints so position-only changes (drags) don't rebuild the lookup
   const isUnseen = useMemo(
     () => makeVisitedLookup({ nodes: graphData.nodes, edges: graphData.edges, visited }),
-    [graphData.nodes, graphData.edges, visited]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [nodeIdsKey, edgeIdsKey, visited]
   );
 
   // ✅ ADD THIS RIGHT AFTER THE HOOK DECLARATIONS
@@ -632,17 +638,26 @@ function App() {
     dispatchAppState({ type: ACTION_TYPES.SET_LOAD_ERROR, payload: { error: null } });
   }, []);
 
+  // Memoized full image URL list — only rebuilds when imageUrl values (or CDN settings) change,
+  // not on position/title edits. nodeIdsKey is a cheap proxy: if no nodes were added/removed
+  // and no imageUrls changed, this won’t recompute.
+  const imageUrlsKey = useMemo(
+    () => graphData.nodes.map(n => n.imageUrl ?? ‘’).join(‘|’),
+    [graphData.nodes]
+  );
+  const graphImageUrls = useMemo(() => {
+    const raw = graphData.nodes.map(n => n.imageUrl).filter(u => u && u !== ‘unspecified’);
+    return uniqueSorted(raw.map(u => buildFullImageUrl(u, cdnBaseUrl, mapName)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [imageUrlsKey, cdnBaseUrl, mapName]);
+
 // Warm the SW image cache ONCE per image set (and when it changes).
 // Fires only when: SW is available, CDN load is done, we’re online, and the URL list changed.
 const didWarmRef = useRef(false);
 useEffect(() => {
-  if (!('serviceWorker' in navigator)) return;
+  if (!(‘serviceWorker’ in navigator)) return;
   if (isLoadingFromCDN) return; // wait until CDN load completes
-  // Build absolute image URLs from the current graph
-  const raw = (graphData.nodes || [])
-    .map(n => n.imageUrl)
-    .filter(u => u && u !== 'unspecified');
-  const full = uniqueSorted(raw.map(u => buildFullImageUrl(u, cdnBaseUrl, mapName)));
+  const full = graphImageUrls;
   if (full.length === 0) return;
   const hash = hashList(full);
   const key = `shipLog:imageListHash:${mapName || 'default'}`;
@@ -661,7 +676,7 @@ useEffect(() => {
     const once = () => { window.removeEventListener('online', once); doWarm(); };
     window.addEventListener('online', once, { once: true });
   }
-}, [isLoadingFromCDN, graphData.nodes, cdnBaseUrl, mapName]);
+}, [isLoadingFromCDN, graphImageUrls, mapName]);
 
   const isTransitioningRef = useRef(false);
 
