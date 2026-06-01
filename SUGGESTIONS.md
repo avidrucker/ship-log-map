@@ -15,16 +15,15 @@ Running list of investigated-but-deferred improvements. Each entry includes the 
 
 ---
 
-### PERF-2 — Web Worker for graph normalization on large CDN loads
+### ~~PERF-2 — Web Worker for graph normalization~~ ✅ Addressed `63ab7b5` (alt approach)
 **Priority:** Medium  
-**Effort:** 1 session  
-**File:** `src/utils/cdnHelpers.js`, `src/hooks/useMapLoading.js`
+**File:** `src/utils/mapHelpers.js`, `src/graph/cyAdapter.js`
 
-`normalizeGraphData()` and `hydrateCoordsIfMissing()` run synchronously on the main thread after a CDN fetch. For large maps (500+ nodes), this can freeze the UI for hundreds of milliseconds.
+Worker deemed not cost-effective for these functions (pure O(n) JSON transforms, fast enough for current map sizes). Instead:
+- `hydrateCoordsIfMissing`: replaced `.find()` linear scan with pre-built id/title Maps (O(1) lookup)
+- `syncElements` data-update path: added `eleById` Map + `cy.startBatch()/endBatch()` — bigger real-world win
 
-**Fix:** Move normalization into a Worker via `new Worker(new URL('./normalizeWorker.js', import.meta.url))`. Post the raw parsed JSON to the worker, receive the normalized graph back.
-
-**Note:** Requires serialization across the Worker boundary — no functions or class instances can be passed, only plain data. Verify that the graph objects are fully serializable before attempting this.
+PERF-3 (WebP encoding) remains the more valuable Worker candidate.
 
 ---
 
@@ -55,23 +54,19 @@ All three deferred findings have now been addressed. This entry is kept for refe
 
 ---
 
-### QUAL-2 — `buildElementsFromDomain` intermediate array allocation
+### ~~QUAL-2 — `buildElementsFromDomain` intermediate array allocation~~ ✅ Fixed `fb73383`
 **Priority:** Low  
 **File:** `src/graph/cyAdapter.js` — `buildElementsFromDomain()`
 
-Each node generates a parent + entry child element. The current code uses `.map()` returning nested arrays + `.flat()`, creating two intermediate arrays per node. For 500 nodes this is 1,000 element-object allocations + two GC-able arrays.
-
-**Fix:** Pre-allocate a result array (`const result = []; nodes.forEach(n => { result.push(...buildNode(n)) })`) to avoid the intermediate array from `.flat()`.
+Replaced `.map().flat()` with pre-allocated array + `forEach`/`push`. Eliminates N temporary 2-element arrays per call.
 
 ---
 
-### QUAL-3 — `overlayManager` O(n) Cytoscape lookups for notes
+### ~~QUAL-3 — `overlayManager` O(n) Cytoscape lookups for notes~~ ✅ Fixed `fb73383`
 **Priority:** Low  
 **File:** `src/graph/cyAdapter.js` — `updateOverlays()`
 
-`Object.entries(notes).forEach(([id]) => cy.getElementById(id))` does one Cytoscape lookup per note. For maps with hundreds of notes this is O(n) individual DOM queries.
-
-**Fix:** Pre-collect all overlay nodes once with `cy.nodes('.note-count')`, build a Map of them, then update from that Map without further DOM lookups.
+Pre-built `cyNodeIds` / `cyEdgeIds` Sets from two bulk queries; replaced per-note `cy.getElementById()` with O(1) `Set.has()` lookups.
 
 ---
 
