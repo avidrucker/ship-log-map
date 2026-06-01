@@ -60,6 +60,8 @@ import ShareModal from "./components/ShareModal.jsx";
 import ReadingModal from "./components/ReadingModal.jsx";
 import CameraInfo from "./components/CameraInfo.jsx";
 import ErrorDisplay from "./components/ErrorDisplay.jsx";
+import CdnLoadingOverlay from "./components/CdnLoadingOverlay.jsx";
+import CompassOverlay from "./components/CompassOverlay.jsx";
 import { useCytoscapeInstance } from "./useCytoscapeInstance";
 import { appStateReducer, initialAppState, ACTION_TYPES } from "./appStateReducer";
 import { ZOOM_TO_SELECTION, DEBUG_LOGGING, DEV_MODE, GRAYSCALE_IMAGES, CAMERA_INFO_HIDDEN } from "./config/features.js";
@@ -96,8 +98,10 @@ import { useCamera } from "./hooks/useCamera.js";
 import { useUndo } from "./hooks/useUndo.js";
 
 import { useImportExport } from "./hooks/useImportExport.js";
+import { useCollapseToggles } from "./hooks/useCollapseToggles.js";
 
-import { SearchUIProvider, useSearchUI } from './search/SearchUIContext';
+import { SearchUIProvider } from './search/SearchUIContext';
+import { useSearchUI } from './search/useSearchUI';
 
 import HashtagSearchBar from './search/HashtagSearchBar.jsx';
 
@@ -433,15 +437,9 @@ function App() {
   });
 
   // Collapse toggles mapped to reducer-backed state
-  const toggleUniversalMenu = useCallback(() => {
-    dispatchAppState({ type: ACTION_TYPES.SET_UNIVERSAL_MENU_COLLAPSED, payload: { collapsed: !universalMenuCollapsed } });
-  }, [universalMenuCollapsed]);
-  const toggleGraphControls = useCallback(() => {
-    dispatchAppState({ type: ACTION_TYPES.SET_GRAPH_CONTROLS_COLLAPSED, payload: { collapsed: !graphControlsCollapsed } });
-  }, [graphControlsCollapsed]);
-  const toggleCameraInfo = useCallback(() => {
-    dispatchAppState({ type: ACTION_TYPES.SET_CAMERA_INFO_COLLAPSED, payload: { collapsed: !cameraInfoCollapsed } });
-  }, [cameraInfoCollapsed]);
+  const { toggleUniversalMenu, toggleGraphControls, toggleCameraInfo } = useCollapseToggles({
+    dispatchAppState, universalMenuCollapsed, graphControlsCollapsed, cameraInfoCollapsed
+  });
 
   // ---------- debug taps ----------
   // useEffect(() => { printDebug('🏠 App: zoomLevel changed to:', zoomLevel); }, [zoomLevel]);
@@ -1068,7 +1066,7 @@ useEffect(() => {
       // For now, let's assume edges don't have editable titles, but we'll keep the interface
       console.warn("Edge title editing not yet implemented");
     }
-  }, [selectedNodeIds, nodeSelectionOrder, noteEditingTarget, noteViewingTarget, saveUndoState, getCytoscapeInstance]);
+  }, [selectedNodeIds, nodeSelectionOrder, noteEditingTarget, noteViewingTarget, saveUndoState]);
 
   const handleUpdateImage = useCallback((nodeId, imagePath, immediateImageUrl = null) => {
     // Save undo state before updating image
@@ -1470,69 +1468,11 @@ useEffect(() => {
 
         <ErrorDisplay error={loadError} onClearError={clearError} />
 
-        {/* CDN Loading Indicator */}
-        {cdnLoadingState.isLoading && (
-          <div style={{
-            position: 'fixed',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            background: 'rgba(0, 0, 0, 0.8)',
-            color: '#fff',
-            padding: '20px',
-            borderRadius: '8px',
-            zIndex: 9999,
-            display: 'flex',
-            alignItems: 'center',
-            gap: '12px'
-          }}>
-            <div 
-              className="spinner"
-              style={{
-                width: '20px',
-                height: '20px',
-                border: '2px solid #fff',
-                borderTop: '2px solid transparent',
-              borderRadius: '50%',
-            }}></div>
-            Loading map from CDN...
-          </div>
-        )}
-
-        {/* CDN Error Display */}
-        {cdnLoadingState.error && (
-          <div style={{
-            position: 'fixed',
-            top: '20px',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            background: '#d32f2f',
-            color: '#fff',
-            padding: '12px 20px',
-            borderRadius: '6px',
-            zIndex: 9999,
-            maxWidth: '500px',
-            textAlign: 'center'
-          }}>
-            <div style={{ fontWeight: 'bold', marginBottom: '8px' }}>CDN Loading Error</div>
-            <div style={{ fontSize: '14px', marginBottom: '12px' }}>{cdnLoadingState.error}</div>
-            <button
-              onClick={() => setCdnLoadingState({ isLoading: false, error: null })}
-              style={{
-                background: '#fff',
-                color: '#d32f2f',
-                border: 'none',
-                padding: '6px 12px',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                fontSize: '12px',
-                fontWeight: 'bold'
-              }}
-            >
-              Dismiss
-            </button>
-          </div>
-        )}
+        <CdnLoadingOverlay
+          isLoading={cdnLoadingState.isLoading}
+          error={cdnLoadingState.error}
+          onDismiss={() => setCdnLoadingState({ isLoading: false, error: null })}
+        />
 
         <Suspense fallback={<div className="spinner" style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: 32, height: 32, border: '3px solid #fff', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />}>
           <CytoscapeGraph
@@ -1570,19 +1510,7 @@ useEffect(() => {
           />
         </Suspense>
 
-        {compassVisible && (
-          <div style={{ position: 'absolute', bottom: '10px', right: '10px', zIndex: 900, width: '60px', height: '60px', pointerEvents: 'none', opacity: 0.9 }}>
-            <svg viewBox="0 0 100 100" style={{ width: '100%', height: '100%', transform: `rotate(${orientation}deg)` }}>
-              <circle cx="50" cy="50" r="48" fill="rgba(0,0,0,0.4)" stroke="#fff" strokeWidth="2" />
-              <polygon points="50,15 60,50 50,45 40,50" fill="#ff5252" />
-              <polygon points="50,85 40,50 50,55 60,50" fill="#fff" />
-              <text x="50" y="20" textAnchor="middle" fontSize="12" fill="#fff" fontFamily="sans-serif">N</text>
-              <text x="50" y="95" textAnchor="middle" fontSize="12" fill="#fff" fontFamily="sans-serif">S</text>
-              <text x="15" y="55" textAnchor="middle" fontSize="12" fill="#fff" fontFamily="sans-serif">W</text>
-              <text x="85" y="55" textAnchor="middle" fontSize="12" fill="#fff" fontFamily="sans-serif">E</text>
-            </svg>
-          </div>
-        )}
+        {compassVisible && <CompassOverlay orientation={orientation} />}
 
         <BgImageModal
           isOpen={bgImageModalOpen}

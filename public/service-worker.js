@@ -20,6 +20,7 @@ const SW_LOG_CHANNEL = 'sw-logs';
 const broadcast = new BroadcastChannel(SW_LOG_CHANNEL);
 function swLog(type, category, message, data = undefined) {
   const entry = { timestamp: new Date().toISOString(), type, category, message, data };
+  // eslint-disable-next-line no-empty
   try { broadcast.postMessage(entry); } catch {}
   const msg = `[SW ${category}] ${message}`;
   if (type === 'error') console.error(msg, data ?? '');
@@ -166,6 +167,7 @@ self.addEventListener('activate', (event) => {
   event.waitUntil((async () => {
     // Navigation preload improves reliability on mobile
     if ('navigationPreload' in self.registration) {
+      // eslint-disable-next-line no-empty
       try { await self.registration.navigationPreload.enable(); swLog('info', 'activate', 'Navigation preload enabled'); } catch {}
     }
 
@@ -183,6 +185,7 @@ self.addEventListener('activate', (event) => {
     if (Array.isArray(self.graphImageList) && self.graphImageList.length) {
       const cache = await caches.open(RUNTIME);
       await Promise.all(self.graphImageList.map(async (u) => {
+        // eslint-disable-next-line no-empty
         try { const r = await fetch(u, { cache: 'no-store' }); if (r.ok) await cache.put(u, r.clone()); } catch {}
       }));
       swLog('info', 'activate', `Warmed ${self.graphImageList.length} images`);
@@ -196,7 +199,6 @@ self.addEventListener('activate', (event) => {
 // --------- small strategy helpers
 async function networkFirst(request) {
   try {
-    const preloaded = ('preloadResponse' in request) ? null : null; // placeholder (not used here)
     const res = await fetch(request);
     if (res && res.ok) {
       const cache = await caches.open(RUNTIME);
@@ -303,6 +305,7 @@ self.addEventListener('sync', async (e) => {
   if (e.tag === 'warm-images' && Array.isArray(self.graphImageList) && self.graphImageList.length) {
     const cache = await caches.open(RUNTIME);
     await Promise.all(self.graphImageList.map(async (u) => {
+      // eslint-disable-next-line no-empty
       try { const r = await fetch(u, { cache: 'no-store' }); if (r.ok) await cache.put(u, r.clone()); } catch {}
     }));
     swLog('info', 'sync', `Warm-images sync completed (${self.graphImageList.length})`);

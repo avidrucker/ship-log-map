@@ -2,7 +2,7 @@
 
 import { printDebug } from '../utils/debug.js';
 
-export function animateHeightIn(ele, { duration = 600, easing = 'ease-out' } = {}) {
+export function animateHeightIn(ele, { duration = 600 } = {}) {
   printDebug(`🎬 [appear.js] Starting CSS animation for ${ele.id()}`);
   
   // Ensure the node has the entering class (should start at height 0)

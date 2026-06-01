@@ -9,10 +9,6 @@ function HelpModal({ isOpen, onClose }) {
   const baseUrl = window.location.origin + window.location.pathname;
   
   // Generate URLs for different modes
-  const readOnlyUrl = hasAnyQueryParams() 
-    ? currentUrl.replace(/[&?]canedit=true/gi, '')
-    : `${baseUrl}?map=example_map.json`;
-  
   const editableUrl = hasAnyQueryParams()
     ? currentUrl.includes('canedit=true') 
       ? currentUrl 

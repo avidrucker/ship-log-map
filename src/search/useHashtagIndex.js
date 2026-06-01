@@ -1,7 +1,7 @@
 // src/search/useHashtagIndex.js
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { extractHashtagsFromText, normalizeTag, tokenizeQuery } from './hashtagUtils';
+import { extractHashtagsFromText, tokenizeQuery } from './hashtagUtils';
 import { printDebug } from '../utils/debug';
 
 // Default extractors; override via props if your shapes differ
@@ -142,7 +142,10 @@ export function useHashtagIndex({
     printDebug(`📊 Total places indexed: ${fullNamesMap.size}`);
     printDebug(`📊 Total words indexed: ${wordToFullNamesMap.size}`);
     printDebug(`📊 Sample full names:`, Array.from(fullNamesMap.values()).slice(0, 5));
-  }, [nodesContentKey, edgesContentKey]);
+  // nodes/edges excluded: nodesContentKey/edgesContentKey are content-only fingerprints
+  // that don't change on position updates (drag), avoiding rebuilds on every frame.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nodesContentKey, edgesContentKey, getNodeNotes, getEdgeNotes]);
 
   // Opt-B: useCallback stabilizes the returned function references so that consumers
   // using getSuggestions/findMatchesFromTokens in their own deps don't re-run when

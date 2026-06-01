@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useMemo, useState, useCallback } from 'react';
+import React, { createContext, useMemo, useState } from 'react';
 
-const Ctx = createContext(null);
+// eslint-disable-next-line react-refresh/only-export-components
+export const SearchUICtx = createContext(null);
 
 export function SearchUIProvider({ children }) {
   const [isOpen, setOpen] = useState(false);
@@ -12,11 +13,5 @@ export function SearchUIProvider({ children }) {
     toggle: () => setOpen(v => !v)
   }), [isOpen]);
 
-  return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
-}
-
-export function useSearchUI() {
-  const ctx = useContext(Ctx);
-  if (!ctx) throw new Error('useSearchUI must be used within <SearchUIProvider>');
-  return ctx;
+  return <SearchUICtx.Provider value={api}>{children}</SearchUICtx.Provider>;
 }

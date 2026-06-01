@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useHashtagIndex } from './useHashtagIndex';
 import { applySearchSelection } from './searchHighlighter';
-import { useSearchUI } from './SearchUIContext';
+import { useSearchUI } from './useSearchUI';
 import { tokenizeQuery } from './hashtagUtils';
 
 /**

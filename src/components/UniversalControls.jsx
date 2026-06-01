@@ -13,7 +13,7 @@
 
 import React from 'react';
 import { HamburgerIcon } from "./HamburgerIcon";
-import { useSearchUI } from '../search/SearchUIContext';
+import { useSearchUI } from '../search/useSearchUI';
 
 function UniversalControls({
   fileInputRef,

@@ -51,7 +51,7 @@ function buildIndex(nodes, edges = []) {
 }
 
 // Mirrors getSuggestions from useHashtagIndex.js
-function getSuggestions({ allTagsSorted, wordToFullNamesMap, fullNamesMap }, input, limit = 12) {
+function getSuggestions({ allTagsSorted, wordToFullNamesMap }, input, limit = 12) {
   const raw = (input || '').trim();
   if (!raw) return [];
   const q = raw.toLowerCase();

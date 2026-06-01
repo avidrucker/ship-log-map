@@ -30,13 +30,10 @@ import {
   hasPendingGrayscaleConversions, 
   updateCompletedGrayscaleImages 
 } from "../utils/grayscaleUtils.js";
-import { setNoteCountsVisible, refreshPositions as refreshOverlayPositions, attach } from '../graph/overlayManager.js';
+import { setNoteCountsVisible, refreshPositions as refreshOverlayPositions } from '../graph/overlayManager.js';
 import { printDebug, printError, printWarn } from "../utils/debug.js";
 import { TEST_ICON_SVG } from "../constants/testAssets.js";
 import { GRAYSCALE_IMAGES } from "../config/features.js";
-
-// At the top of the file, add a debug counter:
-let attachmentCounter = 0;
 
 function CytoscapeGraph({
   nodes = [],
@@ -88,8 +85,7 @@ function CytoscapeGraph({
 
   // ---- Helpers: attach/detach viewport streaming (pan+zoom -> onViewportChange) ----
   const attachViewportStreaming = (cy) => {
-    const attachId = ++attachmentCounter;
-    //// console.log(`🔵 [attachViewportStreaming #${attachId}] Attaching viewport handlers`);
+    //// console.log(`🔵 [attachViewportStreaming] Attaching viewport handlers`);
     
     let isEnabled = true; // Flag to enable/disable streaming without detaching
     
@@ -333,7 +329,9 @@ function CytoscapeGraph({
     cy._edgeCountCleanup = attachEdgeCountLiveUpdater(cy);
 
     // No extra cleanup here; handled by next run or unmount
-  }, [mode]); // ✅ ONLY mode - callbacks come from refs
+  // attachEdgeCountLiveUpdater reads from internal refs — only mode should trigger this effect.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode]);
 
   // ------------------- Memoized structural fingerprints to avoid expensive comparisons -------------------
   // String keys encoding only structural fields (no positions).

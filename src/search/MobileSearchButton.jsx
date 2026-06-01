@@ -1,5 +1,5 @@
 import React from 'react';
-import { useSearchUI } from './SearchUIContext';
+import { useSearchUI } from './useSearchUI';
 
 export default function MobileSearchButton() {
   const { open } = useSearchUI();

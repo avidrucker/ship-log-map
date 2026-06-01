@@ -9,7 +9,7 @@ export function normalizeTag(tag) {
 export function extractHashtagsFromText(text) {
   if (!text) return [];
   // Local regex so each call starts with lastIndex = 0 — safe for repeated calls
-  const HASHTAG_RE = /(^|[\s.,;:!?"'(){}\[\]])#([\p{L}\p{N}_-]{1,64})/giu;
+  const HASHTAG_RE = /(^|[\s.,;:!?"'(){}[\]])#([\p{L}\p{N}_-]{1,64})/giu;
   const seen = new Set();
   let m;
   while ((m = HASHTAG_RE.exec(text)) !== null) {
