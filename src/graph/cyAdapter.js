@@ -67,15 +67,16 @@ export function updateOverlays(cy, notes, showNoteCountOverlay, visited = null, 
   // Build node/edge note counts from notes object
   const nodeNoteCounts = new Map();
   const edgeNoteCounts = new Map();
-  
+
+  // Pre-collect IDs once (O(n+m)) instead of one cy.getElementById per note (O(n) DOM queries)
+  const cyNodeIds = new Set(cy.nodes(':parent').map(n => n.id()));
+  const cyEdgeIds = new Set(cy.edges().map(e => e.id()));
+
   Object.entries(notes).forEach(([id, noteArray]) => {
     const count = Array.isArray(noteArray) ? noteArray.length : 0;
     if (count > 0) {
-      const ele = cy.getElementById(id);
-      if (ele.length) {
-        if (ele.isNode()) nodeNoteCounts.set(id, count);
-        else if (ele.isEdge()) edgeNoteCounts.set(id, count);
-      }
+      if (cyNodeIds.has(id)) nodeNoteCounts.set(id, count);
+      else if (cyEdgeIds.has(id)) edgeNoteCounts.set(id, count);
     }
   });
   
@@ -109,7 +110,8 @@ export function buildElementsFromDomain(graph, options = {}) {
   const defaultPlaceholder = getDefaultPlaceholderSvg(g.mapName || 'default_map');
 
   // Process nodes - use cache/CDN/fallback system, then apply grayscale if enabled
-  const nodes = g.nodes.map(n => {
+  const nodes = [];
+  g.nodes.forEach(n => {
     let imageUrl = n.imageUrl;
 
     // Handle "unspecified" or missing image URLs -> use CDN placeholder if available, else test icon
@@ -200,7 +202,7 @@ export function buildElementsFromDomain(graph, options = {}) {
     const entryChildId = `${parentId}__entry`; // child visual node
     const entryClasses = markAsNew ? 'entry node-entering' : 'entry';
     
-    return [
+    nodes.push(
       {
         group: 'nodes',
         data: { id: parentId, size: n.size ?? 'regular', color: n.color ?? 'gray', label: '', isContainer: true },
@@ -217,8 +219,8 @@ export function buildElementsFromDomain(graph, options = {}) {
         grabbable: false,
         classes: entryClasses
       }
-    ];
-  }).flat();
+    );
+  });
 
   const edges = g.edges.map(e => ({
     group: "edges",
