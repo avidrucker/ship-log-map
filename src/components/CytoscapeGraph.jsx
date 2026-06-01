@@ -454,9 +454,13 @@ function CytoscapeGraph({
       let updatedCount = 0;
       let majorChange = false;
 
+      // Pre-build id→node Map and batch position writes to defer layout recalcs.
+      const cyNodeById = new Map();
+      cy.nodes('.entry-parent').forEach(n => cyNodeById.set(n.id(), n));
+      cy.startBatch();
       nodes.forEach(node => {
-        const cyNode = cy.getElementById(node.id);
-        if (cyNode.length > 0) {
+        const cyNode = cyNodeById.get(node.id);
+        if (cyNode) {
           const currentPos = cyNode.position();
           const dx = Math.abs(currentPos.x - node.x);
           const dy = Math.abs(currentPos.y - node.y);
@@ -467,6 +471,7 @@ function CytoscapeGraph({
           }
         }
       });
+      cy.endBatch();
 
       printDebug(`📍 [CytoscapeGraph] Updated positions for ${updatedCount} nodes (major: ${majorChange})`);
 
