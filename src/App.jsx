@@ -436,18 +436,6 @@ function App() {
     dispatchAppState, universalMenuCollapsed, graphControlsCollapsed, cameraInfoCollapsed
   });
 
-  // Note data mutations (update notes content, image, and title/ID)
-  const { handleUpdateNotes, handleUpdateTitle, handleUpdateImage } = useNoteDataMutations({
-    setGraphData,
-    dispatchAppState,
-    saveUndoState,
-    selectedNodeIds,
-    nodeSelectionOrder,
-    noteEditingTarget,
-    noteViewingTarget,
-    mapName,
-    cdnBaseUrl,
-  });
 
   // ---------- debug taps ----------
   // useEffect(() => { printDebug('🏠 App: zoomLevel changed to:', zoomLevel); }, [zoomLevel]);
@@ -581,6 +569,19 @@ function App() {
   const saveUndoState = useCallback(() => {
     saveUndoCheckpoint(graphData);
   }, [saveUndoCheckpoint, graphData]);
+
+  // Note data mutations (update notes content, image, and title/ID)
+  const { handleUpdateNotes, handleUpdateTitle, handleUpdateImage } = useNoteDataMutations({
+    setGraphData,
+    dispatchAppState,
+    saveUndoState,
+    selectedNodeIds,
+    nodeSelectionOrder,
+    noteEditingTarget,
+    noteViewingTarget,
+    mapName,
+    cdnBaseUrl,
+  });
 
   const handleUndo = useCallback(() => {
     applyUndoIfAvailable(setGraphData);
