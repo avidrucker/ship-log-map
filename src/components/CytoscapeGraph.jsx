@@ -214,6 +214,7 @@ function CytoscapeGraph({
           mode
         });
         cyRef.current = cy;
+        containerRef.current._cy = cy; // exposes cy to E2E tests via document.getElementById('cy')._cy
         setIsCyReady(true); // Trigger effects that depend on cy being ready
 
         // Initialize camera
@@ -339,11 +340,11 @@ function CytoscapeGraph({
   // When the key is unchanged between renders, only positions changed — skip the
   // expensive Cytoscape Map-build + N-comparison and go straight to batch update.
   const nodesKey = useMemo(() =>
-    nodes.map(n => `${n.id}\0${n.title ?? ''}\0${n.size ?? ''}\0${n.color ?? ''}\0${n.originalImageUrl || n.imageUrl || ''}`).join('\1')
+    nodes.map(n => [n.id, n.title ?? '', n.size ?? '', n.color ?? '', n.originalImageUrl || n.imageUrl || ''].join('\x1F')).join('\x1E')
   , [nodes]);
 
   const edgesKey = useMemo(() =>
-    edges.map(e => `${e.id}\0${e.source}\0${e.target}\0${e.direction ?? 'forward'}`).join('\1')
+    edges.map(e => [e.id, e.source, e.target, e.direction ?? 'forward'].join('\x1F')).join('\x1E')
   , [edges]);
 
   const prevNodesKeyRef = useRef(null);

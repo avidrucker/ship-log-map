@@ -120,32 +120,45 @@ test('search bar keystroke → suggestions latency', async ({ page }) => {
 test('node click → modal open latency', async ({ page }) => {
   await loadGYG(page);
 
-  // Attempt to click the first Cytoscape node element.
-  // Cytoscape renders nodes onto a canvas — we trigger a click at a known
-  // position and check whether any modal appears.
-  const box = await page.locator('canvas').first().boundingBox();
-  if (!box) {
-    console.log('[e2e-perf] Canvas not found — skipping node click test');
+  // Wait for Cytoscape to finish its initial fit/layout so nodes are in their
+  // final rendered positions before we query them.
+  await page.waitForTimeout(800);
+
+  // Retrieve the first entry-parent node's rendered position via the cy instance
+  // exposed on the container at document.getElementById('cy')._cy.
+  const nodeClickPos = await page.evaluate(() => {
+    const container = document.getElementById('cy');
+    const cy = container?._cy;
+    if (!cy || cy.destroyed()) return null;
+    const parents = cy.nodes('.entry-parent');
+    if (parents.empty()) return null;
+    const first = parents.first();
+    const rp = first.renderedPosition();
+    const bb = container.getBoundingClientRect();
+    return { x: bb.left + rp.x, y: bb.top + rp.y };
+  });
+
+  if (!nodeClickPos) {
+    console.log('[e2e-perf] Could not determine node position — skipping node click test');
     return;
   }
 
   const t0 = Date.now();
-  // Click near the centre where a node is likely to exist
-  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
-  // Wait up to 1s for any modal/dialog to appear
+  await page.mouse.click(nodeClickPos.x, nodeClickPos.y);
+
   let modalMs = null;
   try {
-    await page.waitForSelector('[role="dialog"], [class*="modal"], [class*="Modal"]', { timeout: 1000 });
+    await page.waitForSelector('[role="dialog"], [class*="modal"], [class*="Modal"]', { timeout: 1500 });
     modalMs = Date.now() - t0;
   } catch {
-    // No modal appeared — click may have landed on empty canvas
+    // No modal appeared
   }
 
   if (modalMs !== null) {
     console.log(`[e2e-perf] Node click → modal open: ${modalMs} ms`);
     expect(modalMs).toBeLessThan(500);
   } else {
-    console.log('[e2e-perf] No modal appeared after canvas click (may have missed a node)');
+    console.log('[e2e-perf] No modal appeared after clicking node (may need higher timeout or different node selector)');
   }
 });
 
