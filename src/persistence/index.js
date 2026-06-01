@@ -20,6 +20,7 @@
 import { deserializeGraph, serializeGraph } from "../graph/ops.js";
 
 const STORAGE_KEY = "ship_log_map_v1";
+const VALID_MODES = ['editing', 'playing'];
 const MODE_STORAGE_KEY = "ship_log_map_mode_v1";
 const UNDO_STORAGE_KEY = "ship_log_map_undo_v1";
 const MAP_NAME_STORAGE_KEY = "ship_log_map_name_v1";
@@ -124,10 +125,10 @@ export function loadFromLocal(key = STORAGE_KEY) {
     // Version gate if we ever need migrations
     if (typeof parsed.__version !== "number") parsed.__version = 1;
     const graph = deserializeGraph(parsed);
-    
-    // Include mode if present in the saved data, otherwise default to editing
-    if (parsed.mode) {
-      graph.mode = parsed.mode;
+
+    // Validate mode — normalizeGraph accepts any string, so sanitize here
+    if (!VALID_MODES.includes(graph.mode)) {
+      graph.mode = 'editing';
     }
     
     // Include mapName if present in the saved data
@@ -156,10 +157,10 @@ export function loadFromFile(file) {
       try {
         const parsed = JSON.parse(reader.result);
         const graph = deserializeGraph(parsed);
-        
-        // Include mode if present in the imported data, otherwise default to editing
-        if (parsed.mode) {
-          graph.mode = parsed.mode;
+
+        // Validate mode — normalizeGraph accepts any string, so sanitize here
+        if (!VALID_MODES.includes(graph.mode)) {
+          graph.mode = 'editing';
         }
         
         // Include mapName if present in the imported data

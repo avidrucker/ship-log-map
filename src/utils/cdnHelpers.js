@@ -207,8 +207,8 @@ export async function handleLoadFromCdn({
     currentCdnLoadRef.current = null;
   } finally {
     if (currentCdnLoadRef) {
-      printDebug("cdnHelpers.js: finally block, resetting currentCdnLoadRef.current to false");
-      currentCdnLoadRef.current = false;
+      printDebug("cdnHelpers.js: finally block, resetting currentCdnLoadRef.current to null");
+      currentCdnLoadRef.current = null;
     } else {
       printDebug('cdnHelpers.js: currentCdnLoadRef is not defined in finally block.');
     }

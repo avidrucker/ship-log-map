@@ -16,8 +16,17 @@ export default function useVisited(mapName) {
     setVisited(loadVisited(mapName));
   }, [mapName]);
 
-  // Persist whenever visited changes (and mapName is stable)
+  // Persist whenever visited changes — but skip when mapName just changed.
+  // On a mapName transition both this effect and the reload effect fire in the
+  // same flush; if we persist here we'd write the OLD map's visited under the
+  // NEW map's key before the reload effect's setVisited has committed.
+  const prevMapNameRef = React.useRef(mapName);
   React.useEffect(() => {
+    if (mapName !== prevMapNameRef.current) {
+      prevMapNameRef.current = mapName;
+      return;
+    }
+    prevMapNameRef.current = mapName;
     saveVisited(mapName, visited);
   }, [mapName, visited]);
 
