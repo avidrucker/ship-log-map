@@ -48,8 +48,8 @@
  * - URL/query import and JSON import must update BOTH domain state and UI toggles.
  */
 
-import React, { useState, useEffect, useCallback, useRef, useReducer, useMemo } from "react";
-import CytoscapeGraph from "./components/CytoscapeGraph.jsx";
+import React, { useState, useEffect, useCallback, useRef, useReducer, useMemo, Suspense } from "react";
+const CytoscapeGraph = React.lazy(() => import("./components/CytoscapeGraph.jsx"));
 import defaultShipLogData from "./default_ship_log.json";
 import GraphControls from "./components/GraphControls.jsx";
 import UniversalControls from "./components/UniversalControls.jsx";
@@ -127,7 +127,7 @@ function hashList(urls) {
       h = ((h << 5) + h) ^ s.charCodeAt(j);
     }
   }
-  // stringify as base36 so it’s short
+  // stringify as base36 so it's short
   return (h >>> 0).toString(36);
 }
 
@@ -640,22 +640,22 @@ function App() {
 
   // Memoized full image URL list — only rebuilds when imageUrl values (or CDN settings) change,
   // not on position/title edits. nodeIdsKey is a cheap proxy: if no nodes were added/removed
-  // and no imageUrls changed, this won’t recompute.
+  // and no imageUrls changed, this won't recompute.
   const imageUrlsKey = useMemo(
-    () => graphData.nodes.map(n => n.imageUrl ?? ‘’).join(‘|’),
+    () => graphData.nodes.map(n => n.imageUrl ?? '').join('|'),
     [graphData.nodes]
   );
   const graphImageUrls = useMemo(() => {
-    const raw = graphData.nodes.map(n => n.imageUrl).filter(u => u && u !== ‘unspecified’);
+    const raw = graphData.nodes.map(n => n.imageUrl).filter(u => u && u !== 'unspecified');
     return uniqueSorted(raw.map(u => buildFullImageUrl(u, cdnBaseUrl, mapName)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [imageUrlsKey, cdnBaseUrl, mapName]);
 
 // Warm the SW image cache ONCE per image set (and when it changes).
-// Fires only when: SW is available, CDN load is done, we’re online, and the URL list changed.
+// Fires only when: SW is available, CDN load is done, we're online, and the URL list changed.
 const didWarmRef = useRef(false);
 useEffect(() => {
-  if (!(‘serviceWorker’ in navigator)) return;
+  if (!('serviceWorker' in navigator)) return;
   if (isLoadingFromCDN) return; // wait until CDN load completes
   const full = graphImageUrls;
   if (full.length === 0) return;
@@ -664,7 +664,7 @@ useEffect(() => {
   const prev = localStorage.getItem(key);
   // Only warm if new set or first time this session
   if (prev === hash && didWarmRef.current) return;
-  // If offline, retry once we’re online
+  // If offline, retry once we're online
   const doWarm = () => {
     cacheGraphImages(full);               // handles SW-ready & controller internally
     localStorage.setItem(key, hash);      // remember this set
@@ -1534,39 +1534,41 @@ useEffect(() => {
           </div>
         )}
 
-        <CytoscapeGraph
-          key={`graph-${cdnBaseUrl || 'none'}`}
-          nodes={graphData.nodes}
-          edges={graphData.edges}
-          mode={mode}
-          mapName={mapName}
-          cdnBaseUrl={cdnBaseUrl}
-          selectedNodeIds={selectedNodeIds}
-          selectedEdgeIds={selectedEdgeIds}
-          onNodeMove={graphOps.handleNodeMove}
-          onViewportChange={onViewportChange} // 🔴 every-frame stream for BG
-          initialZoom={zoomLevel}
-          initialCameraPosition={cameraPosition}
-          shouldFitOnNextRender={shouldFitOnNextRender}
-          onFitCompleted={handleFitCompleted}
-          onEdgeSelectionChange={handleEdgeSelectionChange}
-          onNodeSelectionChange={handleNodeSelectionChange}
-          onNodeClick={handleNodeClick}
-          onEdgeClick={handleEdgeClick}
-          onNodeDoubleClick={handleNodeDoubleClick}
-          onEdgeDoubleClick={handleEdgeDoubleClick}
-          onEdgeDirectionChange={graphOps.handleEdgeDirectionChange}
-          onDeleteSelectedNodes={graphOps.handleDeleteSelectedNodes}
-          onDeleteSelectedEdges={graphOps.handleDeleteSelectedEdges}
-          onNodeSizeChange={graphOps.handleNodeSizeChange}
-          onNodeColorChange={graphOps.handleNodeColorChange}
-          onBackgroundClick={handleBackgroundClick}
-          onCytoscapeInstanceReady={setCytoscapeInstance}
-          showNoteCountOverlay={showNoteCountOverlay}
-          notes={graphData.notes}
-          visited={visited} /* pass visited to drive unseen badges */
-          bgImage={memoBgImage}
-        />
+        <Suspense fallback={<div className="spinner" style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: 32, height: 32, border: '3px solid #fff', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />}>
+          <CytoscapeGraph
+            key={`graph-${cdnBaseUrl || 'none'}`}
+            nodes={graphData.nodes}
+            edges={graphData.edges}
+            mode={mode}
+            mapName={mapName}
+            cdnBaseUrl={cdnBaseUrl}
+            selectedNodeIds={selectedNodeIds}
+            selectedEdgeIds={selectedEdgeIds}
+            onNodeMove={graphOps.handleNodeMove}
+            onViewportChange={onViewportChange} // 🔴 every-frame stream for BG
+            initialZoom={zoomLevel}
+            initialCameraPosition={cameraPosition}
+            shouldFitOnNextRender={shouldFitOnNextRender}
+            onFitCompleted={handleFitCompleted}
+            onEdgeSelectionChange={handleEdgeSelectionChange}
+            onNodeSelectionChange={handleNodeSelectionChange}
+            onNodeClick={handleNodeClick}
+            onEdgeClick={handleEdgeClick}
+            onNodeDoubleClick={handleNodeDoubleClick}
+            onEdgeDoubleClick={handleEdgeDoubleClick}
+            onEdgeDirectionChange={graphOps.handleEdgeDirectionChange}
+            onDeleteSelectedNodes={graphOps.handleDeleteSelectedNodes}
+            onDeleteSelectedEdges={graphOps.handleDeleteSelectedEdges}
+            onNodeSizeChange={graphOps.handleNodeSizeChange}
+            onNodeColorChange={graphOps.handleNodeColorChange}
+            onBackgroundClick={handleBackgroundClick}
+            onCytoscapeInstanceReady={setCytoscapeInstance}
+            showNoteCountOverlay={showNoteCountOverlay}
+            notes={graphData.notes}
+            visited={visited} /* pass visited to drive unseen badges */
+            bgImage={memoBgImage}
+          />
+        </Suspense>
 
         {compassVisible && (
           <div style={{ position: 'absolute', bottom: '10px', right: '10px', zIndex: 900, width: '60px', height: '60px', pointerEvents: 'none', opacity: 0.9 }}>
