@@ -53,7 +53,8 @@ function NoteViewerModal({
   if (!targetId) return null;
 
   return (
-    <div 
+    <div
+      data-testid="note-viewer-modal"
       onClick={(e) => e.stopPropagation()}
       style={{
         position: "fixed",
