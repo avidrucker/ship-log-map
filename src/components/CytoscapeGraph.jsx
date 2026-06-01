@@ -335,162 +335,78 @@ function CytoscapeGraph({
   }, [mode]); // ✅ ONLY mode - callbacks come from refs
 
   // ------------------- Memoized structural fingerprints to avoid expensive comparisons -------------------
-  const nodesFingerprint = useMemo(() => {
-    return nodes.map(n => ({
-      id: n.id,
-      title: n.title,
-      size: n.size,
-      color: n.color,
-      imageUrl: n.originalImageUrl || n.imageUrl
-    }));
-  }, [nodes]);
+  // String keys encoding only structural fields (no positions).
+  // When the key is unchanged between renders, only positions changed — skip the
+  // expensive Cytoscape Map-build + N-comparison and go straight to batch update.
+  const nodesKey = useMemo(() =>
+    nodes.map(n => `${n.id}\0${n.title ?? ''}\0${n.size ?? ''}\0${n.color ?? ''}\0${n.originalImageUrl || n.imageUrl || ''}`).join('\1')
+  , [nodes]);
 
-  const edgesFingerprint = useMemo(() => {
-    return edges.map(e => ({
-      id: e.id,
-      source: e.source,
-      target: e.target,
-      direction: e.direction ?? "forward"
-    }));
-  }, [edges]);
+  const edgesKey = useMemo(() =>
+    edges.map(e => `${e.id}\0${e.source}\0${e.target}\0${e.direction ?? 'forward'}`).join('\1')
+  , [edges]);
+
+  const prevNodesKeyRef = useRef(null);
+  const prevEdgesKeyRef = useRef(null);
 
   // ------------------- Domain sync (nodes/edges) -------------------
   useEffect(() => {
     const cy = cyRef.current;
     if (!cy) return;
 
-    printDebug(`🔄 [CytoscapeGraph] Domain sync effect triggered - checking if sync needed (mode: ${mode})`);
-    printDebug(`🔍 [CytoscapeGraph] Current nodes in cytoscape: ${cy.nodes().length}, incoming nodes: ${nodes.length}`);
-    printDebug(`🔍 [CytoscapeGraph] Current edges in cytoscape: ${cy.edges().length}, incoming edges: ${edges.length}`);
+    const nodesKeyChanged = nodesKey !== prevNodesKeyRef.current;
+    const edgesKeyChanged = edgesKey !== prevEdgesKeyRef.current;
+    prevNodesKeyRef.current = nodesKey;
+    prevEdgesKeyRef.current = edgesKey;
 
     // Check if mode changed by comparing current node grabbable state with expected
     const expectedGrabbable = mode === 'editing';
     const modeChanged = cy.nodes().length > 0 && cy.nodes()[0].grabbable() !== expectedGrabbable;
 
-    // Quick count check first (cheapest operation)
-    const cyNodeCount = cy.nodes('.entry-parent').length;
-    const cyEdgeCount = cy.edges().length;
-    const nodeCountChanged = nodes.length !== cyNodeCount;
-    const edgeCountChanged = edges.length !== cyEdgeCount;
-
-    // If counts changed, we know we need a full sync - skip expensive comparisons
-    if (nodeCountChanged || edgeCountChanged || modeChanged) {
-      printDebug(`🔄 [CytoscapeGraph] Count or mode changed - performing full sync`);
+    if (nodesKeyChanged || edgesKeyChanged || modeChanged) {
+      printDebug(`🔄 [CytoscapeGraph] Structural or mode change — performing full sync`);
       syncElements(cy, { nodes, edges, mapName, cdnBaseUrl }, { mode });
-      
-      // Immediately re-place edge-count nodes post-sync
-      try { updateOverlays(cy, notesRef.current, showNoteCountOverlay, visitedRef.current); } catch {
-        printWarn('Failed to update edge count node positions after full sync');
+      try { updateOverlays(cy, notesRef.current, showNoteCountOverlay, visitedRef.current, mode); } catch {
+        printWarn('Failed to update overlays after full sync');
       }
       return;
     }
 
-    // Build lookup maps for efficient comparison (only if counts match)
-    const currentNodesMap = new Map();
-    cy.nodes('.entry-parent').forEach(n => {
-      currentNodesMap.set(n.id(), {
-        id: n.id(),
-        title: n.data('label'),
-        size: n.data('size'),
-        color: n.data('color'),
-        x: n.position().x,
-        y: n.position().y
-      });
-    });
+    // Position-only update: keys unchanged, skip all Map building and comparison.
+    printDebug(`🔄 [CytoscapeGraph] Position-only update`);
+    let updatedCount = 0;
+    let majorChange = false;
 
-    const currentEdgesMap = new Map();
-    cy.edges().forEach(e => {
-      currentEdgesMap.set(e.id(), {
-        id: e.id(),
-        source: e.data('source'),
-        target: e.data('target'),
-        direction: e.data('direction') ?? "forward"
-      });
-    });
-
-    // Check structural changes using memoized fingerprints
-    let structuralChange = false;
-    
-    for (const nodeData of nodesFingerprint) {
-      const current = currentNodesMap.get(nodeData.id);
-      if (!current) {
-        structuralChange = true;
-        break;
-      }
-      if (current.title !== nodeData.title || 
-          current.size !== nodeData.size || 
-          current.color !== nodeData.color) {
-        structuralChange = true;
-        break;
-      }
-    }
-
-    if (!structuralChange) {
-      for (const edgeData of edgesFingerprint) {
-        const current = currentEdgesMap.get(edgeData.id);
-        if (!current) {
-          structuralChange = true;
-          break;
-        }
-        if (current.source !== edgeData.source || 
-            current.target !== edgeData.target || 
-            current.direction !== edgeData.direction) {
-          structuralChange = true;
-          break;
+    const cyNodeById = new Map();
+    cy.nodes('.entry-parent').forEach(n => cyNodeById.set(n.id(), n));
+    cy.startBatch();
+    nodes.forEach(node => {
+      const cyNode = cyNodeById.get(node.id);
+      if (cyNode) {
+        const currentPos = cyNode.position();
+        const dx = Math.abs(currentPos.x - node.x);
+        const dy = Math.abs(currentPos.y - node.y);
+        if (dx > 0.01 || dy > 0.01) {
+          cyNode.position({ x: node.x, y: node.y });
+          updatedCount++;
+          if (dx > 10 || dy > 10) majorChange = true;
         }
       }
-    }
+    });
+    cy.endBatch();
 
-    if (structuralChange) {
-      printDebug(`🔄 [CytoscapeGraph] Performing full sync`);
-      syncElements(cy, { nodes, edges, mapName, cdnBaseUrl }, { mode });
-
-      // Immediately re-place edge-count nodes post-sync (covers undo, load, etc.)
+    if (updatedCount > 0) {
       try { updateOverlays(cy, notesRef.current, showNoteCountOverlay, visitedRef.current, mode); } catch {
-        printWarn('Failed to update edge count node positions after full sync');
+        printWarn('Failed to update overlays after position-only update');
       }
-    } else {
-      printDebug(`🔄 [CytoscapeGraph] Only positions changed, updating positions without sync`);
-      let updatedCount = 0;
-      let majorChange = false;
-
-      // Pre-build id→node Map and batch position writes to defer layout recalcs.
-      const cyNodeById = new Map();
-      cy.nodes('.entry-parent').forEach(n => cyNodeById.set(n.id(), n));
-      cy.startBatch();
-      nodes.forEach(node => {
-        const cyNode = cyNodeById.get(node.id);
-        if (cyNode) {
-          const currentPos = cyNode.position();
-          const dx = Math.abs(currentPos.x - node.x);
-          const dy = Math.abs(currentPos.y - node.y);
-          if (dx > 0.01 || dy > 0.01) {
-            cyNode.position({ x: node.x, y: node.y });
-            updatedCount++;
-            if (dx > 10 || dy > 10) majorChange = true;
-          }
-        }
-      });
-      cy.endBatch();
-
-      printDebug(`📍 [CytoscapeGraph] Updated positions for ${updatedCount} nodes (major: ${majorChange})`);
-
-      // Nudge edge-count nodes right away so they don't wait for the next event
-      if (updatedCount > 0) {
-        try { updateOverlays(cy, notesRef.current, showNoteCountOverlay, visitedRef.current, mode); } catch {
-          printWarn('Failed to update edge count node positions after position-only update');
-        }
-      }
-
-      // Optional: refresh layout on large changes
-      if (updatedCount > 0 && majorChange) {
+      if (majorChange) {
         syncElements(cy, { nodes, edges, mapName, cdnBaseUrl }, { mode });
         try { updateOverlays(cy, notesRef.current, showNoteCountOverlay, visitedRef.current, mode); } catch {
-          printWarn('Failed to update edge count node positions after major position-only update');
+          printWarn('Failed to update overlays after major position update');
         }
       }
     }
-  }, [nodesFingerprint, edgesFingerprint, mode, mapName, cdnBaseUrl, showNoteCountOverlay, nodes, edges]);
+  }, [nodesKey, edgesKey, mode, mapName, cdnBaseUrl, showNoteCountOverlay, nodes, edges]);
   // notes removed from deps: accessed via notesRef.current (kept current by dedicated effect at line 692)
 
   // ------------------- Note count visibility toggle -------------------
