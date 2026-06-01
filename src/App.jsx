@@ -202,6 +202,7 @@ function App() {
   const pendingViewTargetRef = useRef(null);
   // Suppress "empty selection" close while we're switching/opening a target
   const suppressEmptyCloseRef = useRef(false);
+  const graphDataNodesRef = useRef([]);
 
   // Use the Cytoscape instance management hook
   const {
@@ -473,24 +474,28 @@ function App() {
   // Previous large URL monitoring useEffect has been moved to hooks/useMapLoading.js
 
 // ---------- persistence ----------
+  const persistTimerRef = useRef(null);
   useEffect(() => {
     // Don't persist while loading from CDN to avoid overwriting CDN data
     if (isLoadingFromCDN) {
       printDebug('[PERSISTENCE] Skipping persistence during CDN load');
       return;
     }
-    
-    // persist graph (nodes/edges/notes), mode, map name, and CDN base URL
+
+    // Debounce writes: coalesce rapid changes (e.g. every keystroke while editing a title)
+    // into a single localStorage write 500ms after the last change.
+    clearTimeout(persistTimerRef.current);
     const dataWithModeAndName = { ...graphData, mode, mapName, cdnBaseUrl, orientation, bgImage };
-    printDebug('[PERSISTENCE] Saving to local:', {
-      nodeCount: dataWithModeAndName.nodes.length,
-      mapName: dataWithModeAndName.mapName,
-      mode: dataWithModeAndName.mode,
-      cdnBaseUrl: dataWithModeAndName.cdnBaseUrl,
-      orientation: dataWithModeAndName.orientation,
-      bgImage: dataWithModeAndName.bgImage
-    });
-    saveToLocal(dataWithModeAndName);
+    persistTimerRef.current = setTimeout(() => {
+      printDebug('[PERSISTENCE] Saving to local:', {
+        nodeCount: dataWithModeAndName.nodes.length,
+        mapName: dataWithModeAndName.mapName,
+        mode: dataWithModeAndName.mode,
+      });
+      saveToLocal(dataWithModeAndName);
+    }, 500);
+
+    return () => clearTimeout(persistTimerRef.current);
   }, [graphData, mode, mapName, cdnBaseUrl, orientation, bgImage, isLoadingFromCDN]);
 
   // Save CDN base URL to imageLoader storage
@@ -1020,20 +1025,8 @@ useEffect(() => {
               payload: { nodeIds: newSelectedIds, selectionOrder: newSelectionOrder }
             });
             
-            // Update Cytoscape selection to match
-            const cy = getCytoscapeInstance();
-            if (cy) {
-              // Use setTimeout to ensure the DOM has updated with the new node ID
-              setTimeout(() => {
-                cy.nodes().unselect();
-                newSelectedIds.forEach(nodeId => {
-                  const node = cy.getElementById(nodeId);
-                  if (node.length > 0) {
-                    node.select();
-                  }
-                });
-              }, 0);
-            }
+            // Cytoscape selection sync is handled by CytoscapeGraph's selection-sync
+            // useEffect which watches selectedNodeIds — no manual intervention needed here
           }
           
           // Update note editing target if it's the renamed node
@@ -1241,14 +1234,6 @@ useEffect(() => {
     lastUndoState
   ]);
 
-  // Memoize props for CytoscapeGraph
-  const memoNodes = useMemo(() => graphData.nodes, [graphData.nodes]);
-  const memoEdges = useMemo(() => graphData.edges, [graphData.edges]);
-  const memoSelectedNodeIds = useMemo(() => selectedNodeIds, [selectedNodeIds]);
-  const memoSelectedEdgeIds = useMemo(() => selectedEdgeIds, [selectedEdgeIds]);
-  const memoCameraPosition = useMemo(() => cameraPosition, [cameraPosition]);
-  const memoNotes = useMemo(() => graphData.notes, [graphData.notes]);
-  
   // Memoize background image object to prevent infinite re-renders
   const memoBgImage = useMemo(() => {
     if (!bgImage.imageUrl) return null;
@@ -1289,15 +1274,19 @@ useEffect(() => {
     setBgImage
   ]);
 
+  // Keep ref current so the position-update effect below doesn't need graphData.nodes in its deps
+  useEffect(() => { graphDataNodesRef.current = graphData.nodes; }, [graphData.nodes]);
+
   useEffect(() => {
-  // Listen for TRIGGER_GRAPH_UPDATE action
-  // You can use a ref or a flag in appState if you want to avoid repeated triggers
-  // Here, we'll just listen for changes in appState and graphData
+  // Only runs when lastActionType changes — graphData.nodes accessed via ref to avoid
+  // re-triggering this effect on every node edit (which would be wasteful since the
+  // if-guard below means we only do real work on TRIGGER_GRAPH_UPDATE).
   if (appState.lastActionType === ACTION_TYPES.TRIGGER_GRAPH_UPDATE) {
     const cy = getCytoscapeInstance();
-    if (cy && graphData.nodes) {
+    const nodes = graphDataNodesRef.current;
+    if (cy && nodes) {
       printDebug('🔄 App: Forcing immediate position update in Cytoscape after loading from CDN');
-      graphData.nodes.forEach(node => {
+      nodes.forEach(node => {
         const cyNode = cy.getElementById(node.id);
         if (cyNode.length > 0) {
           cyNode.position({ x: node.x, y: node.y });
@@ -1305,7 +1294,7 @@ useEffect(() => {
       });
     }
   }
-}, [appState.lastActionType, graphData.nodes, getCytoscapeInstance]);
+}, [appState.lastActionType, getCytoscapeInstance]);
 
 
 useEffect(() => {
@@ -1532,17 +1521,17 @@ useEffect(() => {
 
         <CytoscapeGraph
           key={`graph-${cdnBaseUrl || 'none'}`}
-          nodes={memoNodes}
-          edges={memoEdges}
+          nodes={graphData.nodes}
+          edges={graphData.edges}
           mode={mode}
           mapName={mapName}
           cdnBaseUrl={cdnBaseUrl}
-          selectedNodeIds={memoSelectedNodeIds}
-          selectedEdgeIds={memoSelectedEdgeIds}
+          selectedNodeIds={selectedNodeIds}
+          selectedEdgeIds={selectedEdgeIds}
           onNodeMove={graphOps.handleNodeMove}
           onViewportChange={onViewportChange} // 🔴 every-frame stream for BG
           initialZoom={zoomLevel}
-          initialCameraPosition={memoCameraPosition}
+          initialCameraPosition={cameraPosition}
           shouldFitOnNextRender={shouldFitOnNextRender}
           onFitCompleted={handleFitCompleted}
           onEdgeSelectionChange={handleEdgeSelectionChange}
@@ -1559,7 +1548,7 @@ useEffect(() => {
           onBackgroundClick={handleBackgroundClick}
           onCytoscapeInstanceReady={setCytoscapeInstance}
           showNoteCountOverlay={showNoteCountOverlay}
-          notes={memoNotes}
+          notes={graphData.notes}
           visited={visited} /* pass visited to drive unseen badges */
           bgImage={memoBgImage}
         />

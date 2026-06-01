@@ -1,6 +1,6 @@
 // src/search/useHashtagIndex.js
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { extractHashtagsFromText, normalizeTag, tokenizeQuery } from './hashtagUtils';
 import { printDebug } from '../utils/debug';
 
@@ -40,6 +40,18 @@ export function useHashtagIndex({
     allTagsSorted, allLabelsSorted,
     wordToFullNamesMap, fullNamesMap,
   } = indexState;
+
+  // Fingerprint only the fields the index actually uses: id, title, and notes content.
+  // Position changes (x, y) do NOT change these keys, so dragging a node no longer
+  // triggers a full index rebuild.
+  const nodesContentKey = useMemo(
+    () => nodes.map(n => `${n.id}|${n.title ?? ''}|${getNodeNotes(n)}`).join('\n'),
+    [nodes, getNodeNotes]
+  );
+  const edgesContentKey = useMemo(
+    () => edges.map(e => `${e.id}|${getEdgeNotes(e)}`).join('\n'),
+    [edges, getEdgeNotes]
+  );
 
   useEffect(() => {
     const tagMap = new Map();
@@ -130,7 +142,7 @@ export function useHashtagIndex({
     printDebug(`📊 Total places indexed: ${fullNamesMap.size}`);
     printDebug(`📊 Total words indexed: ${wordToFullNamesMap.size}`);
     printDebug(`📊 Sample full names:`, Array.from(fullNamesMap.values()).slice(0, 5));
-  }, [nodes, edges, getNodeNotes, getEdgeNotes]);
+  }, [nodesContentKey, edgesContentKey]);
 
   // Opt-B: useCallback stabilizes the returned function references so that consumers
   // using getSuggestions/findMatchesFromTokens in their own deps don't re-run when

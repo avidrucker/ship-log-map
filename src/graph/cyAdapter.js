@@ -536,13 +536,16 @@ export function syncElements(cy, graph, options = {}) {
 
     // add new elements
     cy.add(modifiedElements);
-    
-    cy.endBatch();
 
+    // Restore saved positions inside the same batch — positions can be written
+    // while style recalcs are deferred; this saves a second full-graph traversal.
     cy.nodes().forEach(node => {
       const savedPosition = currentPositions[node.id()];
       if (savedPosition) node.position(savedPosition);
     });
+
+    cy.endBatch();
+
     cy.zoom(currentZoom);
     cy.pan(currentPan);
 
@@ -562,12 +565,14 @@ export function syncElements(cy, graph, options = {}) {
   }
 
   const expectedParentGrabbable = mode === 'editing';
-  cy.nodes().forEach(n => {
-    if (n.hasClass('entry-parent')) {
-      if (expectedParentGrabbable) n.grabify(); else n.ungrabify();
-    } else {
-      n.ungrabify();
-    }
+  cy.batch(() => {
+    cy.nodes().forEach(n => {
+      if (n.hasClass('entry-parent')) {
+        if (expectedParentGrabbable) n.grabify(); else n.ungrabify();
+      } else {
+        n.ungrabify();
+      }
+    });
   });
 
   cy.nodes('.entry-parent').forEach(parent => {

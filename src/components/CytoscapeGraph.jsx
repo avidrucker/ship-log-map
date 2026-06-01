@@ -485,8 +485,8 @@ function CytoscapeGraph({
         }
       }
     }
-  }, [nodesFingerprint, edgesFingerprint, mode, mapName, cdnBaseUrl, showNoteCountOverlay, notes, nodes, edges]);
-  // Note: 'nodes' is still needed for position updates in the else branch
+  }, [nodesFingerprint, edgesFingerprint, mode, mapName, cdnBaseUrl, showNoteCountOverlay, nodes, edges]);
+  // notes removed from deps: accessed via notesRef.current (kept current by dedicated effect at line 692)
 
   // ------------------- Note count visibility toggle -------------------
   useEffect(() => {
@@ -505,13 +505,16 @@ function CytoscapeGraph({
     const currentSelectedNodes = cy.$("node:selected").map(n => n.id());
     const currentSelectedEdges = cy.$("edge:selected").map(e => e.id());
 
+    const nodeIdSet = new Set(selectedNodeIds);
+    const edgeIdSet = new Set(selectedEdgeIds);
+
     const nodeSelectionsMatch =
       currentSelectedNodes.length === selectedNodeIds.length &&
-      currentSelectedNodes.every(id => selectedNodeIds.includes(id));
+      currentSelectedNodes.every(id => nodeIdSet.has(id));
 
     const edgeSelectionsMatch =
       currentSelectedEdges.length === selectedEdgeIds.length &&
-      currentSelectedEdges.every(id => selectedEdgeIds.includes(id));
+      currentSelectedEdges.every(id => edgeIdSet.has(id));
 
     if (!nodeSelectionsMatch || !edgeSelectionsMatch) {
       cy.elements().unselect();
@@ -606,10 +609,12 @@ function CytoscapeGraph({
     if (!cy) return;
     const expected = mode === 'editing';
     let changed = 0;
-    cy.nodes().forEach(n => {
-      const isGrab = n.grabbable();
-      if (expected && !isGrab) { n.grabify(); changed++; }
-      if (!expected && isGrab) { n.ungrabify(); changed++; }
+    cy.batch(() => {
+      cy.nodes().forEach(n => {
+        const isGrab = n.grabbable();
+        if (expected && !isGrab) { n.grabify(); changed++; }
+        if (!expected && isGrab) { n.ungrabify(); changed++; }
+      });
     });
     if (changed) {
       printDebug(`⚙️ [CytoscapeGraph] Mode='${mode}' enforced ${expected ? 'grabify' : 'ungrabify'} on ${changed} nodes (immediate effect)`);

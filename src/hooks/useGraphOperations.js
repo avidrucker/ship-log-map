@@ -284,31 +284,30 @@ export function useGraphOperations({
 
   const handleRotateNodesAndMap = useCallback(() => {
     const cyInstance = typeof cy === 'function' ? cy() : cy;
-    
+
     saveUndoCheckpoint({ nodes, edges, notes, orientation });
-    
-    setGraphData(prev => {
-      const { nodes: rotated } = rotateNodesAndCompass(prev.nodes, orientation);
-      printDebug('🌀 GraphOps: Rotated nodes data updated, triggering re-render:', { 
-        nodeCount: rotated.length, 
-        firstNodeBefore: prev.nodes[0] ? `(${prev.nodes[0].x}, ${prev.nodes[0].y})` : 'none',
-        firstNodeAfter: rotated[0] ? `(${rotated[0].x}, ${rotated[0].y})` : 'none'
-      });
-      
-      if (cyInstance) {
-        printDebug('🔄 GraphOps: Forcing immediate position update in Cytoscape after rotation');
-        rotated.forEach(node => {
-          const cyNode = cyInstance.getElementById(node.id);
-          if (cyNode.length > 0) {
-            cyNode.position({ x: node.x, y: node.y });
-          }
-        });
-        cyInstance.fit(cyInstance.nodes(), 50);
-      }
-      
-      return { ...prev, nodes: rotated };
+
+    // Compute rotated positions before calling setGraphData so the updater stays pure
+    const { nodes: rotated } = rotateNodesAndCompass(nodes, orientation);
+    printDebug('🌀 GraphOps: Rotated nodes data updated, triggering re-render:', {
+      nodeCount: rotated.length,
+      firstNodeBefore: nodes[0] ? `(${nodes[0].x}, ${nodes[0].y})` : 'none',
+      firstNodeAfter: rotated[0] ? `(${rotated[0].x}, ${rotated[0].y})` : 'none'
     });
-    
+
+    setGraphData(prev => ({ ...prev, nodes: rotated }));
+
+    // Apply Cytoscape DOM mutations AFTER setGraphData — outside the updater so the
+    // updater stays pure and avoids layout thrashing from sync DOM reads/writes
+    if (cyInstance) {
+      printDebug('🔄 GraphOps: Forcing immediate position update in Cytoscape after rotation');
+      rotated.forEach(node => {
+        const cyNode = cyInstance.getElementById(node.id);
+        if (cyNode.length > 0) cyNode.position({ x: node.x, y: node.y });
+      });
+      cyInstance.fit(cyInstance.nodes(), 50);
+    }
+
     const next = ((orientation + 90) % 360 + 360) % 360;
     dispatch({ type: ACTION_TYPES.SET_ORIENTATION, payload: { orientation: next } });
   }, [orientation, nodes, edges, notes, saveUndoCheckpoint, setGraphData, cy, dispatch]);

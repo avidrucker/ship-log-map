@@ -95,6 +95,29 @@ describe('useHashtagIndex — render counts', () => {
 
     expect(secondRef).toBe(firstRef);
   });
+
+  // T2-C: content fingerprint optimization — dragging a node must NOT rebuild the index
+  test('position-only change does not trigger an index rebuild', async () => {
+    const nodes = makeNodes(10);
+
+    const { result, rerender } = renderHook(
+      ({ ns }) => {
+        const r = useHashtagIndex({ nodes: ns, edges: NO_EDGES });
+        return r;
+      },
+      { initialProps: { ns: nodes } }
+    );
+    await act(async () => {}); // flush initial build
+
+    const firstAllTags = result.current.allTagsSorted;
+
+    // New nodes array with same content but different x/y (simulates a drag)
+    const movedNodes = nodes.map(n => ({ ...n, x: (n.x ?? 0) + 50, y: (n.y ?? 0) + 50 }));
+    await act(async () => { rerender({ ns: movedNodes }); });
+
+    // allTagsSorted should be the exact same reference — no rebuild occurred
+    expect(result.current.allTagsSorted).toBe(firstAllTags);
+  });
 });
 
 // ---------------------------------------------------------------------------
