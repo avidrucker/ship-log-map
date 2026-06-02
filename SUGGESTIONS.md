@@ -137,15 +137,12 @@ Race condition (rapid double-click fires re-attach timer from prior click) and t
 
 ---
 
-### DEV-1 — Remove profiling console logs before shipping
+### ~~DEV-1 — Remove profiling console logs before shipping~~ ✅ Fixed (Session 6)
 **Priority:** Low (dev-only cleanup)
 **Files:** `src/components/CytoscapeGraph.jsx`, `src/App.jsx`
 
-Two sets of console logs were added in Session 5 for profiling:
-- `[FPS] drag fps: N` — RAF counter in `attachDragFpsCounter()` (CytoscapeGraph.jsx)
-- `[RESIZE] handleNodeSizeChange took N ms` and `[RESIZE] endNodeResizeAnimation fired at N ms` — timing logs in `handleNodeDoubleClick` (App.jsx)
-
-These are guarded by `// eslint-disable-next-line no-console` but are unconditional. Either remove them or gate them behind `DEBUG_LOGGING` / `DEV_MODE` before the next public release.
+Both `[FPS]` and `[RESIZE]` profiling logs now gated behind `DEV_MODE`. They still fire in dev
+(useful for ongoing profiling) but are compiled away in production builds.
 
 ---
 

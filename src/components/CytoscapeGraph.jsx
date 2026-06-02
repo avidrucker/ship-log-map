@@ -33,7 +33,7 @@ import {
 import { setNoteCountsVisible, refreshPositions as refreshOverlayPositions } from '../graph/overlayManager.js';
 import { printDebug, printError, printWarn } from "../utils/debug.js";
 import { TEST_ICON_SVG } from "../constants/testAssets.js";
-import { GRAYSCALE_IMAGES } from "../config/features.js";
+import { GRAYSCALE_IMAGES, DEV_MODE } from "../config/features.js";
 
 function CytoscapeGraph({
   nodes = [],
@@ -165,10 +165,12 @@ function CytoscapeGraph({
 
     const onFree = () => {
       if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null; }
-      const elapsed = (performance.now() - startTime) / 1000;
-      if (elapsed > 0.1) {
-        // eslint-disable-next-line no-console
-        console.info('[FPS] drag fps:', Math.round(frameCount / elapsed), `(${frameCount} frames / ${elapsed.toFixed(2)}s)`);
+      if (DEV_MODE) {
+        const elapsed = (performance.now() - startTime) / 1000;
+        if (elapsed > 0.1) {
+          // eslint-disable-next-line no-console
+          console.info('[FPS] drag fps:', Math.round(frameCount / elapsed), `(${frameCount} frames / ${elapsed.toFixed(2)}s)`);
+        }
       }
     };
 
@@ -187,29 +189,18 @@ function CytoscapeGraph({
     let rafId = null;
     let lastUpdateTime = 0;
     const MIN_UPDATE_INTERVAL = 100; // Max 10 updates per second
-    
+
     const scheduleUpdate = () => {
-      // ✅ FIX: Cancel any existing rAF before scheduling a new one
-      if (rafId !== null) {
-        cancelAnimationFrame(rafId);
-        rafId = null;
-      }
-      
+      // Check time FIRST — if a RAF is already pending, let it fire rather than
+      // cancelling it (the old cancel-before-check pattern lost pending updates).
       const now = performance.now();
-      const timeSinceLastUpdate = now - lastUpdateTime;
-      
-      // ✅ FIX: Only update if enough time has passed
-      if (timeSinceLastUpdate < MIN_UPDATE_INTERVAL) {
-        // Skip this update - too soon
-        return;
-      }
-      
+      if (now - lastUpdateTime < MIN_UPDATE_INTERVAL) return; // too soon
+      if (rafId !== null) return;                             // already scheduled
+
       rafId = requestAnimationFrame(() => {
         rafId = null;
         lastUpdateTime = performance.now();
-        
         try {
-          printDebug("[CYTOSCAPEGRAPH] Refreshing overlay positions during drag");
           refreshOverlayPositions(cy);
         } catch (e) {
           printWarn('edge-count update failed:', e);
@@ -217,21 +208,15 @@ function CytoscapeGraph({
       });
     };
 
-    // ✅ Listen to drag events (fires continuously during drag)
     cy.on('drag', 'node.entry-parent', scheduleUpdate);
-    
-    // ✅ Also listen to dragfree to ensure final position is captured
     cy.on('dragfree', 'node.entry-parent', scheduleUpdate);
 
     const cleanup = () => {
-      if (rafId !== null) {
-        cancelAnimationFrame(rafId);
-        rafId = null;
-      }
+      if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null; }
       cy.off('drag', 'node.entry-parent', scheduleUpdate);
       cy.off('dragfree', 'node.entry-parent', scheduleUpdate);
     };
-    
+
     return cleanup;
   }, []);
 
@@ -478,6 +463,7 @@ function CytoscapeGraph({
       currentSelectedEdges.every(id => edgeIdSet.has(id));
 
     if (!nodeSelectionsMatch || !edgeSelectionsMatch) {
+      cy.startBatch();
       cy.elements().unselect();
       selectedNodeIds.forEach(nodeId => {
         const node = cy.getElementById(nodeId);
@@ -487,6 +473,7 @@ function CytoscapeGraph({
         const edge = cy.getElementById(edgeId);
         if (edge.length > 0) edge.select();
       });
+      cy.endBatch();
     }
   }, [selectedNodeIds, selectedEdgeIds]);
 

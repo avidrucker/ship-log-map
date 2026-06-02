@@ -931,8 +931,10 @@ useEffect(() => {
     if (cy && om) om.startNodeResizeAnimation(cy, nodeId);
 
     graphOps.handleNodeSizeChange(nodeId, nextSize);
-    // eslint-disable-next-line no-console
-    console.info('[RESIZE] handleNodeSizeChange took', Math.round(performance.now() - t0), 'ms');
+    if (DEV_MODE) {
+      // eslint-disable-next-line no-console
+      console.info('[RESIZE] handleNodeSizeChange took', Math.round(performance.now() - t0), 'ms');
+    }
 
     if (cy && om) {
       // Drive timeout from the same token as the CSS transition-duration so they
@@ -941,8 +943,10 @@ useEffect(() => {
         resizeTimersRef.current.delete(nodeId);
         if (!cy.destroyed()) {
           om.endNodeResizeAnimation(cy, nodeId);
-          // eslint-disable-next-line no-console
-          console.info('[RESIZE] endNodeResizeAnimation fired at', Math.round(performance.now() - t0), 'ms after dblclick');
+          if (DEV_MODE) {
+            // eslint-disable-next-line no-console
+            console.info('[RESIZE] endNodeResizeAnimation fired at', Math.round(performance.now() - t0), 'ms after dblclick');
+          }
         }
       }, RESIZE_TRANSITION_MS + 60);
       resizeTimersRef.current.set(nodeId, timerId);

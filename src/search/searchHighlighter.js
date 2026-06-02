@@ -16,43 +16,29 @@ let currentSearchIds = new Set();
 export function applySearchSelection({ cy, nodeIds = [], edgeIds = [], alsoSelect = true }) {
   if (!cy) return;
 
-  // Track the current search selection
   currentSearchIds = new Set([...nodeIds, ...edgeIds]);
   searchInProgress = true;
 
-  printDebug("clearing previous search selection...");
+  const nodeSel = nodeIds.map(id => `#${CSS.escape(String(id))}`).join(', ');
+  const edgeSel = edgeIds.map(id => `#${CSS.escape(String(id))}`).join(', ');
 
-  // Step 1: Clear everything (before the debounce delay, so it looks responsive)
-  if (alsoSelect) cy.elements().unselect();
-  cy.elements('.search-glow').removeClass('search-glow');
+  // Single batch: all Cytoscape events fire synchronously while searchInProgress=true,
+  // so the cyAdapter select handler correctly skips React state updates. React 18
+  // automatically batches any resulting dispatches into one render. No timeout needed.
+  cy.batch(() => {
+    if (alsoSelect) cy.elements().unselect();
+    cy.elements('.search-glow').removeClass('search-glow');
 
-  // Step 2: Apply new selection after a brief delay so any pending event handlers
-  // (from the unselect above) settle before we write the new state.
-  setTimeout(() => {
-    printDebug("✅ Applying new selection after clear...");
+    const nodes = nodeSel ? cy.nodes(nodeSel) : cy.collection();
+    const edges = edgeSel ? cy.edges(edgeSel) : cy.collection();
+    const elems = nodes.union(edges);
 
-    // Build selectors safely
-    const nodeSel = nodeIds.map(id => `#${CSS.escape(String(id))}`).join(', ');
-    const edgeSel = edgeIds.map(id => `#${CSS.escape(String(id))}`).join(', ');
+    if (alsoSelect) elems.select();
+    elems.addClass('search-glow');
+  });
 
-    // Batch all Cytoscape DOM mutations into a single redraw pass
-    cy.batch(() => {
-      const nodes = nodeSel ? cy.nodes(nodeSel) : cy.collection();
-      const edges = edgeSel ? cy.edges(edgeSel) : cy.collection();
-      const elems = nodes.union(edges);
-
-      printDebug(`🎯 Selecting ${elems.length} elements`);
-      if (alsoSelect) elems.select();
-      elems.addClass('search-glow');
-    });
-
-    // Step 3: Clear flag after giving selection events time to propagate
-    setTimeout(() => {
-      searchInProgress = false;
-      printDebug('🔍 Search operation completed');
-    }, 200);
-
-  }, 100);
+  searchInProgress = false;
+  printDebug('🔍 Search selection applied');
 }
 
 // Export function to check if search is in progress

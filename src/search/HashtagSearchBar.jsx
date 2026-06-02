@@ -166,18 +166,6 @@ export default function HashtagSearchBar({ nodes, edges, getNodeNotes, getEdgeNo
     }
   }
 
-  // Click off to close (on mobile overlay)
-  useEffect(() => {
-    function onDocClick(e) {
-      if (!isOpen) return;
-      if (containerRef.current && !containerRef.current.contains(e.target)) {
-        close();
-      }
-    }
-    document.addEventListener('click', onDocClick, true);
-    return () => document.removeEventListener('click', onDocClick, true);
-  }, [isOpen, close]);
-
   function addSuggestionToTokens(s) {
     const isHashtagSuggestion = s.startsWith('#');
     

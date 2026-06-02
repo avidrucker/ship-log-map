@@ -379,6 +379,7 @@ export function attach(cy) {
   // repaint — once per pixel moved.
   let rafPending = false;
   const onPosition = () => {
+    if (cy.scratch('_overlay_dragging')) return; // compound children auto-move on drag canvas
     if (rafPending) return;
     rafPending = true;
     requestAnimationFrame(() => {
