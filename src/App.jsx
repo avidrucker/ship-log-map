@@ -200,6 +200,12 @@ function App() {
   const canEdit = getCanEditFromQuery() || !hasAnyQueryParams();
 
   const fileInputRef = useRef(null);
+  // Cached overlayManager module — populated on mount so resize animations are
+  // ready on the first double-click without an async await in the hot path.
+  const overlayManagerRef = useRef(null);
+  useEffect(() => {
+    import('./graph/overlayManager.js').then(m => { overlayManagerRef.current = m; });
+  }, []);
   // Guard to prevent multiple simultaneous close operations (avoids multi animation)
   const isClosingNoteViewRef = useRef(false);
   // Ref to track current CDN loading operation
@@ -889,30 +895,41 @@ useEffect(() => {
 
   const handleNodeDoubleClick = useCallback((nodeId) => {
     printDebug('🏠 App: Node double-clicked:', nodeId);
-    
-    // Find the current node
+
     const node = graphData.nodes.find(n => n.id === nodeId);
     if (!node) return;
 
-    // Cycle through sizes: regular -> double -> half -> regular
     let nextSize;
     switch (node.size) {
-      case "regular":
-        nextSize = "double";
-        break;
-      case "double":
-        nextSize = "half";
-        break;
-      case "half":
-        nextSize = "regular";
-        break;
-      default:
-        nextSize = "regular";
-        break;
+      case "regular": nextSize = "double"; break;
+      case "double":  nextSize = "half";    break;
+      case "half":    nextSize = "regular"; break;
+      default:        nextSize = "regular"; break;
     }
 
+    // Detach note-count badge from compound parent before the size data changes.
+    // While detached it is a standalone node, so its font-size/text-margin-y CSS
+    // transition does not dirty the compound-bounds cache each frame → 60fps.
+    // Re-attach after the 300ms transition + a small buffer.
+    const cy = getCytoscapeInstance();
+    const om = overlayManagerRef.current;
+    const t0 = performance.now();
+    if (cy && om) om.startNodeResizeAnimation(cy, nodeId);
+
     graphOps.handleNodeSizeChange(nodeId, nextSize);
-  }, [graphData.nodes, graphOps]);
+    // eslint-disable-next-line no-console
+    console.info('[RESIZE] handleNodeSizeChange took', Math.round(performance.now() - t0), 'ms');
+
+    if (cy && om) {
+      setTimeout(() => {
+        if (!cy.destroyed()) {
+          om.endNodeResizeAnimation(cy, nodeId);
+          // eslint-disable-next-line no-console
+          console.info('[RESIZE] endNodeResizeAnimation fired at', Math.round(performance.now() - t0), 'ms after dblclick');
+        }
+      }, 350);
+    }
+  }, [graphData.nodes, graphOps, getCytoscapeInstance]);
 
   const handleEdgeDoubleClick = useCallback((edgeId) => {
     printDebug('🏠 App: Edge double-clicked:', edgeId);

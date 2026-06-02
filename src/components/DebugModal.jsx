@@ -411,7 +411,7 @@ function DebugModal({ isOpen, onClose, debugData, getCytoscapeInstance }) {
               cursor: "pointer",
               fontSize: "14px"
             }}
-            onClick={() => window.location.href = "http://localhost:5173/ship-log-map/?map=https%3A%2F%2Favidrucker.github.io%2Fimg-test-1%2FGaia%2520Yoga%2Fgaia_yoga.json&canedit=true"}
+            onClick={() => window.location.href = `${window.location.origin}${import.meta.env.BASE_URL}?map=https%3A%2F%2Favidrucker.github.io%2Fimg-test-1%2FGaia%2520Yoga%2Fgaia_yoga.json&canedit=true`}
           >
             Go to Gaia Yoga Map
           </button>
@@ -425,7 +425,7 @@ function DebugModal({ isOpen, onClose, debugData, getCytoscapeInstance }) {
               cursor: "pointer",
               fontSize: "14px"
             }}
-            onClick={() => window.location.href = "http://localhost:5173/ship-log-map/?map=https%3A%2F%2Favidrucker.github.io%2Fimg-test-1%2FOuter%2520Wilds%2Fouter_wilds.json&canedit=true"}
+            onClick={() => window.location.href = `${window.location.origin}${import.meta.env.BASE_URL}?map=https%3A%2F%2Favidrucker.github.io%2Fimg-test-1%2FOuter%2520Wilds%2Fouter_wilds.json&canedit=true`}
           >
             Go to Outer Wilds Map
           </button>

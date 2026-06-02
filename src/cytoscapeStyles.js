@@ -73,7 +73,10 @@ const noteCountBase = {
   'text-outline-color': 'rgba(0,0,0,0.9)',
   'z-index-compare': 'manual',
   'z-index': 9999,
-  'events': 'no'
+  'events': 'no',
+  'transition-property': 'font-size text-margin-y',
+  'transition-duration': '300ms',
+  'transition-timing-function': 'ease-out'
 };
 
 const sizeRules = [

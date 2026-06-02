@@ -119,7 +119,7 @@ function ensureNodeNoteBadge(cy, parentEntryNode, count) {
   if (!badge) {
     badge = cy.add({
       group: 'nodes',
-      data: { id: badgeId, parent: hostId, label: String(count), size, __overlay: true, isNewlyCreated: false },
+      data: { id: badgeId, parent: hostId, hostId, label: String(count), size, __overlay: true, isNewlyCreated: false },
       classes: CLS.NOTE_NODE,
       selectable: false,
       grabbable: false
@@ -287,7 +287,6 @@ export function ensure(cy, model, mode = 'editing') {
 let isRefreshing = false; // Recursion guard
 
 //// Public: refresh positions only ///////////////////////////////////////////////////
-//// TODO: fix issue where changing node sizes in editing mode doesn't call refresh positions, but it should
 export function refreshPositions(cy) {
   if (!cy || cy.destroyed() || isRefreshing) return;
 
@@ -296,10 +295,11 @@ export function refreshPositions(cy) {
   try {
     cy.startBatch();
 
-    // Node NOTE-COUNT badges: center on parent
+    // Node NOTE-COUNT badges: center on host entry-parent
     cy.nodes(`.${CLS.NOTE_NODE}`).forEach((badge) => {
-      const parent = badge.parent();
-      if (!parent || parent.empty()) return;
+      const hostId = badge.data('hostId');
+      const parent = getById(cy, hostId);
+      if (!parent) return;
       badge.position(parent.position());
     });
 
@@ -371,7 +371,21 @@ export function attach(cy) {
   if (cy.scratch('_overlayManager_attached')) return;
 
   const onMoveFree = () => refreshPositions(cy);
-  const onPosition = () => refreshPositions(cy);
+  const onNodeData = () => refreshPositions(cy);
+
+  // Throttle position updates to one per animation frame during drag.
+  // Badges are now standalone nodes (no compound parent), so every position
+  // event on the entry-parent would otherwise cause a startBatch/endBatch
+  // repaint — once per pixel moved.
+  let rafPending = false;
+  const onPosition = () => {
+    if (rafPending) return;
+    rafPending = true;
+    requestAnimationFrame(() => {
+      rafPending = false;
+      if (cy && !cy.destroyed()) refreshPositions(cy);
+    });
+  };
   const onAddOverlay = (evt) => {
     const n = evt.target;
     if (!n || !n.isNode()) return;
@@ -380,10 +394,11 @@ export function attach(cy) {
   };
 
   cy.scratch('_overlayManager_attached', true);
-  cy.scratch('_overlayManager_handlers', { onMoveFree, onPosition, onAddOverlay });
+  cy.scratch('_overlayManager_handlers', { onMoveFree, onPosition, onNodeData, onAddOverlay });
 
-  cy.on('free', 'node', onMoveFree);
-  cy.on('position', 'node', onPosition);
+  cy.on('free', 'node.entry-parent', onMoveFree);
+  cy.on('position', 'node.entry-parent', onPosition);
+  cy.on('data', 'node.entry-parent', onNodeData);
   cy.on('add', OVERLAY_ADD_SELECTOR, onAddOverlay);
 }
 
@@ -392,15 +407,39 @@ export function detach(cy) {
   if (!cy || cy.destroyed()) return;
   if (!cy.scratch('_overlayManager_attached')) return;
 
-  const { onMoveFree, onPosition, onAddOverlay } = cy.scratch('_overlayManager_handlers') || {};
-  if (onMoveFree)  cy.off('free', 'node', onMoveFree);
-  if (onPosition)  cy.off('position', 'node', onPosition);
+  const { onMoveFree, onPosition, onNodeData, onAddOverlay } = cy.scratch('_overlayManager_handlers') || {};
+  if (onMoveFree)   cy.off('free', 'node.entry-parent', onMoveFree);
+  if (onPosition)   cy.off('position', 'node.entry-parent', onPosition);
+  if (onNodeData)   cy.off('data', 'node.entry-parent', onNodeData);
   if (onAddOverlay) cy.off('add', OVERLAY_ADD_SELECTOR, onAddOverlay);
 
   cy.removeScratch('_overlayManager_handlers');
   cy.removeScratch('_overlayManager_attached');
 }
 
+
+//// Public: resize-animation borrow/return ///////////////////////////////////////////
+// Temporarily detach the note-count badge from its compound parent so that its
+// font-size/text-margin-y CSS transition runs as a standalone node.  A standalone
+// node's style transitions do NOT dirty the compound-parent bounds cache, so there
+// is no extra renderer.notify('bounds') per frame → 60fps is maintained.
+// Call startNodeResizeAnimation() before the size data changes, then
+// endNodeResizeAnimation() after the CSS transition duration has elapsed.
+
+export function startNodeResizeAnimation(cy, hostId) {
+  if (!cy || cy.destroyed()) return;
+  const badge = getById(cy, idNodeNote(hostId));
+  if (badge) badge.move({ parent: null });
+}
+
+export function endNodeResizeAnimation(cy, hostId) {
+  if (!cy || cy.destroyed()) return;
+  const badge = getById(cy, idNodeNote(hostId));
+  if (badge) {
+    badge.move({ parent: hostId });
+    refreshPositions(cy);
+  }
+}
 
 //// Public: removal //////////////////////////////////////////////////////////////////
 

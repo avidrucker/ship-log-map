@@ -145,6 +145,43 @@ function CytoscapeGraph({
     return cleanup;
   };
 
+  // ---- Helpers: lightweight drag-FPS counter (dev profiling) ----
+  const attachDragFpsCounter = React.useCallback((cy) => {
+    let rafId = null;
+    let frameCount = 0;
+    let startTime = 0;
+
+    const tick = () => {
+      frameCount++;
+      rafId = requestAnimationFrame(tick);
+    };
+
+    const onGrab = () => {
+      frameCount = 0;
+      startTime = performance.now();
+      if (rafId !== null) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(tick);
+    };
+
+    const onFree = () => {
+      if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null; }
+      const elapsed = (performance.now() - startTime) / 1000;
+      if (elapsed > 0.1) {
+        // eslint-disable-next-line no-console
+        console.info('[FPS] drag fps:', Math.round(frameCount / elapsed), `(${frameCount} frames / ${elapsed.toFixed(2)}s)`);
+      }
+    };
+
+    cy.on('grab', 'node.entry-parent', onGrab);
+    cy.on('free', 'node.entry-parent', onFree);
+
+    return () => {
+      if (rafId !== null) cancelAnimationFrame(rafId);
+      cy.off('grab', 'node.entry-parent', onGrab);
+      cy.off('free', 'node.entry-parent', onFree);
+    };
+  }, []);
+
   // ---- Helpers: attach/detach edge-count (note bubble) live reposition rAF ----
   const attachEdgeCountLiveUpdater = React.useCallback((cy) => {
     let rafId = null;
@@ -243,6 +280,9 @@ function CytoscapeGraph({
         // Edge note-count live updater
         cy._edgeCountCleanup = attachEdgeCountLiveUpdater(cy);
 
+        // Drag FPS counter (dev profiling — logs to console only)
+        cy._dragFpsCleanup = attachDragFpsCounter(cy);
+
         if (onCytoscapeInstanceReady) onCytoscapeInstanceReady(cy);
 
         // Build overlays immediately so the toggle only flips classes
@@ -262,6 +302,7 @@ function CytoscapeGraph({
 
         if (cy._eventCleanup) cy._eventCleanup();
         if (cy._edgeCountCleanup) cy._edgeCountCleanup();
+        if (cy._dragFpsCleanup) cy._dragFpsCleanup();
         if (cy._viewportCleanup) cy._viewportCleanup();
         try { removeBgNode(cy); } catch { /* noop */ }
 

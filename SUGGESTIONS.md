@@ -97,6 +97,36 @@ This is a large refactor; do it incrementally (one context at a time) to avoid b
 
 ---
 
+## Bugs
+
+### ~~BUG-1 — Overlay badges mispositioned after node resize in editing mode~~ ✅ Fixed
+**Priority:** Medium  
+**File:** `src/graph/overlayManager.js` — `attach()`
+
+`attach()` listens for `free`/`position` events to refresh overlay badge positions after drags, but has no listener for node `data` changes. When a node is double-clicked to resize, `updateNodeInPlace` updates Cytoscape data directly. The unseen badge (positioned at `topRightCornerPos`, which calls `boundingBox()`) stays at the stale corner until the next drag or React re-render.
+
+**Fix:** Add `cy.on('data', 'node.entry-parent', onNodeData)` inside `attach()` with matching cleanup in `detach()`.
+
+---
+
+### BUG-2 — Stale `*** DEBUG ***` comments in bgNodeAdapter production code
+**Priority:** Low  
+**File:** `src/graph/bgNodeAdapter.js:124,139,140`
+
+Three `printDebug()` calls contain `// *** DEBUG: ... ***` inline strings left over from active debugging. Harmless in production (guarded by `DEBUG_LOGGING: false`) but noise in the source. Remove the comment fragments.
+
+---
+
+### BUG-3 — Debug route buttons hardcode localhost origin (fixed)
+**Priority:** Fixed  
+**File:** `src/components/DebugModal.jsx` — "Go to Gaia/Outer Wilds Map" buttons
+
+Buttons used hardcoded `http://localhost:5173/ship-log-map/` instead of `window.location.origin + import.meta.env.BASE_URL`, so they routed to localhost even when opened on the GitHub Pages deployment.
+
+**Fixed:** replaced with dynamic origin + BASE_URL construction.
+
+---
+
 ## How to Use This Doc
 
 - Pick items by priority when planning a new session
