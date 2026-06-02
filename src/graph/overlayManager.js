@@ -422,28 +422,49 @@ export function detach(cy) {
 
 
 //// Public: resize-animation borrow/return ///////////////////////////////////////////
-// Temporarily detach the note-count badge from its compound parent so that its
-// font-size/text-margin-y CSS transition runs as a standalone node.  A standalone
-// node's style transitions do NOT dirty the compound-parent bounds cache, so there
-// is no extra renderer.notify('bounds') per frame → 60fps is maintained.
+// Temporarily detach both the entry node and the note-count badge from their compound
+// parent so that their CSS transitions run as standalone nodes.  A standalone node's
+// style transitions do NOT dirty the compound-parent bounds cache, so there is no
+// extra renderer.notify('bounds') per frame → 60fps is maintained.
 // Call startNodeResizeAnimation() before the size data changes, then
 // endNodeResizeAnimation() after the CSS transition duration has elapsed.
 
 export function startNodeResizeAnimation(cy, hostId, nextSize) {
   if (!cy || cy.destroyed()) return;
   // Skip detach while dragging: staying compound during drag is safer than briefly
-  // becoming standalone, which would drop the badge off the drag-canvas layer.
+  // becoming standalone, which would drop nodes off the drag-canvas layer.
   if (cy.scratch('_overlay_dragging')) return;
+
+  // Entry node borrow: detach so its CSS transition doesn't dirty entry-parent bounds cache
+  // each frame (dirtyCompoundBoundsCache → renderer.notify('bounds') → ~2fps stutter).
+  const entry = cy.getElementById(`${hostId}__entry`);
+  if (entry && entry.length > 0) {
+    entry.move({ parent: null });
+    entry.position(cy.getElementById(hostId).position()); // defensive absolute-pos sync
+    entry.addClass('resize-animating');
+    if (nextSize) entry.data('size', nextSize); // start CSS transition NOW, synchronously
+  }
+
+  // Badge borrow — now independent of entry (old code returned early when !badge,
+  // which would have silently skipped the entry borrow above for badge-less nodes).
   const badge = getById(cy, idNodeNote(hostId));
   if (!badge) return;
-  badge.move({ parent: null });           // detach first — must be standalone before transition
+  badge.move({ parent: null });
   badge.addClass('resize-animating');     // protect from stopOverlayAnims (see ensure())
-  if (nextSize) badge.data('size', nextSize); // start transition NOW, synchronously, before
-                                             // any React render can call ensure() + stopOverlayAnims
+  if (nextSize) badge.data('size', nextSize); // start transition NOW, synchronously
 }
 
 export function endNodeResizeAnimation(cy, hostId) {
   if (!cy || cy.destroyed()) return;
+
+  // Entry node return
+  const entry = cy.getElementById(`${hostId}__entry`);
+  if (entry && entry.length > 0) {
+    entry.removeClass('resize-animating');
+    entry.move({ parent: hostId });
+  }
+
+  // Badge return
   const badge = getById(cy, idNodeNote(hostId));
   if (badge) {
     badge.removeClass('resize-animating');

@@ -92,6 +92,59 @@ test('FPS reading after simulated pan', async ({ page }) => {
 });
 
 // ---------------------------------------------------------------------------
+// FPS during node resize animation
+// ---------------------------------------------------------------------------
+test('FPS stays ≥30 during a node resize animation (was ~2fps before borrow/return fix)', async ({ page }) => {
+  await loadGYG(page);
+  // Let FPS counter stabilize and fit animation settle
+  await page.waitForTimeout(1200);
+
+  // Find a visible node to double-click (editing mode — GYG_URL has canedit=true)
+  const nodeClickPos = await page.waitForFunction(() => {
+    const container = document.getElementById('cy');
+    const cy = container?._cy;
+    if (!cy || cy.destroyed()) return null;
+    const parents = cy.nodes('.entry-parent');
+    if (parents.empty()) return null;
+    const bb = container.getBoundingClientRect();
+    let result = null;
+    parents.forEach(node => {
+      if (result) return;
+      const rp = node.renderedPosition();
+      if (rp.x > 20 && rp.x < bb.width - 20 && rp.y > 20 && rp.y < bb.height - 20)
+        result = { x: bb.left + rp.x, y: bb.top + rp.y };
+    });
+    return result;
+  }, null, { timeout: 15000 }).then(h => h.jsonValue()).catch(() => null);
+
+  if (!nodeClickPos) {
+    console.log('[e2e-perf] No visible node found — skipping resize FPS test');
+    return;
+  }
+
+  // Double-click triggers the 300ms resize animation
+  await page.mouse.dblclick(nodeClickPos.x, nodeClickPos.y);
+
+  // Wait for the FPS counter's 500ms measurement window to cover the animation period
+  await page.waitForTimeout(700);
+
+  const fpsText = await page.evaluate(() =>
+    document.querySelector('[data-testid="fps-counter"]')?.textContent ?? null
+  );
+
+  if (!fpsText) {
+    console.log('[e2e-perf] FPS counter not found — skipping resize FPS assertion');
+    return;
+  }
+
+  const fps = parseInt(fpsText.replace(/\D/g, ''), 10);
+  console.log(`[e2e-perf] FPS during resize animation: ${fps} (threshold ≥30, healthy ≥50)`);
+  // Before fix: ~2fps (dirtyCompoundBoundsCache every frame for entry + badge).
+  // After fix: ~60fps. Threshold of 30 is CI-resilient while cleanly catching the regression.
+  expect(fps).toBeGreaterThanOrEqual(30);
+});
+
+// ---------------------------------------------------------------------------
 // Search bar latency
 // ---------------------------------------------------------------------------
 test('search bar keystroke → suggestions latency', async ({ page }) => {

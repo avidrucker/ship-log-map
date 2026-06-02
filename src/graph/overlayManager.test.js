@@ -235,6 +235,22 @@ function makeAnimCy(hasBadge = true, { dragging = false } = {}) {
     _classes: badgeClasses,
   } : null;
 
+  // Entry node mock
+  const entryMoves = [];
+  const entryData = {};
+  const entryClasses = new Set();
+  const entryPos = { x: 0, y: 0 };
+  const entry = {
+    length: 1,
+    empty: () => false,
+    move:        jest.fn((spec) => { entryMoves.push(spec); }),
+    position:    jest.fn((pos)  => { if (pos) Object.assign(entryPos, pos); return entryPos; }),
+    data:        jest.fn((k, v) => { if (v !== undefined) entryData[k] = v; return entryData[k]; }),
+    addClass:    jest.fn((cls)  => { entryClasses.add(cls); }),
+    removeClass: jest.fn((cls)  => { entryClasses.delete(cls); }),
+    _data: entryData, _classes: entryClasses, _moves: entryMoves,
+  };
+
   // minimal cy for start/endNodeResizeAnimation + refreshPositions
   const scratchStore = { _overlay_dragging: dragging };
   const cy = {
@@ -244,8 +260,10 @@ function makeAnimCy(hasBadge = true, { dragging = false } = {}) {
       return scratchStore[key];
     },
     getElementById: (id) => {
-      if (hasBadge && id && id.endsWith('__nodeNoteCount')) return badge;
-      return { length: 0, empty: () => true };
+      if (id && id.endsWith('__entry'))         return entry;
+      if (id && id.endsWith('__nodeNoteCount')) return hasBadge ? badge : { length: 0, empty: () => true };
+      // host node stub — only needs position() for the defensive sync call
+      return { length: 1, position: jest.fn(() => ({ x: 100, y: 200 })) };
     },
     // refreshPositions / stopOverlayAnims needs these
     startBatch: () => {},
@@ -254,6 +272,7 @@ function makeAnimCy(hasBadge = true, { dragging = false } = {}) {
     nodes: () => ({ forEach: () => {} }),
     _moves: moves,
     _badge: badge,
+    _entry: entry,
   };
 
   return cy;
@@ -300,7 +319,7 @@ describe('overlayManager resize-animation borrow/return', () => {
     expect(cy._badge.move).toHaveBeenCalledWith({ parent: 'node1' });
   });
 
-  test('startNodeResizeAnimation is a no-op when no badge exists', () => {
+  test('startNodeResizeAnimation does not throw when no badge exists', () => {
     expect(() => startNodeResizeAnimation(makeAnimCy(false), 'node1', 'double')).not.toThrow();
   });
 
@@ -321,5 +340,70 @@ describe('overlayManager resize-animation borrow/return', () => {
     const cy = makeAnimCy(true, { dragging: true });
     startNodeResizeAnimation(cy, 'node1', 'double');
     expect(cy._badge.move).not.toHaveBeenCalled();
+  });
+
+  // ---------------------------------------------------------------------------
+  // Entry node borrow/return contract
+  // ---------------------------------------------------------------------------
+  // The entry node (${hostId}__entry, class node.entry) has 7 bounds-triggering CSS
+  // transition properties. While it is a compound child of entry-parent, each animation
+  // frame calls dirtyCompoundBoundsCache() → renderer.notify('bounds') → ~2fps stutter.
+  // Borrowing it out (move({ parent: null })) makes it standalone for the 300ms window,
+  // eliminating the per-frame compound-bounds dirty entirely.
+
+  test('startNodeResizeAnimation detaches entry from compound via move({ parent: null })', () => {
+    const cy = makeAnimCy();
+    startNodeResizeAnimation(cy, 'node1', 'double');
+    expect(cy._entry.move).toHaveBeenCalledWith({ parent: null });
+  });
+
+  test('startNodeResizeAnimation syncs entry absolute position to host after detach', () => {
+    const cy = makeAnimCy();
+    startNodeResizeAnimation(cy, 'node1', 'double');
+    expect(cy._entry.position).toHaveBeenCalled();
+  });
+
+  test('startNodeResizeAnimation adds resize-animating class to entry', () => {
+    const cy = makeAnimCy();
+    startNodeResizeAnimation(cy, 'node1', 'double');
+    expect(cy._entry.addClass).toHaveBeenCalledWith('resize-animating');
+  });
+
+  test('startNodeResizeAnimation immediately sets nextSize on entry to start CSS transition', () => {
+    const cy = makeAnimCy();
+    startNodeResizeAnimation(cy, 'node1', 'double');
+    expect(cy._entry.data).toHaveBeenCalledWith('size', 'double');
+  });
+
+  test('endNodeResizeAnimation removes resize-animating from entry then re-attaches', () => {
+    const cy = makeAnimCy();
+    startNodeResizeAnimation(cy, 'node1', 'double');
+    endNodeResizeAnimation(cy, 'node1');
+    const removeCalls = cy._entry.removeClass.mock.calls;
+    const moveCalls   = cy._entry.move.mock.calls;
+    expect(removeCalls[0]).toEqual(['resize-animating']);
+    expect(moveCalls[moveCalls.length - 1]).toEqual([{ parent: 'node1' }]);
+  });
+
+  test('endNodeResizeAnimation re-attaches entry to host', () => {
+    const cy = makeAnimCy();
+    endNodeResizeAnimation(cy, 'node1');
+    expect(cy._entry.move).toHaveBeenCalledWith({ parent: 'node1' });
+  });
+
+  test('start then end: entry moves out then back in order', () => {
+    const cy = makeAnimCy();
+    startNodeResizeAnimation(cy, 'node1', 'double');
+    endNodeResizeAnimation(cy, 'node1');
+    expect(cy._entry._moves[0]).toEqual({ parent: null });
+    expect(cy._entry._moves[1]).toEqual({ parent: 'node1' });
+  });
+
+  test('startNodeResizeAnimation borrows entry even when no badge exists', () => {
+    // Regression guard: old code had `if (!badge) return` before entry borrow,
+    // silently skipping the fix for nodes with no note-count badge.
+    const cy = makeAnimCy(false);
+    startNodeResizeAnimation(cy, 'node1', 'double');
+    expect(cy._entry.move).toHaveBeenCalledWith({ parent: null });
   });
 });

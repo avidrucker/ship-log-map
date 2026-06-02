@@ -60,3 +60,35 @@ describe('note-count badge CSS transition contract', () => {
     expect(badgeRule.style['transition-duration']).toBe(entryRule.style['transition-duration']);
   });
 });
+
+describe('entry node CSS transition contract', () => {
+  // node.entry has 7 bounds-triggering CSS transition properties. Any of these on a
+  // compound child fires dirtyCompoundBoundsCache() each frame → renderer.notify('bounds')
+  // → ~2fps stutter. overlayManager.startNodeResizeAnimation borrows entry out of its
+  // compound BECAUSE of these. If you remove these transitions, remove the entry
+  // borrow/return too. If you add new bounds-triggering props, re-verify perf.
+
+  test('node.entry has a transition-property defined', () => {
+    const rule = styles.find(r => r.selector === 'node.entry' && r.style['transition-property']);
+    expect(rule).toBeDefined();
+  });
+
+  test('node.entry transition-property includes all 7 bounds-triggering props', () => {
+    const rule = styles.find(r => r.selector === 'node.entry' && r.style['transition-property']);
+    const props = rule.style['transition-property'];
+    const boundsTriggering = [
+      'height', 'width',
+      'background-position-y', 'background-width', 'background-height',
+      'text-margin-y', 'font-size',
+    ];
+    for (const p of boundsTriggering) expect(props).toContain(p);
+  });
+
+  test('node.entry transition duration matches note-count badge duration', () => {
+    // Both nodes are borrowed simultaneously; they must finish at the same time so
+    // endNodeResizeAnimation's single setTimeout re-attaches both correctly.
+    const entryRule = styles.find(r => r.selector === 'node.entry' && r.style['transition-property']);
+    const badgeRule = findRule('node.note-count');
+    expect(entryRule.style['transition-duration']).toBe(badgeRule.style['transition-duration']);
+  });
+});
