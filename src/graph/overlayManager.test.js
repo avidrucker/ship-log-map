@@ -219,7 +219,7 @@ describe('overlayManager.ensure — compound-child badge contract', () => {
 // Resize-animation borrow/return contract
 // ---------------------------------------------------------------------------
 
-function makeAnimCy(hasBadge = true) {
+function makeAnimCy(hasBadge = true, { dragging = false } = {}) {
   const moves = [];
   const badge = hasBadge ? {
     length: 1,
@@ -227,11 +227,14 @@ function makeAnimCy(hasBadge = true) {
     move: jest.fn((spec) => { moves.push(spec); }),
   } : null;
 
-  const refreshed = [];
-
   // minimal cy for start/endNodeResizeAnimation + refreshPositions
+  const scratchStore = { _overlay_dragging: dragging };
   const cy = {
     destroyed: () => false,
+    scratch: (key, val) => {
+      if (val !== undefined) { scratchStore[key] = val; return; }
+      return scratchStore[key];
+    },
     getElementById: (id) => {
       if (hasBadge && id && id.endsWith('__nodeNoteCount')) return badge;
       return { length: 0, empty: () => true };
@@ -277,5 +280,14 @@ describe('overlayManager resize-animation borrow/return', () => {
     const calls = cy._badge.move.mock.calls;
     expect(calls[0]).toEqual([{ parent: null }]);
     expect(calls[1]).toEqual([{ parent: 'node1' }]);
+  });
+
+  test('startNodeResizeAnimation skips detach while _overlay_dragging is set', () => {
+    // If the node is being dragged when double-click fires, keeping the badge
+    // as a compound child is safer than temporarily making it standalone (which
+    // would drop it off the drag-canvas layer and cause it to render behind the node).
+    const cy = makeAnimCy(true, { dragging: true });
+    startNodeResizeAnimation(cy, 'node1');
+    expect(cy._badge.move).not.toHaveBeenCalled();
   });
 });

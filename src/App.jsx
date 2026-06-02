@@ -65,6 +65,7 @@ import CompassOverlay from "./components/CompassOverlay.jsx";
 import { useCytoscapeInstance } from "./useCytoscapeInstance";
 import { appStateReducer, initialAppState, ACTION_TYPES } from "./appStateReducer";
 import { ZOOM_TO_SELECTION, DEBUG_LOGGING, DEV_MODE, GRAYSCALE_IMAGES, CAMERA_INFO_HIDDEN } from "./config/features.js";
+import { RESIZE_TRANSITION_MS } from "./styles/tokens.js";
 import { handleLoadFromCdn, setCdnBaseUrl, getCdnBaseUrl } from "./utils/cdnHelpers.js"; // getMapUrlFromQuery, clearQueryParams
 import BgImageModal from "./components/BgImageModal.jsx";
 import { useBgImageState } from "./bg/useBgImageState";
@@ -206,6 +207,9 @@ function App() {
   useEffect(() => {
     import('./graph/overlayManager.js').then(m => { overlayManagerRef.current = m; });
   }, []);
+  // Per-node resize timer map: nodeId → timerId. Allows cancelling an in-flight
+  // re-attach if the user double-clicks the same node again before the timer fires.
+  const resizeTimersRef = useRef(new Map());
   // Guard to prevent multiple simultaneous close operations (avoids multi animation)
   const isClosingNoteViewRef = useRef(false);
   // Ref to track current CDN loading operation
@@ -914,6 +918,16 @@ useEffect(() => {
     const cy = getCytoscapeInstance();
     const om = overlayManagerRef.current;
     const t0 = performance.now();
+
+    // Cancel any in-flight re-attach timer for this node before starting a new animation.
+    const existingTimer = resizeTimersRef.current.get(nodeId);
+    if (existingTimer !== undefined) {
+      clearTimeout(existingTimer);
+      resizeTimersRef.current.delete(nodeId);
+      // If we interrupted a detached badge, re-attach it immediately before detaching again.
+      if (cy && om && !cy.destroyed()) om.endNodeResizeAnimation(cy, nodeId);
+    }
+
     if (cy && om) om.startNodeResizeAnimation(cy, nodeId);
 
     graphOps.handleNodeSizeChange(nodeId, nextSize);
@@ -921,13 +935,17 @@ useEffect(() => {
     console.info('[RESIZE] handleNodeSizeChange took', Math.round(performance.now() - t0), 'ms');
 
     if (cy && om) {
-      setTimeout(() => {
+      // Drive timeout from the same token as the CSS transition-duration so they
+      // can never silently drift apart. +60ms = one extra frame of buffer.
+      const timerId = setTimeout(() => {
+        resizeTimersRef.current.delete(nodeId);
         if (!cy.destroyed()) {
           om.endNodeResizeAnimation(cy, nodeId);
           // eslint-disable-next-line no-console
           console.info('[RESIZE] endNodeResizeAnimation fired at', Math.round(performance.now() - t0), 'ms after dblclick');
         }
-      }, 350);
+      }, RESIZE_TRANSITION_MS + 60);
+      resizeTimersRef.current.set(nodeId, timerId);
     }
   }, [graphData.nodes, graphOps, getCytoscapeInstance]);
 

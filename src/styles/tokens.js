@@ -55,3 +55,8 @@ export const BORDER = {
   width: 5,
   selectedWidth: 7
 };
+
+// Single source of truth for the node resize transition duration.
+// cytoscapeStyles.js and App.jsx (borrow/return setTimeout) both read from here
+// so they can never drift apart.
+export const RESIZE_TRANSITION_MS = 300;

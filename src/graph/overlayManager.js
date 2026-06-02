@@ -428,6 +428,9 @@ export function detach(cy) {
 
 export function startNodeResizeAnimation(cy, hostId) {
   if (!cy || cy.destroyed()) return;
+  // Skip detach while dragging: staying compound during drag is safer than briefly
+  // becoming standalone, which would drop the badge off the drag-canvas layer.
+  if (cy.scratch('_overlay_dragging')) return;
   const badge = getById(cy, idNodeNote(hostId));
   if (badge) badge.move({ parent: null });
 }

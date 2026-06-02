@@ -12,7 +12,7 @@
  * - Keep node label wrap/width aligned with NodeColorPicker/controls UX.
  */
 
-import { COLORS, NODE_SIZES, BORDER } from "./styles/tokens.js";
+import { COLORS, NODE_SIZES, BORDER, RESIZE_TRANSITION_MS } from "./styles/tokens.js";
 
 // Parent container (holder) – invisible, grabbable, carries the domain ID.
 const entryParentBase = {
@@ -75,7 +75,7 @@ const noteCountBase = {
   'z-index': 9999,
   'events': 'no',
   'transition-property': 'font-size text-margin-y',
-  'transition-duration': '300ms',
+  'transition-duration': `${RESIZE_TRANSITION_MS}ms`,
   'transition-timing-function': 'ease-out'
 };
 
@@ -313,7 +313,7 @@ const animationRules = [
     style: {
       // Normal height rules already defined in sizeRules, so this just ensures transition
       'transition-property': 'height width background-position-y background-width background-height text-margin-y font-size',
-      'transition-duration': '300ms', 
+      'transition-duration': `${RESIZE_TRANSITION_MS}ms`,
       'transition-timing-function': 'ease-out'
     }
   },
