@@ -3,7 +3,7 @@
  * It will only control pages under /ship-log-map/.
  */
 
-const APP_VERSION = '0.0.3';                         // bump on each deploy
+const APP_VERSION = '0.0.4';                         // bump on each deploy
 const CACHE_PREFIX = 'ship-log-map';
 const PRECACHE = `${CACHE_PREFIX}-precache-v${APP_VERSION}`;
 const RUNTIME  = `${CACHE_PREFIX}-runtime-v${APP_VERSION}`;
