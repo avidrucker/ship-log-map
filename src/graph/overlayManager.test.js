@@ -163,7 +163,7 @@ function makeEnsureCy() {
     },
     edges: () => ({ forEach: () => {} }),
     getElementById: (id) => nodesMap.get(id) || { length: 0, empty: () => true },
-    $: () => ({ stop: () => {}, forEach: () => {} }),
+    $: () => { const col = { stop: () => {}, forEach: () => {}, not: () => col }; return col; },
     add: jest.fn((spec) => {
       addedNodes.push(spec);
       const node = makeNode(spec.data.id, spec.classes || '', { ...spec.data });
@@ -221,10 +221,18 @@ describe('overlayManager.ensure — compound-child badge contract', () => {
 
 function makeAnimCy(hasBadge = true, { dragging = false } = {}) {
   const moves = [];
+  const badgeData = {};
+  const badgeClasses = new Set();
   const badge = hasBadge ? {
     length: 1,
     empty: () => false,
     move: jest.fn((spec) => { moves.push(spec); }),
+    data: jest.fn((k, v) => { if (v !== undefined) badgeData[k] = v; return badgeData[k]; }),
+    addClass: jest.fn((cls) => { badgeClasses.add(cls); }),
+    removeClass: jest.fn((cls) => { badgeClasses.delete(cls); }),
+    hasClass: (cls) => badgeClasses.has(cls),
+    _data: badgeData,
+    _classes: badgeClasses,
   } : null;
 
   // minimal cy for start/endNodeResizeAnimation + refreshPositions
@@ -242,7 +250,7 @@ function makeAnimCy(hasBadge = true, { dragging = false } = {}) {
     // refreshPositions / stopOverlayAnims needs these
     startBatch: () => {},
     endBatch: () => {},
-    $: () => ({ stop: () => {}, forEach: () => {} }),
+    $: () => { const col = { stop: () => {}, forEach: () => {}, not: () => col }; return col; },
     nodes: () => ({ forEach: () => {} }),
     _moves: moves,
     _badge: badge,
@@ -258,6 +266,34 @@ describe('overlayManager resize-animation borrow/return', () => {
     expect(cy._badge.move).toHaveBeenCalledWith({ parent: null });
   });
 
+  test('startNodeResizeAnimation adds resize-animating class to protect transition from stopOverlayAnims', () => {
+    const cy = makeAnimCy();
+    startNodeResizeAnimation(cy, 'node1');
+    expect(cy._badge.addClass).toHaveBeenCalledWith('resize-animating');
+  });
+
+  test('startNodeResizeAnimation immediately sets nextSize on badge to start transition synchronously', () => {
+    // Starts the CSS transition before any React render can call ensure()+stopOverlayAnims,
+    // so the transition is deterministic and not dependent on React render timing.
+    const cy = makeAnimCy();
+    startNodeResizeAnimation(cy, 'node1', 'double');
+    expect(cy._badge.data).toHaveBeenCalledWith('size', 'double');
+  });
+
+  test('startNodeResizeAnimation without nextSize skips the data call', () => {
+    const cy = makeAnimCy();
+    startNodeResizeAnimation(cy, 'node1');
+    expect(cy._badge.data).not.toHaveBeenCalled();
+  });
+
+  test('endNodeResizeAnimation removes resize-animating class before re-attach', () => {
+    const cy = makeAnimCy();
+    startNodeResizeAnimation(cy, 'node1', 'double');
+    endNodeResizeAnimation(cy, 'node1');
+    expect(cy._badge.removeClass).toHaveBeenCalledWith('resize-animating');
+    expect(cy._badge.move).toHaveBeenCalledWith({ parent: 'node1' });
+  });
+
   test('endNodeResizeAnimation re-attaches badge to host via move({ parent: hostId })', () => {
     const cy = makeAnimCy();
     endNodeResizeAnimation(cy, 'node1');
@@ -265,8 +301,7 @@ describe('overlayManager resize-animation borrow/return', () => {
   });
 
   test('startNodeResizeAnimation is a no-op when no badge exists', () => {
-    // Should not throw when the node has no note-count badge
-    expect(() => startNodeResizeAnimation(makeAnimCy(false), 'node1')).not.toThrow();
+    expect(() => startNodeResizeAnimation(makeAnimCy(false), 'node1', 'double')).not.toThrow();
   });
 
   test('endNodeResizeAnimation is a no-op when no badge exists', () => {
@@ -275,7 +310,7 @@ describe('overlayManager resize-animation borrow/return', () => {
 
   test('start then end moves badge out then back in', () => {
     const cy = makeAnimCy();
-    startNodeResizeAnimation(cy, 'node1');
+    startNodeResizeAnimation(cy, 'node1', 'double');
     endNodeResizeAnimation(cy, 'node1');
     const calls = cy._badge.move.mock.calls;
     expect(calls[0]).toEqual([{ parent: null }]);
@@ -283,11 +318,8 @@ describe('overlayManager resize-animation borrow/return', () => {
   });
 
   test('startNodeResizeAnimation skips detach while _overlay_dragging is set', () => {
-    // If the node is being dragged when double-click fires, keeping the badge
-    // as a compound child is safer than temporarily making it standalone (which
-    // would drop it off the drag-canvas layer and cause it to render behind the node).
     const cy = makeAnimCy(true, { dragging: true });
-    startNodeResizeAnimation(cy, 'node1');
+    startNodeResizeAnimation(cy, 'node1', 'double');
     expect(cy._badge.move).not.toHaveBeenCalled();
   });
 });

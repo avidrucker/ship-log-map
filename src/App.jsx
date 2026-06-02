@@ -928,7 +928,7 @@ useEffect(() => {
       if (cy && om && !cy.destroyed()) om.endNodeResizeAnimation(cy, nodeId);
     }
 
-    if (cy && om) om.startNodeResizeAnimation(cy, nodeId);
+    if (cy && om) om.startNodeResizeAnimation(cy, nodeId, nextSize);
 
     graphOps.handleNodeSizeChange(nodeId, nextSize);
     if (DEV_MODE) {

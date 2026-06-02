@@ -48,8 +48,10 @@ const OVERLAY_ADD_SELECTOR = 'node.edge-note-count, node.edge-unseen, node.note-
 
 function stopOverlayAnims(cy) {
   if (!cy || cy.destroyed()) return;
-  // Clear queued + jump to end for any in-flight anims on overlays
-  cy.$(OVERLAY_ADD_SELECTOR).stop(true, true);
+  // Skip badges currently in the resize-animation borrow/return window — their
+  // CSS transition must run to completion. stopOverlayAnims with jumpToEnd=true
+  // would kill the transition before the first frame is drawn.
+  cy.$(OVERLAY_ADD_SELECTOR).not('.resize-animating').stop(true, true);
 }
 
 //// Helpers //////////////////////////////////////////////////////////////////////////
@@ -427,19 +429,24 @@ export function detach(cy) {
 // Call startNodeResizeAnimation() before the size data changes, then
 // endNodeResizeAnimation() after the CSS transition duration has elapsed.
 
-export function startNodeResizeAnimation(cy, hostId) {
+export function startNodeResizeAnimation(cy, hostId, nextSize) {
   if (!cy || cy.destroyed()) return;
   // Skip detach while dragging: staying compound during drag is safer than briefly
   // becoming standalone, which would drop the badge off the drag-canvas layer.
   if (cy.scratch('_overlay_dragging')) return;
   const badge = getById(cy, idNodeNote(hostId));
-  if (badge) badge.move({ parent: null });
+  if (!badge) return;
+  badge.move({ parent: null });           // detach first — must be standalone before transition
+  badge.addClass('resize-animating');     // protect from stopOverlayAnims (see ensure())
+  if (nextSize) badge.data('size', nextSize); // start transition NOW, synchronously, before
+                                             // any React render can call ensure() + stopOverlayAnims
 }
 
 export function endNodeResizeAnimation(cy, hostId) {
   if (!cy || cy.destroyed()) return;
   const badge = getById(cy, idNodeNote(hostId));
   if (badge) {
+    badge.removeClass('resize-animating');
     badge.move({ parent: hostId });
     refreshPositions(cy);
   }
