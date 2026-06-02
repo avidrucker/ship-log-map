@@ -4,6 +4,50 @@ Running record of perf findings, changes, and measured impact. Each entry includ
 
 ---
 
+## Session 5 — 2026-06-01
+
+### PERF-4 — Harden resize-animation borrow/return (smooth badge transition)
+**Commits:** `9f777ab`, `51bce53`
+**Files changed:** `src/styles/tokens.js`, `src/cytoscapeStyles.js`, `src/graph/overlayManager.js`, `src/App.jsx`
+
+**Problem:** The borrow/return pattern (detach badge → CSS transition → reattach) had two failure modes:
+1. Rapid double-clicks: the 350ms setTimeout from the first click could fire *after* a second resize started, calling `endNodeResizeAnimation` at the wrong moment and briefly orphaning the badge.
+2. Timing drift: the CSS `transition-duration: '300ms'` string and the `setTimeout(350)` magic number were independent literals — changing one without the other would silently break the animation.
+
+A drag guard was also missing: if a node was grabbed while the badge was detached (standalone), it would stay on the main canvas instead of riding the drag-canvas layer, making it appear to disappear under the dragged node.
+
+**Fix:**
+- `tokens.js`: export `RESIZE_TRANSITION_MS = 300` — single source of truth for both CSS and JS.
+- `cytoscapeStyles.js`: drive `transition-duration` for badge and entry-node from the token (template literal).
+- `overlayManager.js` `startNodeResizeAnimation`: skip detach when `cy.scratch('_overlay_dragging')` is truthy — badge stays compound during simultaneous drag + resize.
+- `App.jsx` `handleNodeDoubleClick`: add `resizeTimersRef` (`Map<nodeId, timerId>`). On each double-click, cancel the prior timer for that node and force-reattach the badge before starting a new animation. Timeout driven from `RESIZE_TRANSITION_MS + 60ms`.
+
+**Measured:** Smooth badge font-size + text-margin-y transition on double-click confirmed visually. Rapid triple-click stable (no ghost timer). Drag FPS unaffected.
+
+---
+
+### BUG-1 fix — Unseen badge misposition after node resize
+**Commit:** `9f777ab`
+**File:** `src/graph/overlayManager.js` — `attach()`
+
+`attach()` now registers `cy.on('data', 'node.entry-parent', onNodeData)` so unseen badges at the top-right corner reposition immediately when node size data changes, without waiting for the next drag or React re-render.
+
+---
+
+### Contract tests — cytoscapeStyles + overlayManager
+**Commit:** `9f777ab`
+**Files:** `src/cytoscapeStyles.test.js`, `src/graph/overlayManager.test.js`
+
+Added two test files locking in:
+- Badge CSS transition properties (font-size + text-margin-y only, not width/height; duration matches entry-node).
+- `attach()`/`detach()` event-listener contract (data listener on entry-parent, no bare-node listeners, idempotent, exact handler cleanup).
+- Compound-child badge contract (badge created with `parent: hostId`, stores `hostId` for resilient lookup).
+- Borrow/return contract (detach → reattach sequence, drag-guard skip).
+
+100/100 tests passing.
+
+---
+
 ## Session 4 — 2026-06-01
 
 ### PERF-1 — Lazy-load CytoscapeGraph / Cytoscape.js

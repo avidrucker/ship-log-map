@@ -99,13 +99,13 @@ This is a large refactor; do it incrementally (one context at a time) to avoid b
 
 ## Bugs
 
-### ~~BUG-1 — Overlay badges mispositioned after node resize in editing mode~~ ✅ Fixed
+### ~~BUG-1 — Overlay badges mispositioned after node resize in editing mode~~ ✅ Fixed `9f777ab`
 **Priority:** Medium  
 **File:** `src/graph/overlayManager.js` — `attach()`
 
 `attach()` listens for `free`/`position` events to refresh overlay badge positions after drags, but has no listener for node `data` changes. When a node is double-clicked to resize, `updateNodeInPlace` updates Cytoscape data directly. The unseen badge (positioned at `topRightCornerPos`, which calls `boundingBox()`) stays at the stale corner until the next drag or React re-render.
 
-**Fix:** Add `cy.on('data', 'node.entry-parent', onNodeData)` inside `attach()` with matching cleanup in `detach()`.
+**Fix:** Added `cy.on('data', 'node.entry-parent', onNodeData)` inside `attach()` with matching cleanup in `detach()`.
 
 ---
 
@@ -117,13 +117,35 @@ Three `printDebug()` calls contain `// *** DEBUG: ... ***` inline strings left o
 
 ---
 
-### BUG-3 — Debug route buttons hardcode localhost origin (fixed)
+### ~~BUG-3 — Debug route buttons hardcode localhost origin~~ ✅ Fixed `9f777ab`
 **Priority:** Fixed  
 **File:** `src/components/DebugModal.jsx` — "Go to Gaia/Outer Wilds Map" buttons
 
 Buttons used hardcoded `http://localhost:5173/ship-log-map/` instead of `window.location.origin + import.meta.env.BASE_URL`, so they routed to localhost even when opened on the GitHub Pages deployment.
 
 **Fixed:** replaced with dynamic origin + BASE_URL construction.
+
+---
+
+### ~~PERF-4 — Harden resize-animation borrow/return + add drag guard~~ ✅ Fixed `51bce53`
+**Priority:** Medium  
+**Files:** `src/styles/tokens.js`, `src/cytoscapeStyles.js`, `src/graph/overlayManager.js`, `src/App.jsx`
+
+Race condition (rapid double-click fires re-attach timer from prior click) and timing drift (CSS `300ms` vs JS `350` were independent literals) in the borrow/return pattern. Also missing drag guard: badge detached during resize but node grabbed simultaneously → badge dropped off drag-canvas layer.
+
+**Fix:** `RESIZE_TRANSITION_MS` token drives both CSS and JS timeout; `resizeTimersRef` Map cancels prior timer per node; `startNodeResizeAnimation` skips detach when `_overlay_dragging` is set. See perf log for details.
+
+---
+
+### DEV-1 — Remove profiling console logs before shipping
+**Priority:** Low (dev-only cleanup)
+**Files:** `src/components/CytoscapeGraph.jsx`, `src/App.jsx`
+
+Two sets of console logs were added in Session 5 for profiling:
+- `[FPS] drag fps: N` — RAF counter in `attachDragFpsCounter()` (CytoscapeGraph.jsx)
+- `[RESIZE] handleNodeSizeChange took N ms` and `[RESIZE] endNodeResizeAnimation fired at N ms` — timing logs in `handleNodeDoubleClick` (App.jsx)
+
+These are guarded by `// eslint-disable-next-line no-console` but are unconditional. Either remove them or gate them behind `DEBUG_LOGGING` / `DEV_MODE` before the next public release.
 
 ---
 
