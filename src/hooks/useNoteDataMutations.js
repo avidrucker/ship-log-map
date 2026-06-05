@@ -5,8 +5,8 @@ import { ACTION_TYPES } from '../appStateReducer.js';
 
 export function useNoteDataMutations({
   setGraphData,
+  setGraphDataWithUndo,
   dispatchAppState,
-  saveUndoState,
   selectedNodeIds,
   nodeSelectionOrder,
   noteEditingTarget,
@@ -23,10 +23,7 @@ export function useNoteDataMutations({
 
   const handleUpdateTitle = useCallback((targetId, targetType, newTitle) => {
     if (targetType === "node") {
-      // Save undo state before renaming node
-      saveUndoState();
-
-      setGraphData(prev => {
+      setGraphDataWithUndo(prev => {
         // Use the renameNode function to handle ID updates and cascading changes
         const updatedGraph = renameNode(prev, targetId, newTitle);
 
@@ -73,14 +70,10 @@ export function useNoteDataMutations({
       // For now, let's assume edges don't have editable titles, but we'll keep the interface
       console.warn("Edge title editing not yet implemented");
     }
-  }, [selectedNodeIds, nodeSelectionOrder, noteEditingTarget, noteViewingTarget, saveUndoState, setGraphData, dispatchAppState]);
+  }, [selectedNodeIds, nodeSelectionOrder, noteEditingTarget, noteViewingTarget, setGraphDataWithUndo, dispatchAppState]);
 
   const handleUpdateImage = useCallback((nodeId, imagePath, immediateImageUrl = null) => {
-    // Save undo state before updating image
-    saveUndoState();
-
-    // Update graph data
-    setGraphData(prev => ({
+    setGraphDataWithUndo(prev => ({
       ...prev,
       nodes: prev.nodes.map(n =>
         n.id === nodeId
@@ -104,7 +97,7 @@ export function useNoteDataMutations({
           printDebug(`❌ [App] Error forcing image update for node ${nodeId}:`, error);
         });
     });
-  }, [saveUndoState, setGraphData, mapName, cdnBaseUrl]);
+  }, [setGraphDataWithUndo, mapName, cdnBaseUrl]);
 
   return { handleUpdateNotes, handleUpdateTitle, handleUpdateImage };
 }

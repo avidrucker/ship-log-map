@@ -126,7 +126,6 @@ describe('overlayManager.attach / detach event listener contract', () => {
 function makeEnsureCy() {
   const addedNodes = [];
   const nodesMap = new Map();   // id → node-like object
-  const edgesList = [];
 
   const makeNode = (id, classes = '', data = {}) => ({
     id: () => id,

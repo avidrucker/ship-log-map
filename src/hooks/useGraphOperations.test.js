@@ -49,7 +49,6 @@ describe('useGraphOperations hook', () => {
         nodeSelectionOrder: ['node1'],
         selectedEdgeIds: ['edge1']
       },
-      saveUndoCheckpoint: () => {},
       setGraphData: () => {},
       clearCytoscapeSelections: () => {},
       updateNodeInPlace: () => {},
@@ -120,13 +119,11 @@ describe('useGraphOperations hook', () => {
     });
   });
 
-  test('handleNodeMove saves undo and updates graph data', () => {
-    const saveUndoCalls = [];
+  test('handleNodeMove calls setGraphData (undo-aware seam) with updated position', () => {
     const setGraphDataCalls = [];
     const paramsWithMocks = {
       ...mockParams,
-      saveUndoCheckpoint: (state) => { saveUndoCalls.push(state); },
-      setGraphData: (fn) => { 
+      setGraphData: (fn) => {
         const result = fn(mockParams.graph);
         setGraphDataCalls.push(result);
       }
@@ -136,14 +133,6 @@ describe('useGraphOperations hook', () => {
 
     act(() => {
       result.current.handleNodeMove('node1', { x: 300, y: 300 });
-    });
-
-    expect(saveUndoCalls).toHaveLength(1);
-    expect(saveUndoCalls[0]).toEqual({
-      nodes: mockParams.graph.nodes,
-      edges: mockParams.graph.edges,
-      notes: mockParams.graph.notes,
-      orientation: mockParams.graph.orientation
     });
 
     expect(setGraphDataCalls).toHaveLength(1);
@@ -158,12 +147,10 @@ describe('useGraphOperations hook', () => {
   });
 
   test('handleCreateNode creates unique node', () => {
-    const saveUndoCalls = [];
     const setGraphDataCalls = [];
     const paramsWithMocks = {
       ...mockParams,
-      saveUndoCheckpoint: (state) => { saveUndoCalls.push(state); },
-      setGraphData: (fn) => { 
+      setGraphData: (fn) => {
         const result = fn(mockParams.graph);
         setGraphDataCalls.push(result);
       }
@@ -175,7 +162,6 @@ describe('useGraphOperations hook', () => {
       result.current.handleCreateNode();
     });
 
-    expect(saveUndoCalls).toHaveLength(1);
     expect(setGraphDataCalls).toHaveLength(1);
     
     const newNodes = setGraphDataCalls[0].nodes;
@@ -192,15 +178,13 @@ describe('useGraphOperations hook', () => {
   });
 
   test('handleDeleteSelectedNodes removes nodes and connected edges', () => {
-    const saveUndoCalls = [];
     const setGraphDataCalls = [];
     const dispatchCalls = [];
     const clearSelectionCalls = [];
-    
+
     const paramsWithMocks = {
       ...mockParams,
-      saveUndoCheckpoint: (state) => { saveUndoCalls.push(state); },
-      setGraphData: (fn) => { 
+      setGraphData: (fn) => {
         const result = fn(mockParams.graph);
         setGraphDataCalls.push(result);
       },
@@ -214,7 +198,6 @@ describe('useGraphOperations hook', () => {
       result.current.handleDeleteSelectedNodes(['node1']);
     });
 
-    expect(saveUndoCalls).toHaveLength(1);
     expect(setGraphDataCalls).toHaveLength(1);
     expect(clearSelectionCalls).toHaveLength(1);
     expect(dispatchCalls).toHaveLength(1);
@@ -231,12 +214,10 @@ describe('useGraphOperations hook', () => {
   });
 
   test('handleDeleteSelectedEdges removes edges only', () => {
-    const saveUndoCalls = [];
     const setGraphDataCalls = [];
     const paramsWithMocks = {
       ...mockParams,
-      saveUndoCheckpoint: (state) => { saveUndoCalls.push(state); },
-      setGraphData: (fn) => { 
+      setGraphData: (fn) => {
         const result = fn(mockParams.graph);
         setGraphDataCalls.push(result);
       }
@@ -248,7 +229,6 @@ describe('useGraphOperations hook', () => {
       result.current.handleDeleteSelectedEdges(['edge1']);
     });
 
-    expect(saveUndoCalls).toHaveLength(1);
     expect(setGraphDataCalls).toHaveLength(1);
     
     const updatedGraph = setGraphDataCalls[0];
@@ -257,7 +237,6 @@ describe('useGraphOperations hook', () => {
   });
 
   test('handleConnectSelectedNodes creates edge between selected nodes', () => {
-    const saveUndoCalls = [];
     const setGraphDataCalls = [];
     const paramsWithTwoSelected = {
       ...mockParams,
@@ -270,8 +249,7 @@ describe('useGraphOperations hook', () => {
         ...mockParams.graph,
         edges: [] // Start with no edges
       },
-      saveUndoCheckpoint: (state) => { saveUndoCalls.push(state); },
-      setGraphData: (fn) => { 
+      setGraphData: (fn) => {
         const result = fn({ ...mockParams.graph, edges: [] });
         setGraphDataCalls.push(result);
       }
@@ -283,7 +261,6 @@ describe('useGraphOperations hook', () => {
       result.current.handleConnectSelectedNodes();
     });
 
-    expect(saveUndoCalls).toHaveLength(1);
     expect(setGraphDataCalls).toHaveLength(1);
     
     const updatedGraph = setGraphDataCalls[0];
@@ -297,12 +274,10 @@ describe('useGraphOperations hook', () => {
   });
 
   test('handleEdgeDirectionChange updates edge direction', () => {
-    const saveUndoCalls = [];
     const setGraphDataCalls = [];
     const paramsWithMocks = {
       ...mockParams,
-      saveUndoCheckpoint: (state) => { saveUndoCalls.push(state); },
-      setGraphData: (fn) => { 
+      setGraphData: (fn) => {
         const result = fn(mockParams.graph);
         setGraphDataCalls.push(result);
       }
@@ -314,7 +289,6 @@ describe('useGraphOperations hook', () => {
       result.current.handleEdgeDirectionChange('edge1', 'backward');
     });
 
-    expect(saveUndoCalls).toHaveLength(1);
     expect(setGraphDataCalls).toHaveLength(1);
     
     const updatedGraph = setGraphDataCalls[0];
@@ -322,13 +296,11 @@ describe('useGraphOperations hook', () => {
   });
 
   test('handleNodeSizeChange updates node size', () => {
-    const saveUndoCalls = [];
     const setGraphDataCalls = [];
     const updateNodeCalls = [];
     const paramsWithMocks = {
       ...mockParams,
-      saveUndoCheckpoint: (state) => { saveUndoCalls.push(state); },
-      setGraphData: (fn) => { 
+      setGraphData: (fn) => {
         const result = fn(mockParams.graph);
         setGraphDataCalls.push(result);
       },
@@ -341,7 +313,6 @@ describe('useGraphOperations hook', () => {
       result.current.handleNodeSizeChange('node1', 'double');
     });
 
-    expect(saveUndoCalls).toHaveLength(1);
     expect(updateNodeCalls).toHaveLength(1);
     expect(updateNodeCalls[0]).toEqual({ nodeId: 'node1', props: { size: 'double' } });
     expect(setGraphDataCalls).toHaveLength(1);
@@ -351,13 +322,11 @@ describe('useGraphOperations hook', () => {
   });
 
   test('handleNodeColorChange updates node colors', () => {
-    const saveUndoCalls = [];
     const setGraphDataCalls = [];
     const updateNodeCalls = [];
     const paramsWithMocks = {
       ...mockParams,
-      saveUndoCheckpoint: (state) => { saveUndoCalls.push(state); },
-      setGraphData: (fn) => { 
+      setGraphData: (fn) => {
         const result = fn(mockParams.graph);
         setGraphDataCalls.push(result);
       },
@@ -370,7 +339,6 @@ describe('useGraphOperations hook', () => {
       result.current.handleNodeColorChange(['node1', 'node2'], 'green');
     });
 
-    expect(saveUndoCalls).toHaveLength(1);
     expect(updateNodeCalls).toHaveLength(2);
     expect(updateNodeCalls[0]).toEqual({ nodeId: 'node1', props: { color: 'green' } });
     expect(updateNodeCalls[1]).toEqual({ nodeId: 'node2', props: { color: 'green' } });

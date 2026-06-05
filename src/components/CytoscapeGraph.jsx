@@ -168,7 +168,6 @@ function CytoscapeGraph({
       if (DEV_MODE) {
         const elapsed = (performance.now() - startTime) / 1000;
         if (elapsed > 0.1) {
-          // eslint-disable-next-line no-console
           console.info('[FPS] drag fps:', Math.round(frameCount / elapsed), `(${frameCount} frames / ${elapsed.toFixed(2)}s)`);
         }
       }

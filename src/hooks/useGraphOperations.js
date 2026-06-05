@@ -13,8 +13,7 @@ import { ACTION_TYPES } from '../appStateReducer';
  * @param {Function} params.dispatch - State dispatch function
  * @param {Object} params.graph - Graph data (nodes, edges, notes, orientation)
  * @param {Object} params.selections - Current selections
- * @param {Function} params.saveUndoCheckpoint - Function to save undo state
- * @param {Function} params.setGraphData - Function to update graph data
+ * @param {Function} params.setGraphData - Undo-aware setter; caller saves checkpoint before applying update
  * @param {Function} params.clearCytoscapeSelections - Function to clear Cytoscape selections
  * @param {Function} params.updateNodeInPlace - Function to update node in Cytoscape
  * @param {Function} params.getViewportCenter - Function to get viewport center
@@ -25,7 +24,6 @@ export function useGraphOperations({
   dispatch,
   graph,
   selections,
-  saveUndoCheckpoint,
   setGraphData,
   clearCytoscapeSelections,
   updateNodeInPlace,
@@ -148,14 +146,12 @@ export function useGraphOperations({
   const handleNodeMove = useCallback((nodeId, pos) => {
     const { x: newX, y: newY } = pos;
     printDebug('🏠 GraphOps: handleNodeMove', nodeId, newX, newY);
-    
-    saveUndoCheckpoint({ nodes, edges, notes, orientation });
-    
+
     setGraphData(prev => ({
       ...prev,
       nodes: prev.nodes.map(n => (n.id === nodeId ? { ...n, x: newX, y: newY } : n))
     }));
-  }, [saveUndoCheckpoint, setGraphData, nodes, edges, notes, orientation]);
+  }, [setGraphData]);
 
   const handleCreateNode = useCallback(() => {
     printDebug('🏠 GraphOps: Create node');
@@ -179,15 +175,12 @@ export function useGraphOperations({
       imageUrl: "unspecified"
     };
 
-    saveUndoCheckpoint({ nodes, edges, notes, orientation });
     setGraphData(prev => ({ ...prev, nodes: [...prev.nodes, newNode] }));
-  }, [nodes, edges, notes, orientation, getViewportCenter, saveUndoCheckpoint, setGraphData]);
+  }, [nodes, getViewportCenter, setGraphData]);
 
   const handleDeleteSelectedNodes = useCallback((nodeIds) => {
     printDebug('🏠 GraphOps: Deleting nodes:', nodeIds);
 
-    saveUndoCheckpoint({ nodes, edges, notes, orientation });
-    
     setGraphData(prev => {
       const filteredNodes = prev.nodes.filter(n => !nodeIds.includes(n.id));
       const filteredEdges = prev.edges.filter(e => !nodeIds.includes(e.source) && !nodeIds.includes(e.target));
@@ -199,13 +192,11 @@ export function useGraphOperations({
       type: ACTION_TYPES.SET_NODE_SELECTION,
       payload: { nodeIds: [], selectionOrder: [] }
     });
-  }, [nodes, edges, notes, orientation, saveUndoCheckpoint, setGraphData, clearCytoscapeSelections, dispatch]);
+  }, [setGraphData, clearCytoscapeSelections, dispatch]);
 
   const handleDeleteSelectedEdges = useCallback((edgeIds) => {
     printDebug('🏠 GraphOps: Deleting edges by id:', edgeIds);
-    
-    saveUndoCheckpoint({ nodes, edges, notes, orientation });
-    
+
     setGraphData(prev => ({
       ...prev,
       edges: prev.edges.filter(e => !edgeIds.includes(e.id))
@@ -216,14 +207,12 @@ export function useGraphOperations({
       type: ACTION_TYPES.SET_EDGE_SELECTION,
       payload: { edgeIds: [] }
     });
-  }, [nodes, edges, notes, orientation, saveUndoCheckpoint, setGraphData, clearCytoscapeSelections, dispatch]);
+  }, [setGraphData, clearCytoscapeSelections, dispatch]);
 
   const handleConnectSelectedNodes = useCallback(() => {
     if (selectedNodeIds.length === 2 && nodeSelectionOrder.length === 2) {
       const [sourceId, targetId] = nodeSelectionOrder;
       printDebug('🏠 GraphOps: Connecting (ordered):', sourceId, '->', targetId);
-
-      saveUndoCheckpoint({ nodes, edges, notes, orientation });
 
       setGraphData(prev => {
         const exists = prev.edges.some(e => e.source === sourceId && e.target === targetId);
@@ -243,23 +232,19 @@ export function useGraphOperations({
         payload: { nodeIds: [], selectionOrder: [] }
       });
     }
-  }, [selectedNodeIds, nodeSelectionOrder, nodes, edges, notes, orientation, saveUndoCheckpoint, setGraphData, clearCytoscapeSelections, dispatch]);
+  }, [selectedNodeIds, nodeSelectionOrder, setGraphData, clearCytoscapeSelections, dispatch]);
 
   const handleEdgeDirectionChange = useCallback((edgeIdArg, newDirection) => {
     printDebug('🏠 GraphOps: Changing edge direction:', edgeIdArg, '->', newDirection);
-    
-    saveUndoCheckpoint({ nodes, edges, notes, orientation });
-    
+
     setGraphData(prev => ({
       ...prev,
       edges: prev.edges.map(e => (e.id === edgeIdArg ? { ...e, direction: newDirection } : e))
     }));
-  }, [nodes, edges, notes, orientation, saveUndoCheckpoint, setGraphData]);
+  }, [setGraphData]);
 
   const handleNodeSizeChange = useCallback((nodeId, newSize) => {
     printDebug('🏠 GraphOps: Changing node size:', nodeId, '->', newSize);
-
-    saveUndoCheckpoint({ nodes, edges, notes, orientation });
 
     updateNodeInPlace(nodeId, { size: newSize });
 
@@ -267,12 +252,10 @@ export function useGraphOperations({
       ...prev,
       nodes: prev.nodes.map(n => (n.id === nodeId ? { ...n, size: newSize } : n))
     }));
-  }, [nodes, edges, notes, orientation, saveUndoCheckpoint, updateNodeInPlace, setGraphData]);
+  }, [updateNodeInPlace, setGraphData]);
 
   const handleNodeColorChange = useCallback((nodeIds, newColor) => {
     printDebug('🏠 GraphOps: Change color:', nodeIds, '->', newColor);
-
-    saveUndoCheckpoint({ nodes, edges, notes, orientation });
 
     nodeIds.forEach(id => updateNodeInPlace(id, { color: newColor }));
 
@@ -280,12 +263,10 @@ export function useGraphOperations({
       ...prev,
       nodes: prev.nodes.map(n => (nodeIds.includes(n.id) ? { ...n, color: newColor } : n))
     }));
-  }, [nodes, edges, notes, orientation, saveUndoCheckpoint, updateNodeInPlace, setGraphData]);
+  }, [updateNodeInPlace, setGraphData]);
 
   const handleRotateNodesAndMap = useCallback(() => {
     const cyInstance = typeof cy === 'function' ? cy() : cy;
-
-    saveUndoCheckpoint({ nodes, edges, notes, orientation });
 
     // Compute rotated positions before calling setGraphData so the updater stays pure
     const { nodes: rotated } = rotateNodesAndCompass(nodes, orientation);
@@ -310,7 +291,7 @@ export function useGraphOperations({
 
     const next = ((orientation + 90) % 360 + 360) % 360;
     dispatch({ type: ACTION_TYPES.SET_ORIENTATION, payload: { orientation: next } });
-  }, [orientation, nodes, edges, notes, saveUndoCheckpoint, setGraphData, cy, dispatch]);
+  }, [orientation, nodes, setGraphData, cy, dispatch]);
 
   // Legacy operations for backward compatibility
   const handleResetSelection = useCallback(() => {

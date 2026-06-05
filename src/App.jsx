@@ -90,7 +90,6 @@ import { useGraphOperations } from "./hooks/useGraphOperations.js";
 import { useMapLoading } from "./hooks/useMapLoading.js";
 
 // REFACTOR STEP 3: Modal state + keyboard hooks
-import { useModalState } from "./hooks/useModalState.js";
 import { useKeyboardHandlers } from "./hooks/useKeyboardHandlers.js";
 
 // camera hook (live viewport + debounced commits)
@@ -99,8 +98,8 @@ import { useCamera } from "./hooks/useCamera.js";
 import { useUndo } from "./hooks/useUndo.js";
 
 import { useImportExport } from "./hooks/useImportExport.js";
-import { useCollapseToggles } from "./hooks/useCollapseToggles.js";
 import { useNoteDataMutations } from "./hooks/useNoteDataMutations.js";
+import { useNoteViewingState } from "./hooks/useNoteViewingState.js";
 import { useReadingModal } from "./hooks/useReadingModal.js";
 
 import { SearchUIProvider } from './search/SearchUIContext';
@@ -210,12 +209,8 @@ function App() {
   // Per-node resize timer map: nodeId → timerId. Allows cancelling an in-flight
   // re-attach if the user double-clicks the same node again before the timer fires.
   const resizeTimersRef = useRef(new Map());
-  // Guard to prevent multiple simultaneous close operations (avoids multi animation)
-  const isClosingNoteViewRef = useRef(false);
   // Ref to track current CDN loading operation
   const currentCdnLoadRef = useRef(null);
-  const isSwitchingTargetsRef = useRef(false);
-  const pendingViewTargetRef = useRef(null);
   // Suppress "empty selection" close while we're switching/opening a target
   const suppressEmptyCloseRef = useRef(false);
   const graphDataNodesRef = useRef([]);
@@ -323,6 +318,7 @@ function App() {
   const noteEditingType = selections.noteEditing.targetType;
   const noteViewingTarget = selections.noteViewing.targetId;
   const debugModalOpen = selections.debugModal.isOpen;
+  const helpModalOpen = selections.helpModal.isOpen;
   const zoomLevel = camera.zoom;
   const cameraPosition = camera.position;
   const shouldFitOnNextRender = ui.shouldFitOnNextRender;
@@ -350,13 +346,16 @@ function App() {
   // Disable search hotkey when reading modal is open to allow normal browser search
   useGlobalSearchHotkeys(openSearchBar, readingModalOpen);
 
-  // Share modal state
-  // Centralized modal helpers (note editor/viewer/debug via reducer, share via local)
-  const modalOps = useModalState(dispatchAppState, appState, {
-    openBgImageModal,
-    closeBgImageModal,
-    bgImageModalOpen
-  });
+  // Share modal (local state — no reducer needed)
+  const [isShareModalOpen, setShareModalOpen] = useState(false);
+  const openShareModal = useCallback(() => setShareModalOpen(true), []);
+  const closeShareModal = useCallback(() => setShareModalOpen(false), []);
+
+  // Individual modal dispatch callbacks (debug + help)
+  const openDebugModal = useCallback(() => dispatchAppState({ type: ACTION_TYPES.OPEN_DEBUG_MODAL }), [dispatchAppState]);
+  const closeDebugModal = useCallback(() => dispatchAppState({ type: ACTION_TYPES.CLOSE_DEBUG_MODAL }), [dispatchAppState]);
+  const openHelpModal = useCallback(() => dispatchAppState({ type: ACTION_TYPES.OPEN_HELP_MODAL }), [dispatchAppState]);
+  const closeHelpModal = useCallback(() => dispatchAppState({ type: ACTION_TYPES.CLOSE_HELP_MODAL }), [dispatchAppState]);
 
   // Initialize undo hook
   const { clearUndoState, saveUndoCheckpoint, applyUndoIfAvailable, canUndo } = useUndo(
@@ -382,7 +381,7 @@ function App() {
     },
     setBgImage,
     clearUndoState,
-    onOpenShareModal: modalOps.openShareModal,
+    onOpenShareModal: openShareModal,
     setGraphData,
     clearCytoscapeSelections,
     defaultShipLogData,
@@ -398,6 +397,18 @@ function App() {
     error: null 
   });
   const [isLoadingFromCDN, setIsLoadingFromCDN] = useState(false); // Flag to prevent persistence conflicts
+
+  // Single seam for undoable graph mutations: captures a checkpoint then applies the update.
+  // All callers use this instead of calling saveUndoCheckpoint + setGraphData separately.
+  const setGraphDataWithUndo = useCallback((updater) => {
+    saveUndoCheckpoint({
+      nodes: graphData.nodes,
+      edges: graphData.edges,
+      notes: graphData.notes,
+      orientation
+    });
+    setGraphData(updater);
+  }, [saveUndoCheckpoint, graphData, orientation, setGraphData]);
 
   // REFACTOR STEP 1: Initialize graph operations hook
   // This replaces individual handleFitToView, handleRotateMap, etc. functions
@@ -415,8 +426,7 @@ function App() {
       nodeSelectionOrder,
       selectedEdgeIds
     },
-    saveUndoCheckpoint,
-    setGraphData,
+    setGraphData: setGraphDataWithUndo,
     clearCytoscapeSelections,
     updateNodeInPlace,
     getViewportCenter
@@ -441,10 +451,15 @@ function App() {
     ACTION_TYPES
   });
 
-  // Collapse toggles mapped to reducer-backed state
-  const { toggleUniversalMenu, toggleGraphControls, toggleCameraInfo } = useCollapseToggles({
-    dispatchAppState, universalMenuCollapsed, graphControlsCollapsed, cameraInfoCollapsed
-  });
+  const toggleUniversalMenu = useCallback(() =>
+    dispatchAppState({ type: ACTION_TYPES.SET_UNIVERSAL_MENU_COLLAPSED, payload: { collapsed: !universalMenuCollapsed } }),
+  [dispatchAppState, universalMenuCollapsed]);
+  const toggleGraphControls = useCallback(() =>
+    dispatchAppState({ type: ACTION_TYPES.SET_GRAPH_CONTROLS_COLLAPSED, payload: { collapsed: !graphControlsCollapsed } }),
+  [dispatchAppState, graphControlsCollapsed]);
+  const toggleCameraInfo = useCallback(() =>
+    dispatchAppState({ type: ACTION_TYPES.SET_CAMERA_INFO_COLLAPSED, payload: { collapsed: !cameraInfoCollapsed } }),
+  [dispatchAppState, cameraInfoCollapsed]);
 
 
   // ---------- debug taps ----------
@@ -576,15 +591,11 @@ function App() {
     }
   }, []); // Run once on mount
 
-  const saveUndoState = useCallback(() => {
-    saveUndoCheckpoint(graphData);
-  }, [saveUndoCheckpoint, graphData]);
-
   // Note data mutations (update notes content, image, and title/ID)
   const { handleUpdateNotes, handleUpdateTitle, handleUpdateImage } = useNoteDataMutations({
     setGraphData,
+    setGraphDataWithUndo,
     dispatchAppState,
-    saveUndoState,
     selectedNodeIds,
     nodeSelectionOrder,
     noteEditingTarget,
@@ -616,11 +627,55 @@ function App() {
     }
   }, [clearVisitedForMap, mapName]);
 
-  // Typewriter control: opens viewer immediately but delays typewriter until zoom completes
-  // Store session data indexed by targetId to avoid race conditions with remounting
+  // Typewriter control: per-target session data (typewriterReady, isUnseenAtOpen).
+  // Indexed by targetId; created/cleared via noteViewingState callbacks below.
   const [viewSessions, setViewSessions] = useState({});
-  // Track the latest zoom start to ignore stale completions
-  const latestZoomTokenRef = useRef(null);
+
+  const noteViewingState = useNoteViewingState({
+    dispatchAppState,
+    fitToNode: (nodeId) => ZOOM_TO_SELECTION ? fitToSelection([nodeId], {
+      animate: true,
+      padding: 80,
+      targetHalf: 'top',
+      saveCamera: !hasOriginalCamera(),
+      zoomLevel: 'close',
+    }) : undefined,
+    restoreCamera: () => {
+      if (ZOOM_TO_SELECTION && mode === 'playing' && hasOriginalCamera()) {
+        restoreOriginalCamera(true);
+      }
+    },
+    clearSelections: () => {
+      if (mode === 'playing') {
+        dispatchAppState({ type: ACTION_TYPES.CLEAR_ALL_SELECTIONS });
+        clearCytoscapeSelections();
+      }
+    },
+    onBeforeOpen: (nodeId, sessionId, targetType, _switching) => {
+      const unseenAtOpen = isUnseen(nodeId) && hasContent(graphData, nodeId);
+      setViewSessions(prev => ({
+        ...prev,
+        [nodeId]: { id: sessionId, isUnseenAtOpen: unseenAtOpen, typewriterReady: !ZOOM_TO_SELECTION },
+      }));
+      if (targetType === 'node') markNodeVisited(nodeId);
+      else markEdgeVisited(nodeId);
+    },
+    onZoomComplete: (nodeId, sessionId) => {
+      setViewSessions(prev => {
+        const session = prev[nodeId];
+        if (!session || session.id !== sessionId) return prev;
+        return { ...prev, [nodeId]: { ...session, typewriterReady: true } };
+      });
+    },
+    onClose: (nodeId) => {
+      setViewSessions(prev => {
+        const { [nodeId]: _, ...rest } = prev;
+        return rest;
+      });
+    },
+  });
+  const handleStartNoteViewing = noteViewingState.open;
+  const handleCloseNoteViewing = noteViewingState.close;
 
   // Track App renders (for debugging if needed)
   const renderCountRef = useRef(0);
@@ -695,167 +750,6 @@ useEffect(() => {
   }
 }, [isLoadingFromCDN, graphImageUrls, mapName]);
 
-  const isTransitioningRef = useRef(false);
-
-  // Note viewing handlers - defined early to avoid circular dependencies
-  // Update handleStartNoteViewing to use the flag
-  const handleStartNoteViewing = useCallback((targetId, targetType) => {
-    // Check if we're switching between targets
-    const switching = !!noteViewingTarget && noteViewingTarget !== targetId;
-    
-    if (switching) {
-      // Set switching flag to prevent camera zoom-out on close
-      isSwitchingTargetsRef.current = true;
-      isTransitioningRef.current = true;
-      // Clear transition flag after a brief delay
-      setTimeout(() => {
-        isTransitioningRef.current = false;
-      }, 100);
-    }
-
-    // console.log('🎬 [handleStartNoteViewing] Starting:', {
-    //   targetId,
-    //   targetType,
-    //   switching,
-    //   previousTarget: noteViewingTarget,
-    //   timestamp: performance.now()
-    // });
-
-    const unseenAtOpen = isUnseen(targetId) && hasContent(graphData, targetId);
-    const sessionId = Symbol('view-session');
-
-    // console.log('🔍 [handleStartNoteViewing] Unseen check:', {
-    //   targetId,
-    //   targetType,
-    //   isUnseen: isUnseen(targetId),
-    //   hasContent: hasContent(graphData, targetId),
-    //   unseenAtOpen,
-    //   ZOOM_TO_SELECTION
-    // });
-
-    // Create session for this target
-    setViewSessions(prev => ({
-      ...prev,
-      [targetId]: {
-        id: sessionId,
-        targetId,
-        isUnseenAtOpen: unseenAtOpen,
-        typewriterReady: !ZOOM_TO_SELECTION // if no zoom, we can typewriter immediately
-      }
-    }));
-
-    // Open/switch the viewer
-    dispatchAppState({
-      type: ACTION_TYPES.START_NOTE_VIEWING,
-      payload: { targetId, targetType }
-    });
-
-    // Mark visited immediately
-    if (targetType === 'node') markNodeVisited(targetId);
-    else markEdgeVisited(targetId);
-
-    if (ZOOM_TO_SELECTION && targetId) {
-      const token = sessionId; // reuse the session id as token
-      
-      // Determine camera behavior based on switching state
-      const shouldSaveCamera = !hasOriginalCamera();
-      
-      fitToSelection([targetId], {
-        animate: true,
-        padding: 80,
-        targetHalf: 'top',
-        saveCamera: shouldSaveCamera,
-        zoomLevel: 'close'
-      }).finally(() => {
-        // Only enable typewriter for the current live session
-        setTimeout(() => {
-          // console.log('⏰ [handleStartNoteViewing] Setting typewriterReady=true for session:', {
-          //   token: token.toString(),
-          //   targetId,
-          //   switching
-          // });
-          setViewSessions(prev => {
-            const session = prev[targetId];
-            const shouldUpdate = session && session.id === token;
-            // console.log('📝 [setViewSessions] Update check:', {
-            //   shouldUpdate,
-            //   prevId: session?.id?.toString(),
-            //   token: token.toString(),
-            //   prevTargetId: session?.targetId,
-            //   targetId
-            // });
-            if (!shouldUpdate) return prev;
-            return {
-              ...prev,
-              [targetId]: { ...session, typewriterReady: true }
-            };
-          });
-          
-          // Clear switching flag after zoom completes
-          if (switching) {
-            isSwitchingTargetsRef.current = false;
-          }
-        }, 100); // tiny grace to let rendering settle (keep your 100ms)
-      });
-    } else {
-      // No zoom, clear switching flag immediately
-      if (switching) {
-        setTimeout(() => {
-          isSwitchingTargetsRef.current = false;
-        }, 0);
-      }
-    }
-  }, [graphData, isUnseen, fitToSelection, hasOriginalCamera, markNodeVisited, markEdgeVisited, noteViewingTarget]);
-
-  // Update handleCloseNoteViewing to check the transition flag
-  const handleCloseNoteViewing = useCallback(() => {
-    // Clear session for the closing target
-    if (noteViewingTarget) {
-      setViewSessions(prev => {
-        const { [noteViewingTarget]: _, ...rest } = prev;
-        return rest;
-      });
-    }
-
-    latestZoomTokenRef.current = null; // invalidate any pending completion
-
-    // Prevent duplicate execution and transitions
-    if (isClosingNoteViewRef.current || isTransitioningRef.current) {
-      printDebug('🚫 [App] handleCloseNoteViewing skipped (already in progress or transitioning)');
-      return;
-    }
-    isClosingNoteViewRef.current = true;
-
-    try {
-      // Restore original camera if feature is enabled and we have a saved camera state
-      // If we are switching to another target, DO NOT zoom_out now.
-      if (!(isSwitchingTargetsRef.current)) {
-        // Actual close: background click, Escape, or re-click same selected node
-        if (ZOOM_TO_SELECTION && mode === 'playing' && hasOriginalCamera()) {
-          printDebug('🎥 [App] Restoring original camera (note viewer close)');
-          // Optionally await to ensure smoothness before other UI changes
-          restoreOriginalCamera(true);
-        }
-      } else {
-        printDebug('⏭️ [App] Suppressing camera restore (target switch in progress)');
-      }
-      dispatchAppState({ type: ACTION_TYPES.CLOSE_NOTE_VIEWING });
-      // Ensure selection is cleared on true close so 'selected' class doesn't linger
-      if (mode === 'playing' && !isSwitchingTargetsRef.current) {
-        dispatchAppState({ type: ACTION_TYPES.CLEAR_ALL_SELECTIONS });
-        clearCytoscapeSelections();
-      }
-    } finally {
-      // Release flag on next tick to allow future closes
-      setTimeout(() => { 
-        isClosingNoteViewRef.current = false;
-      }, 0);
-      // We are done with any pending switch intent once a close has run.
-      pendingViewTargetRef.current = null;
-      isSwitchingTargetsRef.current = false;
-    }
-  }, [mode, restoreOriginalCamera, hasOriginalCamera, clearCytoscapeSelections, noteViewingTarget]);
-
   // Debug modal open/close now via modalOps
 
   const handleEdgeSelectionChange = useCallback((edgeIds) => {
@@ -888,12 +782,6 @@ useEffect(() => {
     // Clear guards when we have a selection
     if (nodeIds.length > 0) {
       suppressEmptyCloseRef.current = false;
-      // If we were switching targets and the new selection has landed,
-      // drop the switch flag so a subsequent close can restore camera.
-      if (pendingViewTargetRef.current && nodeIds.length === 1 && nodeIds[0] === pendingViewTargetRef.current) {
-        isSwitchingTargetsRef.current = false;
-        pendingViewTargetRef.current = null;
-      }
     }
   }, [nodeSelectionOrder, dispatchAppState]);
 
@@ -932,7 +820,6 @@ useEffect(() => {
 
     graphOps.handleNodeSizeChange(nodeId, nextSize);
     if (DEV_MODE) {
-      // eslint-disable-next-line no-console
       console.info('[RESIZE] handleNodeSizeChange took', Math.round(performance.now() - t0), 'ms');
     }
 
@@ -944,7 +831,6 @@ useEffect(() => {
         if (!cy.destroyed()) {
           om.endNodeResizeAnimation(cy, nodeId);
           if (DEV_MODE) {
-            // eslint-disable-next-line no-console
             console.info('[RESIZE] endNodeResizeAnimation fired at', Math.round(performance.now() - t0), 'ms after dblclick');
           }
         }
@@ -1062,20 +948,9 @@ useEffect(() => {
     // Click same node → close (zoom-out)
     if (noteViewingTarget === nodeId) {
       printDebug('🔻 same-node clicked -> toggle close');
-      // This is an explicit close, not a switch — clear ALL guards
-      isSwitchingTargetsRef.current = false;
-      pendingViewTargetRef.current = null;
-      suppressEmptyCloseRef.current = false;
-      isTransitioningRef.current = false; // Clear this flag too
-      isClosingNoteViewRef.current = false; // Clear the closing guard
-      
-      // Guard against empty-selection auto-close races while we explicitly close
+      // Explicit close — clear all state-machine guards so close() restores camera.
+      noteViewingState.forceReset();
       suppressEmptyCloseRef.current = true;
-      // Treat this as an explicit close, not a switch
-      isSwitchingTargetsRef.current = false;
-      pendingViewTargetRef.current = null;
-      isTransitioningRef.current = false;
-      isClosingNoteViewRef.current = false;
       
       // Close viewer (this will restore camera immediately)
       handleCloseNoteViewing();
@@ -1091,7 +966,7 @@ useEffect(() => {
 
     // Open OR switch always goes through handleStartNoteViewing.
     handleStartNoteViewing(nodeId, 'node');
-  }, [mode, noteViewingTarget, handleStartNoteViewing, handleCloseNoteViewing, clearCytoscapeSelections]);
+  }, [mode, noteViewingTarget, noteViewingState, handleStartNoteViewing, handleCloseNoteViewing, clearCytoscapeSelections]);
       
   const handleEdgeClick = useCallback((edgeId) => {
     if (mode === 'playing') {
@@ -1136,6 +1011,22 @@ useEffect(() => {
   }, [graphData.edges]);
 
   // ---------- keyboard shortcuts (moved to hook) ----------
+  const isAnyModalOpen = !!(
+    debugModalOpen || noteEditingTarget || noteViewingTarget ||
+    helpModalOpen || bgImageModalOpen || isShareModalOpen
+  );
+  const closeAllModals = useCallback(() => {
+    if (debugModalOpen) closeDebugModal();
+    if (noteEditingTarget) handleCloseNoteEditing();
+    if (noteViewingTarget) handleCloseNoteViewing();
+    if (helpModalOpen) closeHelpModal();
+    if (isShareModalOpen) setShareModalOpen(false);
+    if (bgImageModalOpen) closeBgImageModal?.();
+  }, [debugModalOpen, noteEditingTarget, noteViewingTarget, helpModalOpen, isShareModalOpen,
+      bgImageModalOpen, closeDebugModal, handleCloseNoteEditing, handleCloseNoteViewing,
+      closeHelpModal, closeBgImageModal]);
+  const modalOps = { isAnyModalOpen, closeAllModals, toggleBgImageModal: openBgImageModal, isShareModalOpen, openShareModal, closeShareModal };
+
   useKeyboardHandlers({
     mode,
     getSelections: () => ({ selectedNodeIds, selectedEdgeIds }),
@@ -1317,8 +1208,8 @@ useEffect(() => {
             mode={mode}
             collapsed={graphControlsCollapsed}
             onToggleCollapsed={toggleGraphControls}
-            onOpenDebugModal={DEV_MODE ? modalOps.openDebugModal : undefined}
-            onOpenShareModal={modalOps.openShareModal}
+            onOpenDebugModal={DEV_MODE ? openDebugModal : undefined}
+            onOpenShareModal={openShareModal}
             onUndo={handleUndo}
             canUndo={canUndo}
             onRotateCompass={graphOps.handleRotateRight}
@@ -1345,7 +1236,7 @@ useEffect(() => {
           bgImage={bgImage}
           onToggleBgImageVisible={toggleBgImageVisible}
           onClearVisited={handleClearVisited}
-          onOpenHelpModal={modalOps.openHelpModal}
+          onOpenHelpModal={openHelpModal}
           onOpenReadingModal={openReadingModal}
         />
 
@@ -1376,22 +1267,22 @@ useEffect(() => {
         />
 
         <HelpModal
-          isOpen={modalOps.isHelpOpen}
-          onClose={modalOps.closeHelpModal}
+          isOpen={helpModalOpen}
+          onClose={closeHelpModal}
         />
 
         {DEV_MODE && (
           <DebugModal
             isOpen={debugModalOpen}
-            onClose={modalOps.closeDebugModal}
+            onClose={closeDebugModal}
             debugData={getDebugData()}
             getCytoscapeInstance={getCytoscapeInstance}
           />
         )}
 
         <ShareModal
-          isOpen={modalOps.isShareModalOpen}
-          onClose={modalOps.closeShareModal}
+          isOpen={isShareModalOpen}
+          onClose={closeShareModal}
           mapName={mapName}
           cdnBaseUrl={cdnBaseUrl}
         />
